@@ -99,3 +99,16 @@
 .ins-add { display: flex; flex-wrap: wrap; gap: 5px; }
 .panel .seg.wide { align-self: stretch; display: flex; }
 .panel .seg.wide button { flex: 1; }
+
+/* Rear wings: from behind and from the side. */
+.wg-wing { fill: var(--c-plate); stroke: color-mix(in srgb, var(--ink) 75%, var(--canvas)); stroke-width: .06; stroke-linejoin: round; }
+.wg-plate { fill: color-mix(in srgb, var(--c-plate) 70%, var(--canvas)); stroke: color-mix(in srgb, var(--ink) 75%, var(--canvas)); stroke-width: .06; stroke-linejoin: round; }
+.wg-leg { fill: var(--accent); opacity: .9; }
+.wg-pin { fill: var(--accent); }
+.wg-stake { fill: color-mix(in srgb, var(--accent) 60%, var(--canvas)); }
+.wg-glue { fill: #e6c14a; opacity: .85; }
+.wg-body { fill: color-mix(in srgb, var(--ink) 22%, var(--canvas)); stroke: color-mix(in srgb, var(--ink) 35%, var(--canvas)); stroke-width: .05; }
+.ins-lbl { fill: var(--muted); font-family: var(--font-ui); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.wg-presets { grid-template-columns: repeat(3, 1fr); }
+.wg-presets .ins-pre svg { max-width: 76px; aspect-ratio: 1.4; }
+.wg-presets .ins-pre .wg-body { display: none; }

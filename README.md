@@ -110,11 +110,19 @@ Frame works along eight menus, roughly in the order you build a car: **Car, Outl
 - **Front and rear:** the same insert all round, or one of each. The set of four prints on one plate, face up or face down (a cup always face down, so that its face is not printed in the air; Frame checks that the face is flat); a pattern that bends one way is mirrored for the other side of the car.
 - **Fit and checks:** a calibration ring of seven numbered discs, round a middle size you set and a step you choose, finds the size that presses in firmly. Frame warns about spokes thinner than the nozzle, holes that run into each other, a pattern that cuts the insert into loose pieces, and an insert that stands out of its pocket.
 
+### Rear wings
+
+- **A wing for the body:** span, chord, an upside-down wing profile with its thickness and camber, the angle, a Gurney flap and an optional second element, as on the real cars. Six to start from, for 1/32 or 1/24: GT3 swan neck, GT3 on posts, LMP, DTM with two elements, Group C and a classic flat wing.
+- **Endplates:** GT3, square, rounded or a tall LMP shape, sized round the wing, or your own: start from one of them and drag its points, or import an SVG.
+- **Legs and mounting:** swan necks from above or posts from below, one or two, as far apart and as tall as you set. Each leg ends in pins that go through the body: melted over from inside into a small head (with a collar that sets the height), or glued, with a flat foot. The body's wall and slope are taken into account.
+- **Print:** in one piece, as a kit with the legs apart, or all apart with the endplates flat and pockets that the wing fits into. A drilling template puts the holes in the body where the pins go.
+- **Checks:** a wing, a trailing edge, legs, endplates or pins too thin to print, legs that miss the wing or stand outside it, endplates that reach into the body, and a wing wider than your rules allow. The weight is shown.
+
 ### Bought and shared parts
 
 - **Rear axle seats:** a straight seat for a ball bearing or bushing, or a round snap-in socket for a spherical bushing (Slot.it CH14, Sloting Plus ball joints) that tilts with the axle. A flanged bearing or bushing gets its flange on the wheel or motor side, sunk into a recess or standing out of the face; any bearing, your own included, can have one. Or one axle tube through both uprights, such as a Sloting Plus Combi Plus, which sets how far apart they stand.
 - **Import an STL** of a pod or a chassis you bought or downloaded. Frame measures it, finds its screw holes, and fits the chassis round an imported pod. An imported chassis can be made editable: its shape becomes your outline.
-- **Library:** every chassis, pod and wheel insert you make or import, kept in one file on your computer, with motors, gear sets, bearings, guides, printers, rule sets and car presets beside them. Add components of your own.
+- **Library:** every chassis, pod, wheel insert and rear wing you make or import, kept in one file on your computer, with motors, gear sets, bearings, guides, printers, rule sets and car presets beside them. Add components of your own.
 - **Share:** export a part, or the whole library, as a `.framelib` file for other SlotForge Frame users, and open theirs.
 
 ### Work with SlotForge Anvil

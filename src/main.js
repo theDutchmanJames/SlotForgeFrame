@@ -17,6 +17,7 @@ import {
   newDesign, find, on, round, summary, heights, checks, partsLayout, podLayout, motorOf, gearOf, proposeCross, unconfirmed, uprightSpread, useBearing, meshCentre, activeKicks, profileOf, pinionOut, motorAngle, gearAngle, traceWheels, traceArches, applyOutline, centreMounts, podShift, podSideways, podRide, rideClearance, balance,
   encodeProject, decodeProject, createHistory, MATERIALS, FEATURE_NAMES, MULTI, newShape, shapesOf, gearsFor, bearingOf, guideOf, choicesFor, moveRear, couponHoles,
 } from './model.js';
+import { WING_PRESETS, ENDPLATES, wingPreset, wingSide, legYs, pinsOf, deckZ, cleanWing } from './wings.js';
 import { newInserts, ringSizes, RING_COUNT, PRESETS as INSERT_PRESETS, LAYER_TYPES, LAYER_NAMES, MODES, MODE_NAMES, presetFor, newLayer, layerShape, circle as insCircle, directional, fitToSegment, cleanInsert } from './inserts.js';
 // ?inline: the pictures are built into the page, which is the only file the desktop app ships.
 import iconUrl from './assets/slotforge-frame.svg?inline';
@@ -58,6 +59,8 @@ const state = {
   insPt: null, // the chosen point of a drawn layer
   insView: { wedge: false, wheel: true },
   insBuilt: null, // the insert as built: { key, data } or { key, error }
+  wingBuilt: null, // the rear wing as built: { key, data } or { key, error }
+  wingPt: null, // the chosen point of your own endplate
   pop: null,
   built: null,
   busy: false,
@@ -85,6 +88,7 @@ const MENUS = [
   ['pod', 'Pod', 'pod', [['drivetrain', 'Drivetrain', 'gear'], ['base', 'Base plate', 'level'], ['motorSeat', 'Motor seat', 'motor'], ['uprights', 'Axle uprights', 'bearing'], ['lugs', 'Mount lugs', 'lug']]],
   ['body', 'Body', 'body', [['body', 'Body and Anvil', 'body']]],
   ['inserts', 'Inserts', 'insert', [['insertRear', 'Rear insert', 'insert'], ['insertFront', 'Front insert', 'insert'], ['insertRing', 'Calibration ring', 'coupon']]],
+  ['wings', 'Wings', 'wing', [['wing', 'Wing', 'wing'], ['wingPlates', 'Endplates', 'wing'], ['wingLegs', 'Legs and mounting', 'lug'], ['wingPrint', 'Print', 'print']]],
   ['print', 'Print', 'print', [['printer', 'Printer', 'print'], ['coupon', 'Calibration coupon', 'coupon']]],
 ];
 const POD_TOOLS = new Set(['drivetrain', 'base', 'motorSeat', 'uprights', 'lugs']);
@@ -219,7 +223,7 @@ function dropUnusedMeshes() {
 }
 
 // The design less its inserts: when only an insert changed, the chassis and the pod need no new build.
-const carPart = (d) => JSON.stringify({ ...d, inserts: null });
+const carPart = (d) => JSON.stringify({ ...d, inserts: null, wing: null });
 function commit() {
   const before = carPart(JSON.parse(lastSnap));
   history.push(lastSnap);
@@ -229,6 +233,7 @@ function commit() {
   renderSoon();
   if (carPart(state.design) !== before) rebuild();
   rebuildInsert();
+  rebuildWing();
 }
 function clampSelection() {
   const pts = find(state.design.chassis, 'outline').params.points;
@@ -433,7 +438,8 @@ function renderTop() {
         <button data-act="export" data-what="chassis">${ico('outline')}Chassis STL<small>${weight('chassis')}</small></button>
         <button data-act="export" data-what="pod">${ico('pod')}Pod STL<small>${weight('pod')}</small></button>
         <button data-act="export" data-what="both">${ico('export')}Both, as two files</button>
-        <button data-act="exportinserts">${ico('insert')}Wheel inserts, set of 4</button></div>` : ''}</span>
+        <button data-act="exportinserts">${ico('insert')}Wheel inserts, set of 4</button>
+        <button data-act="exportwing">${ico('wing')}Rear wing</button></div>` : ''}</span>
     </div>`;
 }
 const layoutName = (d) => ({ inline: 'Inline', sidewinder: 'Sidewinder', anglewinder: 'Anglewinder' })[d.drivetrain.layout];
@@ -625,7 +631,165 @@ const PANEL_RING = (d) => {
     <div class="note">Picking one sets ${ins.same ? 'the inserts' : 'that insert'} to the size of that disc, and the clearance to match the pocket. The list shows the sizes the ring is made with: set the middle size before you export it, and leave it while you try the discs.</div>`;
 };
 
+
+// ------------------------------------------------------------ rear wings
+// The Wings menu has a workspace of its own, as Inserts does: the wing from behind and from the side
+// in the view, its parts in the list on the right, and the wing alone in 3D.
+const wingMode = () => state.menu === 'wings';
+const partMode = () => insMode() || wingMode();
+const wingKey = () => JSON.stringify([state.design.wing, state.design.printer.nozzle, state.design.rules.maxWidth]);
+let wingToken = 0, wingTimer = 0;
+function rebuildWing(delay = 40) {
+  if (!wingMode()) return;
+  clearTimeout(wingTimer);
+  wingTimer = setTimeout(async () => {
+    const token = ++wingToken, key = wingKey();
+    if (state.wingBuilt?.key !== key) {
+      try {
+        const data = await call('wing', { wing: state.design.wing, nozzle: state.design.printer.nozzle, maxWidth: state.design.rules.maxWidth });
+        if (token !== wingToken) return;
+        state.wingBuilt = { key, data };
+      } catch (e) {
+        if (token !== wingToken) return;
+        state.wingBuilt = { key, error: e.message };
+      }
+    }
+    syncViewport();
+    renderStatus();
+  }, delay);
+}
+// Side-view points (x, z) as an SVG path, up on screen being up.
+const sidePath = (pts, dx = 0) => 'M' + pts.map(([x, z]) => `${round(x + dx, 3)} ${round(-z, 3)}`).join('L') + 'Z';
+// The wing from the side, starting at `dx`: body, endplate, wing, flap, Gurney flap, one leg and its pins.
+function wingSideSVG(w, dx = 0, o = {}) {
+  const sd = wingSide(w), b = sd.box, out = [], f = sd.leg.foot[0];
+  const x0 = Math.min(b.x0, f - w.legD) - 2, x1 = Math.max(b.x1, f + w.legD) + 2;
+  if (!o.bare) out.push(`<path class="wg-body" d="${sidePath([[x0, deckZ(w, x0)], [x1, deckZ(w, x1)], [x1, deckZ(w, x1) - w.wall], [x0, deckZ(w, x0) - w.wall]], dx)}"/>`);
+  out.push(`<path class="wg-plate" d="${sidePath(sd.plate, dx)}"/>`);
+  for (const sh of [sd.main.pts, sd.flap?.pts, sd.gurney]) if (sh) out.push(`<path class="wg-wing" d="${sidePath(sh, dx)}"/>`);
+  out.push(`<path class="wg-leg" d="${sidePath(sd.leg.outline, dx)}"/>`);
+  if (!o.bare) {
+    for (const p of pinsOf(w, sd)) {
+      out.push(`<rect class="wg-pin" x="${p.x - w.pinD / 2 + dx}" y="${-p.z}" width="${w.pinD}" height="${p.below}"/>`);
+      if (w.fix === 'melt') out.push(`<ellipse class="wg-stake" cx="${p.x + dx}" cy="${-p.z + w.wall + w.pinD * 0.3}" rx="${w.pinD * 0.95}" ry="${w.pinD * 0.38}"/>`);
+    }
+    if ((w.fix === 'melt' && w.collar) || w.fix === 'glue') {
+      const h = w.legD / 2 + (w.fix === 'glue' ? 0.6 : 0.5);
+      out.push(`<path class="${w.fix === 'glue' ? 'wg-glue' : 'wg-leg'}" d="${sidePath([[f - h, deckZ(w, f - h)], [f + h, deckZ(w, f + h)], [f + h, deckZ(w, f + h) + 0.4], [f - h, deckZ(w, f - h) + 0.4]], dx)}"/>`);
+    }
+  }
+  const low = Math.min(deckZ(w, x0), deckZ(w, x1)) - w.wall - w.pinD - 1;
+  return { body: out.join(''), x0: x0 + dx, x1: x1 + dx, z0: o.bare ? Math.min(b.z0, deckZ(w, f)) - 0.5 : low, z1: Math.max(b.z1, sd.leg.top) + 1, sd };
+}
+// The wing from behind: the span, the endplates, the legs and their pins under the body's skin.
+function wingRearSVG(w, dx = 0) {
+  const sd = wingSide(w), half = w.span / 2, T = w.plateT, out = [], fz = sd.leg.foot[1];
+  const zs = (pts) => [Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[1]))];
+  const W = half + T + 3;
+  out.push(`<rect class="wg-body" x="${-W + dx}" y="${-fz}" width="${2 * W}" height="${w.wall}"/>`);
+  for (const sh of [sd.main.pts, sd.flap?.pts, sd.gurney]) if (sh) { const [a, b] = zs(sh); out.push(`<rect class="wg-wing" x="${-half + dx}" y="${-b}" width="${w.span}" height="${b - a}"/>`); }
+  const [p0, p1] = zs(sd.plate);
+  for (const s of [1, -1]) out.push(`<rect class="wg-plate" x="${(s > 0 ? half : -half - T) + dx}" y="${-p1}" width="${T}" height="${p1 - p0}"/>`);
+  const legTop = w.legs === 'swan' ? sd.leg.top : sd.leg.att[1];
+  for (const y of legYs(w)) {
+    out.push(`<rect class="wg-leg" x="${y - w.legW / 2 + dx}" y="${-legTop}" width="${w.legW}" height="${legTop - fz}"/>`);
+    out.push(`<rect class="wg-pin" x="${y - w.pinD / 2 + dx}" y="${-fz}" width="${w.pinD}" height="${w.fix === 'melt' ? w.wall + w.pinD : Math.max(0.3, w.wall * 0.7)}"/>`);
+    if (w.fix === 'melt') out.push(`<ellipse class="wg-stake" cx="${y + dx}" cy="${-fz + w.wall + w.pinD * 0.3}" rx="${w.pinD * 0.95}" ry="${w.pinD * 0.38}"/>`);
+  }
+  return { body: out.join(''), x0: -W + dx, x1: W + dx, z0: fz - w.wall - w.pinD - 1, z1: Math.max(p1, legTop) + 1, sd, half, p1 };
+}
+function wingSVG() {
+  const w = state.design.wing, svg = $('#topview');
+  // From behind at the left, full size; from the side at the right, drawn larger (a wing is wide and shallow).
+  const rear = wingRearSVG(w, 0), side = wingSideSVG(w, 0), rw = rear.x1 - rear.x0, sw = side.x1 - side.x0;
+  const k = Math.min(4, Math.max(1, (rw * 0.55) / sw)), gap = rw * 0.1, ox = rear.x1 + gap - side.x0 * k;
+  const yTop = Math.min(-rear.z1, -side.z1 * k), yBot = Math.max(-rear.z0, -side.z0 * k), H = yBot - yTop, Wd = ox + side.x1 * k - rear.x0;
+  const fs = Math.max(H, Wd * 0.3) * 0.04, m = fs * 3;
+  svg.setAttribute('viewBox', `${rear.x0 - m} ${yTop - m} ${Wd + 2 * m} ${H + 2 * m}`);
+  const sd = side.sd, b = sd.box, out = [rear.body];
+  const ty = -rear.z1 - fs * 0.6;
+  out.push(`<path class="ins-dim" d="M${-rear.half} ${ty}H${rear.half}" style="stroke-width:${fs * 0.06}"/><text class="ins-dimt" style="font-size:${fs}px" x="0" y="${ty - fs * 0.35}">span ${f1(w.span)} · ${f1(w.span + 2 * w.plateT)} over the endplates</text>`);
+  out.push(`<text class="ins-lbl" style="font-size:${fs * 0.8}px" x="${rear.x0}" y="${-rear.z0 + fs * 1.2}">From behind</text>`);
+  // The side view in a group of its own scale; the handles of your own endplate are in it, so that dragging reads its coordinates.
+  const g = [side.body], fk = fs / k;
+  g.push(`<text class="ins-dimt" style="font-size:${fk}px" x="${(side.x0 + side.x1) / 2}" y="${-side.z1 - fk * 0.4}">chord ${f1(w.chord)} · ${f1(w.angle)}° · ${f1(w.height)} above the body</text>`);
+  g.push(`<text class="ins-lbl" style="font-size:${fk * 0.8}px" x="${side.x0}" y="${-side.z0 + fk * 1.2}">From the side, through a leg · ×${f1(k)}</text>`);
+  if (state.tool === 'wingPlates' && w.plate === 'own' && w.plateOwn) {
+    const hs = fk * 0.3, L = b.x1 - b.x0, Hb = b.z1 - b.z0;
+    w.plateOwn.forEach(([u, v], i) => { const x = b.x0 + u * L, z = b.z0 + v * Hb; g.push(`<rect class="hd ${i === state.wingPt ? 'on' : ''}" data-drag="wpt" data-i="${i}" x="${x - hs}" y="${-z - hs}" width="${2 * hs}" height="${2 * hs}" style="stroke-width:${hs * 0.25}"/>`); });
+  }
+  out.push(`<g id="wgside" transform="translate(${ox} 0) scale(${k})">${g.join('')}</g>`);
+  svg.innerHTML = out.join('');
+}
+function wingLights() {
+  const c = state.wingBuilt, notes = c?.data?.notes ?? [];
+  if (c?.error) return `<span><i class="dot bad"></i>${esc(c.error)}</span>`;
+  const bad = notes.filter((n) => !n.ok && !n.soft).length, soft = notes.filter((n) => !n.ok && n.soft).length, shown = notes.filter((n) => !n.ok).slice(0, 2);
+  return (shown.length ? shown : notes.slice(0, 1)).map((n) => `<span><i class="dot ${n.ok ? 'ok' : n.soft ? 'w' : 'bad'}"></i>${esc(n.title)}</span>`).join('') +
+    `<span><i class="dot ${bad ? 'bad' : soft ? 'w' : 'ok'}"></i>${c?.data ? (bad ? `${bad} problem${bad > 1 ? 's' : ''}` : `${((c.data.volume / 1000) * MATERIALS[state.design.printer.material].density).toFixed(2)} g`) : 'Building…'}</span>`;
+}
+const WING_TOOLS = [['wing', 'Wing'], ['wingPlates', 'Endplates'], ['wingLegs', 'Legs and mounting'], ['wingPrint', 'Print']];
+function wingLine(tool, w) {
+  if (tool === 'wing') return `${f1(w.span)} × ${f1(w.chord)} · ${f1(w.angle)}°${w.element2 ? ' · two elements' : ''}${w.gurney > 0 ? ' · Gurney' : ''}`;
+  if (tool === 'wingPlates') return `${ENDPLATES[w.plate]} · ${f1(w.plateT)} thick`;
+  if (tool === 'wingLegs') return `${w.count === 1 ? 'one' : 'two'} ${w.legs === 'swan' ? 'swan neck' : 'post'}${w.count === 1 ? '' : 's'} · ${w.fix === 'melt' ? 'pins melted inside' : 'glued'}`;
+  return { one: 'one piece', kit: 'kit: legs apart', parts: 'all apart' }[w.printAs];
+}
+function wingSteps() {
+  const w = state.design.wing;
+  $('#tabs').innerHTML = `<button class="on">Rear wing · ${WING_TOOLS.length} parts</button>`;
+  $('#steps').innerHTML = WING_TOOLS.map(([t, name], i) => `<div class="sp ${state.tool === t ? 'cur' : ''}" data-act="tool" data-tool="${t}"><span class="n">${i + 1}</span><span class="t">${name}<small>${esc(wingLine(t, w))}</small></span><span></span><span></span></div>`).join('');
+}
+const W = (k) => `wing.${k}`;
+const PANEL_WING = (d) => {
+  const w = d.wing;
+  return head('Wings', 'Rear wing', 'A wing for the body, printed apart and fixed to it with pins through the body. Start from a wing, then make it yours.') +
+    `<label class="f">Start from a wing <span class="muted">(${esc(d.scale)})</span></label>
+    <div class="ins-presets wg-presets">${Object.keys(WING_PRESETS).map((n) => { const p = wingPreset(n, d.scale), s = wingSideSVG(p, 0, { bare: true }); return `<button class="ins-pre" data-act="wingpreset" data-p="${esc(n)}"><svg viewBox="${s.x0} ${-s.z1} ${s.x1 - s.x0} ${s.z1 - s.z0}">${s.body}</svg>${esc(n)}</button>`; }).join('')}</div>
+    <label class="f">The wing</label><div class="g2">${num('Span (between the endplates)', W('span'), 'mm', { min: 5 })}${num('Chord (front to back)', W('chord'), 'mm', { min: 1 })}${num('Thickness', W('thick'), '% chord', { min: 2, max: 30 })}${num('Camber', W('camber'), '% chord', { min: 0, max: 15 })}${num('Angle', W('angle'), '°', { min: -10, max: 45 })}${num('Gurney flap (0: none)', W('gurney'), 'mm', { min: 0 })}${num('Thinnest edge', W('edge'), 'mm', { min: 0.1 })}</div>
+    ${chk('A second element behind it (a flap)', W('element2'))}
+    ${w.element2 ? `<div class="g2">${num('Flap chord', W('chord2'), 'mm', { min: 0.5 })}${num('Flap angle', W('angle2'), '°', { min: -10, max: 70 })}${num('Gap to the wing', W('gap'), 'mm', { min: 0 })}</div>` : ''}
+    <div class="note">The section is a wing profile turned upside down, as on the real cars. At this scale it does nothing for grip: the angle and the flaps are there for the look. The thinnest edge keeps the trailing edge thick enough to print.</div>`;
+};
+const PLATE_ICONS = { gt3: '<path d="M7 18l4 2h16V5H10L7 8z"/>', rect: '<path d="M7 5h20v15H7z"/>', round: '<rect x="7" y="5" width="20" height="15" rx="4"/>', tall: '<path d="M7 21h20V4H14L7 7z"/>', own: '<path d="M7 19c3-12 9-16 20-14l-2 15z"/>' };
+const PANEL_WING_PLATES = (d) => {
+  const w = d.wing;
+  return head('Wings', 'Endplates', 'The plates at the ends of the wing. Choose a shape and size it round the wing.') +
+    tiles(W('plate'), Object.entries(ENDPLATES).filter(([k]) => k !== 'own' || w.plateOwn).map(([k, n]) => [k, n, PLATE_ICONS[k]]), 3) +
+    `<div class="g2">${num('Thickness', W('plateT'), 'mm', { min: 0.2 })}${num('Above the wing', W('above'), 'mm', { min: 0 })}${num('Below the wing', W('below'), 'mm', { min: 0 })}${num('Ahead of the wing', W('fwd'), 'mm', { min: 0 })}${num('Behind the wing', W('aft'), 'mm', { min: 0 })}</div>
+    <label class="f">Your own shape</label>
+    <div class="row"><button class="btn sm ghost" data-act="wingownfrom">${ico('pen')}Start from this shape</button><button class="btn sm ghost" data-act="wingsvg">${ico('import')}Import SVG…</button></div>
+    ${w.plate === 'own' ? `<div class="row">${state.wingPt != null ? `<span class="muted">Point ${state.wingPt + 1}</span>` : ''}<button class="btn sm ghost" data-act="wptadd">${ico('plus')}Add a point</button><button class="btn sm ghost" data-act="wptdel" ${w.plateOwn.length > 3 ? '' : 'disabled'}>${ico('trash')}Remove point</button></div>
+      <div class="note">Drag the points in the side view. The shape follows the wing: it stretches with the sizes above.</div>` : '<div class="note">Start from one of the shapes above and change it point by point, or bring in an outline drawn elsewhere as an SVG.</div>'}`;
+};
+const PANEL_WING_LEGS = (d) => {
+  const w = d.wing;
+  return head('Wings', 'Legs and mounting', 'How the wing stands on the body, and how it is fixed to it.') +
+    tiles(W('legs'), [['swan', 'Swan neck', '<path d="M6 8h16M22 8c4 0 4 2 4 5v8M6 8v3"/>'], ['posts', 'Posts below', '<path d="M5 7h24M12 7v14M22 7v14"/>']], 3) +
+    `<div class="g2">${num('Legs', W('count'), '', { min: 1, max: 2, int: true })}${w.count === 2 ? num('Apart, centre to centre', W('spacing'), 'mm', { min: 0 }) : ''}${num('Height above the body', W('height'), 'mm', { min: 0.5 })}${num('Leg width (from behind)', W('legW'), 'mm', { min: 0.2 })}${num('Leg depth (from the side)', W('legD'), 'mm', { min: 0.5 })}${w.legs === 'posts' ? num('Lean', W('lean'), '°', { min: -45, max: 45 }) : ''}${num('Holds the wing at', W('attach'), '% chord', { min: 5, max: 95 })}</div>
+    <label class="f">Fixed to the body</label>` + tiles(W('fix'), [['melt', 'Pins, melted inside', '<path d="M17 3v12M11 21c2-4 10-4 12 0"/>'], ['glue', 'Glued', '<path d="M8 15h18M12 15v-6h10v6"/><circle cx="17" cy="20" r="1.5"/>']], 3) +
+    `<div class="g2">${num('Pin diameter', W('pinD'), 'mm', { min: 0.3 })}${num('Pins per leg', W('pins'), '', { min: 1, max: 2, int: true })}${num('Body wall', W('wall'), 'mm', { min: 0.1, tag: ' ' + srcTag(false) })}${num('Body slope', W('deck'), '°', { min: -30, max: 30 })}</div>
+    ${w.fix === 'melt' ? chk('A collar on the body, so the wing always stands at the same height', W('collar')) + `<div class="note">Each pin is as long as the wall and its own diameter (${f2(w.wall + w.pinD)} mm). Push the pins through, then melt the ends over from inside with a soldering iron: each becomes a small head that holds.</div>`
+      : `<div class="note">Short pins only locate the wing; a flat foot under each leg takes the glue. Thin CA glue on a printed or hard plastic body, a canopy glue on Lexan.</div>`}
+    <div class="note">Measure the body's wall where the wing goes: a hard plastic body is about 1 mm, Lexan much less. The slope is how steeply the body falls away towards the tail there.</div>`;
+};
+const PANEL_WING_PRINT = (d) => {
+  const w = d.wing, c = state.wingBuilt?.data;
+  return head('Wings', 'Print', 'In one piece, or in parts that fit together.') +
+    tiles(W('printAs'), [['one', 'One piece', '<path d="M5 8h24M10 8v10M24 8v10M5 5v6M29 5v6"/>'], ['kit', 'Kit: legs apart', '<path d="M5 8h24M5 5v6M29 5v6M10 13v8M24 13v8"/>'], ['parts', 'All apart', '<path d="M9 8h16M4 5v6M30 5v6M11 14v8M23 14v8"/>']], 3) +
+    `<div class="note">${{ one: 'In one piece the wing prints upside down, the top of the wing towards the bed and the legs pointing up. It is the strongest; the space under the wing needs supports.',
+      kit: 'As a kit the legs print lying on their side, which makes them strong, and the wing has a socket for each. Glue them in.',
+      parts: 'All apart, the wing, both endplates and the legs print on their own. The endplates lie flat with a pocket the wing\'s end fits into, so their faces come out clean. Glue it together; you can paint the parts first.' }[w.printAs]}</div>
+    ${c ? kv([['Weight', `${((c.volume / 1000) * MATERIALS[d.printer.material].density).toFixed(2)} g in ${MATERIALS[d.printer.material].name}`], ['Over the endplates', `${f1(w.span + 2 * w.plateT)} mm`]]) : ''}
+    <div class="row"><button class="btn primary" data-act="exportwing">${ico('export')}Export the wing</button><button class="btn sm ghost" data-act="exportwingtemplate">${ico('ruler')}Drilling template</button><button class="btn sm ghost" data-act="library" data-kind="wing">${ico('library')}Library</button></div>
+    <div class="note">The <b>drilling template</b> is a thin strip with a hole for every pin and a notch on the car's centre line. Lay it on the body, notch to the front, and drill through.</div>`;
+};
+
 const PANELS = {
+  wing: PANEL_WING,
+  wingPlates: PANEL_WING_PLATES,
+  wingLegs: PANEL_WING_LEGS,
+  wingPrint: PANEL_WING_PRINT,
   insertRear: PANEL_INSERT,
   insertFront: PANEL_INSERT,
   insertRing: PANEL_RING,
@@ -1141,6 +1305,7 @@ function describe(f, d) {
 }
 function renderSteps() {
   if (insMode()) return insertSteps();
+  if (wingMode()) return wingSteps();
   const d = state.design;
   $('#tabs').innerHTML = ['chassis', 'pod'].map((t) => `<button class="${state.tab === t ? 'on' : ''}" data-act="tab" data-tab="${t}">${t === 'chassis' ? 'Chassis' : 'Pod'} · ${d[t].features.length}</button>`).join('');
   $('#steps').innerHTML = d[state.tab].features.map((f, i) => `
@@ -1166,6 +1331,7 @@ function renderStatus() {
     <span class="sf-footer-brand"><img class="wm-dark" src="${markDark}" alt="SlotForge"><img class="wm-light" src="${markLight}" alt="SlotForge"></span>`;
   const notes = state.built?.notes ?? [];
   if (insMode()) $('#lights').innerHTML = insertLights();
+  else if (wingMode()) $('#lights').innerHTML = wingLights();
   else $('#lights').innerHTML = state.error
     ? `<span><i class="dot bad"></i>Cannot be built</span>`
     : notes.slice(-2).map((n) => `<span><i class="dot ${n.ok ? 'ok' : 'bad'}"></i>${esc(n.title)}</span>`).join('') + `<span><i class="dot ${bad ? 'w' : 'ok'}"></i>${bad ? `${bad} note${bad > 1 ? 's' : ''}` : 'Ready'}</span>`;
@@ -1186,6 +1352,7 @@ function rotRect(cx, cy, w, h, angle, cls) {
 
 function topSVG() {
   if (insMode()) return insertSVG();
+  if (wingMode()) return wingSVG();
   const d = state.design, c = d.chassis, s = summary(d), built = state.built?.top, tool = state.tool;
   const outline = find(c, 'outline').params, pts = outline.points;
   const fixed = !!c.imported, podIn = d.pod.imported;
@@ -1346,8 +1513,15 @@ function renderView() {
   if (top) topSVG();
   else viewport.resize();
   $('#insec').hidden = !(insMode() && top);
-  viewport.mode(insMode() ? 'insert' : 'car');
-  if (insMode()) return insViewbar(top);
+  viewport.mode(partMode() ? 'insert' : 'car');
+  // The camera frames the part shown: an insert close in, a wing from further away.
+  const part = insMode() ? 'insert' : wingMode() ? 'wing' : null;
+  if (part !== state.framed) {
+    state.framed = part;
+    if (part === 'insert') viewport.frame(6, [0, 0, 0.6]);
+    if (part === 'wing') viewport.frame(state.design.wing.span * 0.55, [state.design.wing.chord / 2, 0, state.design.wing.height * 0.7]);
+  }
+  if (partMode()) return insViewbar(top);
   viewport.show({ chassis: state.focus !== 'pod', pod: state.focus !== 'chassis', parts: state.show.parts, track: state.show.track, body: state.show.body, solid: state.show.solid });
   const placedBody = bodyPlaced();
   if (viewport.bodyKey !== placedBody.key) {
@@ -1357,8 +1531,8 @@ function renderView() {
   function insViewbar(top) {
     const v = state.insView;
     $('#viewbar').innerHTML = `
-    <div class="seg"><button class="${top ? 'on' : ''}" data-act="view" data-view="top">Face</button><button class="${top ? '' : 'on'}" data-act="view" data-view="3d">${ico('cube')}3D</button></div>
-    ${top ? `<div class="seg"><button class="${v.wedge ? '' : 'on'}" data-act="insview" data-k="wedge" data-v="">Whole face</button><button class="${v.wedge ? 'on' : ''}" data-act="insview" data-k="wedge" data-v="1">One segment</button></div>
+    <div class="seg"><button class="${top ? 'on' : ''}" data-act="view" data-view="top">${wingMode() ? 'Views' : 'Face'}</button><button class="${top ? '' : 'on'}" data-act="view" data-view="3d">${ico('cube')}3D</button></div>
+    ${top && insMode() ? `<div class="seg"><button class="${v.wedge ? '' : 'on'}" data-act="insview" data-k="wedge" data-v="">Whole face</button><button class="${v.wedge ? 'on' : ''}" data-act="insview" data-k="wedge" data-v="1">One segment</button></div>
     <div class="seg"><button class="${v.wheel ? 'on' : ''}" data-act="insview" data-k="wheel" data-v="1">In the wheel</button><button class="${v.wheel ? '' : 'on'}" data-act="insview" data-k="wheel" data-v="">Insert alone</button></div>` : ''}
     <span class="gap"></span>`;
   }
@@ -1379,12 +1553,13 @@ function measuredText() {
   return `${len(Math.hypot(b[0] - a[0], b[1] - a[1]), f2)} ${lenUnit()} · along ${len(Math.abs(b[0] - a[0]), f2)} · across ${len(Math.abs(b[1] - a[1]), f2)}`;
 }
 function syncViewport() {
-  viewport.setInsert(state.insBuilt?.data?.mesh ?? null);
+  viewport.setInsert((insMode() ? state.insBuilt?.data?.mesh : wingMode() ? state.wingBuilt?.data?.mesh : null) ?? null);
   if (!state.built) return;
   viewport.set({ chassis: state.built.chassis, pod: state.built.pod, parts: partsLayout(state.design), target: state.design.car.wheelbase / 2 });
 }
 
 function render() {
+  if (wingMode() && state.wingBuilt?.key !== wingKey()) rebuildWing(0);
   if (insMode()) {
     const n = insCur().layers.length;
     state.insSel = Math.max(0, Math.min(state.insSel, n - 1));
@@ -1409,6 +1584,69 @@ function setTool(tool) {
 }
 
 const ACTIONS = {
+  wingpreset(el) {
+    const d = state.design, keep = { wall: d.wing.wall, deck: d.wing.deck, fix: d.wing.fix, printAs: d.wing.printAs };
+    // A new wing keeps what belongs to the body and the printing: its wall, its slope, the fixing and how it prints.
+    d.wing = { ...wingPreset(el.dataset.p, d.scale), ...keep, plateOwn: d.wing.plateOwn };
+    if (d.wing.plate === 'own' && !d.wing.plateOwn) d.wing.plate = 'gt3';
+    commit();
+  },
+  wingownfrom() {
+    const w = state.design.wing, sd = wingSide(w), b = sd.box;
+    w.plateOwn = sd.plate.map(([x, z]) => [round((x - b.x0) / (b.x1 - b.x0), 4), round((z - b.z0) / (b.z1 - b.z0), 4)]);
+    w.plate = 'own';
+    state.wingPt = null;
+    commit();
+  },
+  wingsvg() {
+    const input = Object.assign(document.createElement('input'), { type: 'file', accept: '.svg,image/svg+xml' });
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        const pts = svgOutline(await file.text()), xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+        const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+        // Fitted to the endplate's box; an SVG's y runs down, the endplate's up.
+        state.design.wing.plateOwn = pts.map(([x, y]) => [round((x - x0) / (x1 - x0 || 1), 4), round((y1 - y) / (y1 - y0 || 1), 4)]);
+        state.design.wing.plate = 'own';
+        state.wingPt = null;
+        commit();
+        toast(`Imported the endplate from ${file.name}: ${pts.length} points.`);
+      } catch (e) {
+        toast(e.message, true);
+      }
+    };
+    input.click();
+  },
+  wptadd() {
+    const pts = state.design.wing.plateOwn;
+    if (!pts) return;
+    const i = state.wingPt != null && state.wingPt < pts.length ? state.wingPt : pts.length - 1, a = pts[i], b = pts[(i + 1) % pts.length];
+    pts.splice(i + 1, 0, [round((a[0] + b[0]) / 2, 4), round((a[1] + b[1]) / 2, 4)]);
+    state.wingPt = i + 1;
+    commit();
+  },
+  wptdel() {
+    const pts = state.design.wing.plateOwn;
+    if (!pts || pts.length <= 3) return;
+    pts.splice(state.wingPt != null && state.wingPt < pts.length ? state.wingPt : pts.length - 1, 1);
+    state.wingPt = null;
+    commit();
+  },
+  exportwing() {
+    state.pop = null;
+    renderTop();
+    call('wingPrint', { wing: state.design.wing }).then((p) => {
+      download(encodeSTL(layFlat(p.mesh), 'SlotForge Frame rear wing'), `${fileBase()} rear wing.stl`, 'model/stl');
+      toast(p.pieces === 1 ? 'Exported the rear wing in one piece, upside down for printing.' : `Exported the rear wing in ${p.pieces} parts, laid out for printing.`);
+    }, (e) => toast(e.message, true));
+  },
+  exportwingtemplate() {
+    call('wingTemplate', { wing: state.design.wing }).then((t) => {
+      download(encodeSTL(layFlat(t.mesh), 'SlotForge Frame wing drilling template'), `${fileBase()} wing drilling template.stl`, 'model/stl');
+      toast('Exported the drilling template: a strip with a hole for every pin.');
+    }, (e) => toast(e.message, true));
+  },
   inssel(el) { state.insSel = +el.dataset.i; state.insPt = null; render(); },
   insview(el) { state.insView[el.dataset.k] = !!el.dataset.v; renderView(); },
   insadd(el) {
@@ -1824,11 +2062,16 @@ function startDrag(e, el) {
   };
   if (kind === 'point') { state.selPoint = i; renderPanel(); }
   if (kind === 'ipt') { state.insPt = i; renderPanel(); }
+  if (kind === 'wpt') { state.wingPt = i; renderPanel(); }
   let moved = false;
   const move = (ev) => {
     const [x, y] = at(ev);
     moved = true;
-    if (kind === 'ipt') {
+    if (kind === 'wpt') {
+      // In the side view's own coordinates (it is drawn at a scale of its own).
+      const p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform($('#wgside').getScreenCTM().inverse()), w = state.design.wing, b = wingSide(w).box;
+      if (w.plateOwn) w.plateOwn[i] = [round((p.x - b.x0) / (b.x1 - b.x0), 4), round((-p.y - b.z0) / (b.z1 - b.z0), 4)];
+    } else if (kind === 'ipt') {
       const p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(svg.getScreenCTM().inverse());
       const L = insCur().layers[state.insSel];
       if (L?.type === 'draw') L.points[i] = [round(p.x, 2), round(p.y, 2)];
@@ -1865,7 +2108,7 @@ function wire() {
   const app = $('#app');
   app.addEventListener('click', (e) => {
     // Measuring: a click in the top view sets a place, and does nothing else.
-    if (state.measure.on && !insMode() && e.target.closest('#topview')) {
+    if (state.measure.on && !partMode() && e.target.closest('#topview')) {
       const p = new DOMPoint(e.clientX, e.clientY).matrixTransform($('#topview').getScreenCTM().inverse()), at = [round(p.x, 1), round(p.y, 1)];
       if (!state.measure.a || state.measure.b) Object.assign(state.measure, { a: at, b: null });
       else state.measure.b = at;
@@ -1930,7 +2173,7 @@ function wire() {
   });
   app.addEventListener('pointerdown', (e) => {
     const el = e.target.closest?.('[data-drag]');
-    if (el && (!state.measure.on || insMode())) startDrag(e, el);
+    if (el && (!state.measure.on || partMode())) startDrag(e, el);
   });
   addEventListener('keydown', (e) => {
     if (!(e.ctrlKey || e.metaKey) || e.target.matches('input, select, textarea')) return;

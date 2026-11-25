@@ -15,6 +15,7 @@ export const newId = () => `f${Date.now().toString(36)}${(counter++).toString(36
 // The tables of motors, gears, bearings, guides and materials live in components.js.
 import { MOTORS, GEARS, BEARINGS, GUIDES, MATERIALS, DESIGN_KINDS, COMPONENT_KINDS, cleanComponent } from './components.js';
 import { newInserts, cleanInserts, cleanInsert } from './inserts.js';
+import { newWing, cleanWing } from './wings.js';
 export { MOTORS, GEARS, BEARINGS, GUIDES, MATERIALS };
 
 // What a scale sets as a starting point. Every value stays editable.
@@ -123,6 +124,8 @@ export function newDesign(scale = '1/32') {
     mirror: true,
     // Wheel inserts for the car's aluminium wheels (inserts.js): one for the rear, and one for the front.
     inserts: newInserts(scale),
+    // A rear wing for the body (wings.js).
+    wing: newWing(scale),
     printer: { name: 'My printer', material: 'petg', nozzle: 0.4, holeFix: 0.2, boreFix: 0.2, minWall: 0.8, bridge: 8, overhang: 50 },
     rules: { maxWidth: p.maxWidth, guideLeadMax: p.guideLeadMax, minClearance: p.minClearance },
     car: {
@@ -858,6 +861,7 @@ export function cleanDesign(raw) {
   // The motor angle is a number you set, or nothing (then it follows the gear set).
   d.units = raw.units === 'in' ? 'in' : 'mm';
   d.inserts = cleanInserts(raw.inserts, scale);
+  d.wing = cleanWing(raw.wing, scale);
   d.drivetrain.drives = raw.drivetrain?.drives === 'left' ? 'left' : 'right';
   d.drivetrain.reverse = raw.drivetrain?.reverse === true;
   const angle = raw.drivetrain?.angle;
@@ -899,6 +903,7 @@ export function cleanPart(kind, data, hasMesh) {
   if (COMPONENT_KINDS.includes(kind)) return cleanComponent(kind, data);
   // A wheel insert: its base and its layers.
   if (kind === 'insert') return { insert: cleanInsert(data.insert) };
+  if (kind === 'wing') return { wing: cleanWing(data.wing) };
   // A part brings along the design's own components it uses (a motor, a guide…), when it has any.
   const extra = (d, part) => { const c = customUsed(d, part); return c ? { custom: c } : {}; };
   if (kind === 'pod') {

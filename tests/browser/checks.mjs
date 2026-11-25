@@ -15,7 +15,7 @@ export const checks = [
   ['the app starts, builds the default design and passes its checks', async (app) => {
     const { page, assert } = app;
     assert.equal(await page.locator('.brand').getAttribute('aria-label'), 'SlotForge Frame');
-    assert.equal(await page.locator('#menus [data-act=menu]').count(), 9);
+    assert.equal(await page.locator('#menus [data-act=menu]').count(), 10);
     assert.ok((await page.locator('#topview path.plate').count()) >= 1, 'the top view shows the plate');
     assert.match(await page.locator('#status').innerText(), /All checks pass/);
     assert.deepEqual((await app.notes()).filter((n) => !n.ok && n.title !== 'The chassis is open beside the gear'), []);
@@ -966,6 +966,57 @@ export const checks = [
     const fitted = (await insert()).rear.base;
     assert.equal(fitted.od, 11.65);
     assert.equal(fitted.clear, 0.175);
+  }],
+
+  ['rear wings: a wing is picked, changed, given its own endplate, shown in 3D and exported with its template', async (app) => {
+    const { page, assert } = app;
+    const wing = () => page.evaluate(() => JSON.parse(JSON.stringify(window.slotforgeFrame.state.design.wing)));
+    const built = () => page.waitForFunction(() => { const s = window.slotforgeFrame.state, b = s.wingBuilt; return b?.data && b.key === JSON.stringify([s.design.wing, s.design.printer.nozzle, s.design.rules.maxWidth]); }, null, { timeout: 30000 });
+    await app.state(() => { window.builtBefore = window.slotforgeFrame.state.built; });
+    await app.tool('wings', 'wing');
+    await built();
+    // Both views are drawn, and the parts are listed on the right.
+    assert.ok(await page.locator('#topview #wgside').count(), 'the side view');
+    assert.equal(await page.locator('#steps .sp').count(), 4);
+    // A ready-made wing, then a size of your own; the chassis is not built again for it.
+    await page.click('#panel [data-act=wingpreset][data-p="LMP"]');
+    await built();
+    assert.equal((await wing()).count, 1);
+    await app.set('wing.span', 50);
+    await built();
+    assert.equal((await wing()).span, 50);
+    assert.ok(await app.state(() => window.slotforgeFrame.state.built === window.builtBefore), 'the chassis was not rebuilt');
+    assert.equal(await app.state(() => window.slotforgeFrame.state.wingBuilt.data.pieces), 1);
+    // Your own endplate: start from the shape, then drag one of its points in the side view.
+    await page.click('#sub [data-act=tool][data-tool=wingPlates]');
+    await page.click('#panel [data-act=wingownfrom]');
+    await built();
+    assert.equal((await wing()).plate, 'own');
+    const handle = page.locator('#topview [data-drag=wpt][data-i="2"]'), box = await handle.boundingBox(), was = (await wing()).plateOwn[2];
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 15, box.y + box.height / 2 - 10, { steps: 4 });
+    await page.mouse.up();
+    await built();
+    assert.notDeepEqual((await wing()).plateOwn[2], was, 'the point moved');
+    // Glued instead of melted: no collar to choose.
+    await page.click('#sub [data-act=tool][data-tool=wingLegs]');
+    await page.click('#panel [data-act=tile][data-path="wing.fix"][data-v=glue]');
+    assert.equal((await wing()).fix, 'glue');
+    assert.equal(await page.locator('#panel input[data-path="wing.collar"]').count(), 0);
+    // 3D shows the wing alone.
+    await page.click('#viewbar [data-act=view][data-view="3d"]');
+    assert.ok(await page.locator('#gl canvas').isVisible());
+    await page.click('#viewbar [data-act=view][data-view=top]');
+    // All apart: the wing, its endplates and the leg come out as one file, with the drilling template beside it.
+    await page.click('#sub [data-act=tool][data-tool=wingPrint]');
+    await page.click('#panel [data-act=tile][data-path="wing.printAs"][data-v=parts]');
+    const [file] = await app.downloads(() => page.click('#panel [data-act=exportwing]'));
+    assert.equal(file.name, 'New chassis rear wing.stl');
+    assert.ok(stlTriangles(file.bytes) > 500);
+    assert.ok((await app.toasts()).some((t) => /in 4 parts/.test(t)), 'wing, two endplates and one leg');
+    const [template] = await app.downloads(() => page.click('#panel [data-act=exportwingtemplate]'));
+    assert.equal(template.name, 'New chassis wing drilling template.stl');
   }],
 
   ['every tool opens its panel and every shaping tool adds a feature that builds', async (app) => {

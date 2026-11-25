@@ -177,8 +177,6 @@ export function createViewport(host) {
       if (m === 'insert') {
         saved = { pos: camera.position.clone(), target: controls.target.clone(), vis: Object.fromEntries(Object.entries(groups).map(([k, g]) => [k, g.visible])) };
         for (const [k, g] of Object.entries(groups)) g.visible = k === 'insert';
-        camera.position.set(-9, -16, 15);
-        controls.target.set(0, 0, 0.6);
       } else {
         groups.insert.visible = false;
         if (saved) {
@@ -188,6 +186,14 @@ export function createViewport(host) {
         }
       }
       shown = m;
+      controls.update();
+      draw();
+    },
+    // Puts the camera round a part of radius `r` centred at `c`, from the same side as for an insert.
+    frame(r, c) {
+      const k = r / 6;
+      controls.target.set(c[0], c[1], c[2]);
+      camera.position.set(c[0] - 9 * k, c[1] - 16 * k, c[2] + 15 * k);
       controls.update();
       draw();
     },

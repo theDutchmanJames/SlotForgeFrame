@@ -4,6 +4,7 @@ import { cleanItem, encodeShare, decodeShare, packMesh, unpackMesh, thumbOf, new
 import { readSTL, orient, guessOrientation, UPS } from './geometry/stl-read.js';
 import { pickMounts } from './geometry/mesh-measure.js';
 import { cleanInsert, LAYER_NAMES } from './inserts.js';
+import { cleanWing, ENDPLATES } from './wings.js';
 import { cleanPart, round, motorOf, gearOf, find, adopt, moveRear, meshCentre, useBearing, FEATURE_NAMES } from './model.js';
 import { KINDS as COMPONENTS, COMPONENT_KINDS, builtins } from './components.js';
 
@@ -52,7 +53,7 @@ export function createDialogs(ctx) {
   }
   const current = () => visible().find((x) => x.id === dlg.sel) ?? null;
 
-  const KIND_NAME = { pod: 'Pod', chassis: 'Chassis', insert: 'Wheel insert' };
+  const KIND_NAME = { pod: 'Pod', chassis: 'Chassis', insert: 'Wheel insert', wing: 'Rear wing' };
   function thumb(item) {
     const t = item.thumb;
     if (!t) return `<svg viewBox="0 0 70 30"><text x="35" y="18" text-anchor="middle" class="lbl">No picture</text></svg>`;
@@ -60,7 +61,10 @@ export function createDialogs(ctx) {
   }
   function details(item) {
     const d = item.data, rows = [['Kind', KIND_NAME[item.kind]], ['Scale', item.scale], ['Source', item.source === 'imported' ? 'Imported STL' : 'Made here']];
-    if (item.kind === 'insert') {
+    if (item.kind === 'wing') {
+      const w = d.wing;
+      rows.push(['Size', `${f2(w.span)} × ${f2(w.chord)}, ${f2(w.angle)}°`], ['Endplates', ENDPLATES[w.plate]], ['Legs', `${w.count} ${w.legs === 'swan' ? 'swan neck' : 'post'}${w.count === 1 ? '' : 's'}, ${w.fix === 'melt' ? 'melted pins' : 'glued'}`]);
+    } else if (item.kind === 'insert') {
       const b = d.insert.base;
       rows.push(['Diameter', `Ø${f2(b.od)} × ${f2(b.thick)}`], ['For a wheel of', `Ø${f2(b.wheelD)}, pocket Ø${f2(b.pocketD)}`], ['Pattern', d.insert.layers.map((l) => LAYER_NAMES[l.type]).join(', ') || 'plain']);
     } else if (d.imported) {
@@ -98,7 +102,7 @@ export function createDialogs(ctx) {
     const cat = (kind, label) => `<button class="${dlg.kind === kind ? 'on' : ''}" data-d="kind" data-kind="${kind}">${label}<small>${count(kind)}</small></button>`;
     const filters = comp ? [['all', 'All'], ['made', 'Yours'], ['builtin', 'Built in']] : [['all', 'All'], ['made', 'Made here'], ['imported', 'Imported']];
     const list = !shown.length
-      ? `<div class="note">${comp ? `None of your own yet. <b>New ${k.one.toLowerCase()}</b> starts one, or duplicate a built-in one to change it.` : `No ${{ pod: 'pods', chassis: 'chassis', insert: 'wheel inserts' }[dlg.kind]} here yet. Add this design's ${dlg.kind}${dlg.kind === 'insert' ? '' : ', import an STL'}, or open a library file someone shared with you.`}</div>`
+      ? `<div class="note">${comp ? `None of your own yet. <b>New ${k.one.toLowerCase()}</b> starts one, or duplicate a built-in one to change it.` : `No ${{ pod: 'pods', chassis: 'chassis', insert: 'wheel inserts', wing: 'rear wings' }[dlg.kind]} here yet. Add this design's ${dlg.kind === 'wing' ? 'rear wing' : dlg.kind}${dlg.kind === 'insert' || dlg.kind === 'wing' ? '' : ', import an STL'}, or open a library file someone shared with you.`}</div>`
       : comp
         ? `<div class="plist tall">${shown.map((x) => `<div class="prow ${x.id === dlg.sel ? 'cur' : ''}" data-d="sel" data-id="${esc(x.id)}"><span>${esc(x.data.name)}<small>${esc(k.line(x.data))}</small></span>${x.builtin ? '<span class="pill">Built in</span>' : '<span class="pill ok">Yours</span>'}${k.noConfirm || x.data.confirmed ? '' : '<span class="pill un">Unconfirmed</span>'}</div>`).join('')}</div>`
         : `<div class="cards">${shown.map((x) => `<div class="card2 ${x.id === dlg.sel ? 'on' : ''}" data-d="sel" data-id="${esc(x.id)}"><div class="thumb">${thumb(x)}</div><b>${esc(x.name)}</b><small>${x.source === 'imported' ? 'Imported STL' : 'Made here'} · ${esc(x.scale)}</small></div>`).join('')}</div>`;
@@ -107,7 +111,7 @@ export function createDialogs(ctx) {
       : `<div><span class="eyebrow">${KIND_NAME[cur.kind]}</span>
             <input class="name" data-d="rename" value="${esc(cur.name)}" aria-label="Name" spellcheck="false" style="font: italic 700 20px/1.1 var(--font-title); text-transform: uppercase; width: 100%; background: none; border: 0; border-bottom: 1px dashed var(--line); color: var(--ink); padding: 2px 0"></div>
           <div class="kv">${details(cur)}</div>
-          ${cur.kind === 'insert' ? `<div class="note">Using this insert replaces the one you are editing in Inserts (the ${ctx.insertKey()} insert). The chassis and the pod stay.</div>` : cur.kind === 'chassis' ? `<div class="note">Using this chassis replaces the current chassis and the car's sizes. The pod stays.</div>` : `<div class="note">Using this pod replaces the current pod${cur.data.imported ? '' : ' and drivetrain'}. The chassis follows it.</div>`}
+          ${cur.kind === 'wing' ? '<div class="note">Using this wing replaces the design\'s rear wing. The chassis, the pod and the inserts stay.</div>' : cur.kind === 'insert' ? `<div class="note">Using this insert replaces the one you are editing in Inserts (the ${ctx.insertKey()} insert). The chassis and the pod stay.</div>` : cur.kind === 'chassis' ? `<div class="note">Using this chassis replaces the current chassis and the car's sizes. The pod stays.</div>` : `<div class="note">Using this pod replaces the current pod${cur.data.imported ? '' : ' and drivetrain'}. The chassis follows it.</div>`}
           ${cur.scale !== design.scale ? `<div class="note warn">This part is ${esc(cur.scale)}; the design is ${esc(design.scale)}.</div>` : ''}`;
     const own = cur && !cur.builtin;
     host.innerHTML = `<div class="scrim" data-d="scrim"><div class="win" role="dialog" aria-label="Library">
@@ -116,7 +120,7 @@ export function createDialogs(ctx) {
       <div class="body">
         <div class="cats">
           <span class="eyebrow" style="padding:4px 9px">Made and imported</span>
-          ${cat('pod', 'Pods')}${cat('chassis', 'Chassis')}${cat('insert', 'Wheel inserts')}
+          ${cat('pod', 'Pods')}${cat('chassis', 'Chassis')}${cat('insert', 'Wheel inserts')}${cat('wing', 'Rear wings')}
           <span class="eyebrow" style="padding:10px 9px 4px">Components</span>
           ${COMPONENT_KINDS.filter((c) => COMPONENTS[c].group === 'Components').map((c) => cat(c, COMPONENTS[c].many)).join('')}
           <span class="eyebrow" style="padding:10px 9px 4px">Setup</span>
@@ -124,6 +128,7 @@ export function createDialogs(ctx) {
           <span class="eyebrow" style="padding:10px 9px 4px">Add</span>
           <button data-d="save" data-kind="pod">${ico('plus')}<span style="flex:1;margin-left:6px">This design's pod</span></button>
           <button data-d="save" data-kind="chassis">${ico('plus')}<span style="flex:1;margin-left:6px">This design's chassis</span></button>
+          <button data-d="save" data-kind="wing">${ico('plus')}<span style="flex:1;margin-left:6px">This design's rear wing</span></button>
           <button data-d="save" data-kind="insert">${ico('plus')}<span style="flex:1;margin-left:6px">This design's ${ctx.insertKey()} insert</span></button>
           <button data-d="stl">${ico('import')}<span style="flex:1;margin-left:6px">Import an STL</span></button>
           <span class="eyebrow" style="padding:10px 9px 4px">Share</span>
@@ -149,6 +154,10 @@ export function createDialogs(ctx) {
   // Makes a library item from the open design.
   function itemFromDesign(kind) {
     const { design, built, meshes } = ctx.state;
+    if (kind === 'wing') {
+      const built = ctx.state.wingBuilt, side = built?.key === JSON.stringify([design.wing, design.printer.nozzle, design.rules.maxWidth]) ? built.data?.side : null;
+      return cleanItem({ kind, name: `${design.name} rear wing`, scale: design.scale, updated: Date.now(), thumb: side?.length ? thumbOf(side) : null, data: { wing: design.wing } }, cleanPart);
+    }
     if (kind === 'insert') {
       const key = ctx.insertKey(), built = ctx.state.insBuilt;
       const top = built?.key === JSON.stringify([design.inserts[key], design.printer.nozzle, design.car.axleD]) ? built.data?.top : null;
@@ -176,7 +185,8 @@ export function createDialogs(ctx) {
     }
     // Components the part brings with it become the design's own.
     for (const [kind, set] of Object.entries(data.custom ?? {})) for (const [cid, c] of Object.entries(set)) adopt(d, kind, cid, c);
-    if (item.kind === 'insert') d.inserts[ctx.insertKey()] = cleanInsert(data.insert, d.scale);
+    if (item.kind === 'wing') d.wing = cleanWing(data.wing, d.scale);
+    else if (item.kind === 'insert') d.inserts[ctx.insertKey()] = cleanInsert(data.insert, d.scale);
     else if (item.kind === 'pod') {
       if (data.imported) d.pod.imported = { ...data.imported, mesh: key };
       else {

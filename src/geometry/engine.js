@@ -5,6 +5,7 @@
 import { find, on, heights, motorOf, gearOf, motorPlace, podLayout, uprightSpread, uprightInner, seatSize, holderSize, flanged, flangeProud, gearSide, asRight, podShift, unshifted, podRide, kickActive, activeKicks, profileOf, bearingOf, couponHoles } from '../model.js';
 import { createAnalyser } from './mesh-measure.js';
 import { layerShape, directional, insertOf, insertChecks, ringSizes } from '../inserts.js';
+import { wingSide, legYs, pinsOf, wingChecks, deckZ } from '../wings.js';
 
 // The areas a kick-up lifts, seen from above: [x0, y0, x1, y1] each. `far` is how far 'everything' reaches.
 export function kickAreas(d, far) {
@@ -1259,5 +1260,98 @@ export function createEngine(wasm) {
     }
   }
 
-  return { build, coupon, trace, bodyClash, setMesh, dropMesh, insert, insertSet, insertRing, analyse: (mesh) => analyser.analyse(mesh) };
+  // ---------- rear wings
+  // Built as it stands on the car: x along the car, y across it, z up from the body's surface under the
+  // wing's leading edge. A side-view outline (x, z) is pushed across the car from y0 for `len`.
+  const across = (cs, y0, len) => (len <= EPS || cs.area() <= EPS ? none3() : K(K(cs.extrude(len)).transform([1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, y0, 0, 1])));
+  const side2 = (pts) => poly(pts);
+  // The wing in its parts: the wing with its flap, Gurney flap and endplates; and the legs with their pins.
+  function wingParts(w) {
+    const sd = wingSide(w), half = w.span / 2, T = w.plateT;
+    // The wing reaches `tip` into each endplate: just touching when they are one piece, half the plate's
+    // thickness into a pocket when the endplates print apart.
+    const tip = w.printAs === 'parts' ? T / 2 : 0.01;
+    const blade = [across(side2(sd.main.pts), -half - tip, w.span + 2 * tip)];
+    if (sd.flap) blade.push(across(side2(sd.flap.pts), -half - tip, w.span + 2 * tip));
+    if (sd.gurney) blade.push(across(side2(sd.gurney), -half - tip, w.span + 2 * tip));
+    const plates = [1, -1].map((s) => across(side2(sd.plate), s > 0 ? half : -half - T, T));
+    const wing = [...blade, ...plates];
+    const legs = [], fx = sd.leg.foot[0];
+    for (const y of legYs(w)) {
+      legs.push(across(side2(sd.leg.outline), y - w.legW / 2, w.legW));
+      // Pins down through the body's wall, from inside the leg's foot.
+      for (const p of pinsOf(w, sd)) legs.push(cylZ(p.x, y, p.z - p.below, p.z + 0.6, w.pinD / 2));
+      // A collar that sits on the body (melted pins), or a flat foot for the glue: 0.4 mm on the surface.
+      if ((w.fix === 'melt' && w.collar) || w.fix === 'glue') {
+        const h = w.legD / 2 + (w.fix === 'glue' ? 0.6 : 0.5), a = fx - h, b = fx + h;
+        legs.push(across(side2([[a, deckZ(w, a)], [b, deckZ(w, b)], [b, deckZ(w, b) + 0.4], [a, deckZ(w, a) + 0.4]]), y - w.legW / 2 - 0.5, w.legW + 1));
+      }
+    }
+    return { sd, wing: u3(wing), blade: u3(blade), plates, legs: u3(legs) };
+  }
+  const freeBin = () => { for (const o of bin) try { o.delete(); } catch { /* already freed */ } bin = []; };
+  // The wing as it stands on the car, for the views: its mesh, weight, pieces, notes and side outline.
+  function wing(args) {
+    bin = [];
+    try {
+      const w = args.wing, { wing: top, legs } = wingParts(w), all = u3([top, legs]);
+      if (all.status() !== 'NoError' || all.isEmpty()) throw Error('The wing could not be built. Check its sizes.');
+      const pieces = pieceCount(all), notes = wingChecks(w, { nozzle: args.nozzle, maxWidth: args.maxWidth });
+      if (pieces > 1) notes.push({ ok: false, title: 'The legs do not reach the wing', text: 'Some part stands on its own. Move where the legs hold the wing, or the legs themselves.' });
+      const sideView = K(K(all.rotate([90, 0, 0])).project());
+      return { mesh: meshOf(all), volume: all.volume(), pieces, notes, side: polysOf(sideView).map((r) => r.map(([x, y]) => [x, y])) };
+    } finally { freeBin(); }
+  }
+  // The wing laid out to print. In one piece it lies upside down, the top of the wing towards the bed.
+  // As a kit the legs come apart: they lie on their side, and the wing has sockets they fit into.
+  function wingPrint(args) {
+    bin = [];
+    try {
+      const w = args.wing, { wing: top, legs } = wingParts(w);
+      const flip = (solid) => { const t = K(solid.rotate([180, 0, 0])); return K(t.translate([0, 0, -t.boundingBox().min[2]])); };
+      if (w.printAs === 'one') {
+        const one = flip(u3([top, legs]));
+        return { mesh: meshOf(one), pieces: pieceCount(one) };
+      }
+      // Sockets: the legs, 0.1 mm larger all round, cut out of the wing where they meet it.
+      const { blade, plates } = wingParts(w), sd = wingSide(w), grown = K(side2(sd.leg.outline).offset(0.1, 'Miter'));
+      const sockets = u3(legYs(w).map((y) => across(grown, y - w.legW / 2 - 0.1, w.legW + 0.2)));
+      const wingOnly = flip(K((w.printAs === 'parts' ? blade : top).subtract(sockets)));
+      const bb = wingOnly.boundingBox(), parts = [wingOnly];
+      // All apart: each endplate lies flat, with a pocket the wing's end fits into (0.1 mm larger all round).
+      if (w.printAs === 'parts') {
+        const ends = [side2(sd.main.pts), ...(sd.flap ? [side2(sd.flap.pts)] : []), ...(sd.gurney ? [side2(sd.gurney)] : [])];
+        const pocket = K(u2(ends).offset(0.1, 'Miter')), T = w.plateT, half = w.span / 2;
+        plates.forEach((plate, i) => {
+          const s = i === 0 ? 1 : -1, cut = across(pocket, s > 0 ? half - 0.1 : -half - T / 2 - 0.05, T / 2 + 0.15);
+          // On its outer face: the pocket faces up.
+          const lay = K(K(plate.subtract(cut)).rotate([s > 0 ? -90 : 90, 0, 0])), lb = lay.boundingBox();
+          parts.push(K(lay.translate([bb.max[0] + 3 - lb.min[0] + i * (lb.max[0] - lb.min[0] + 3), bb.min[1] - lb.min[1], -lb.min[2]])));
+        });
+      }
+      // Each leg on its side, in a row behind the wing.
+      legs.decompose().map(K).forEach((leg, i) => {
+        const lay = K(leg.rotate([90, 0, 0])), lb = lay.boundingBox();
+        parts.push(K(lay.translate([bb.min[0] - lb.min[0] + i * (lb.max[0] - lb.min[0] + 3), bb.max[1] + 3 - lb.min[1], -lb.min[2]])));
+      });
+      const all = u3(parts);
+      return { mesh: meshOf(all), pieces: pieceCount(all) };
+    } finally { freeBin(); }
+  }
+  // A drilling template: a thin strip with a hole for every pin, to lay on the body and drill through,
+  // with a notch on the car's centre line at the front edge.
+  function wingTemplate(args) {
+    bin = [];
+    try {
+      const w = args.wing, sd = wingSide(w), pins = pinsOf(w, sd), ys = legYs(w), t = 0.8;
+      const xs = pins.map((p) => p.x), x0 = Math.min(...xs) - 4, x1 = Math.max(...xs) + 4, y0 = Math.min(...ys) - 5, y1 = Math.max(...ys) + 5;
+      const cut = [];
+      for (const y of ys) for (const x of xs) cut.push(cylZ(x, y, -1, t + 1, (w.pinD + 0.15) / 2));
+      const notch = K(K(poly([[0, -0.8], [1.4, 0], [0, 0.8]]).extrude(t + 2)).translate([x0 - 0.01, 0, -1]));
+      const strip = K(box(x0, y0, 0, x1, y1, t).subtract(u3([...cut, notch])));
+      return { mesh: meshOf(strip), size: [x1 - x0, y1 - y0] };
+    } finally { freeBin(); }
+  }
+
+  return { build, coupon, trace, bodyClash, setMesh, dropMesh, insert, insertSet, insertRing, wing, wingPrint, wingTemplate, analyse: (mesh) => analyser.analyse(mesh) };
 }
