@@ -104,6 +104,7 @@ Frame works along eight menus, roughly in the order you build a car: **Car, Outl
 
 ### Bought and shared parts
 
+- **Rear axle seats:** a straight seat for a ball bearing or bushing, or a round snap-in socket for a spherical bushing (Slot.it CH14, Sloting Plus ball joints) that tilts with the axle. Or one axle tube through both uprights, such as a Sloting Plus Combi Plus, which sets how far apart they stand.
 - **Import an STL** of a pod or a chassis you bought or downloaded. Frame measures it, finds its screw holes, and fits the chassis round an imported pod. An imported chassis can be made editable: its shape becomes your outline.
 - **Library:** every chassis and pod you make or import, kept in one file on your computer, with motors, gear sets, bearings, guides, printers, rule sets and car presets beside them. Add components of your own.
 - **Share:** export a part, or the whole library, as a `.framelib` file for other SlotForge Frame users, and open theirs.

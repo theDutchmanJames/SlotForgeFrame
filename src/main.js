@@ -629,18 +629,32 @@ const PANELS = {
   },
   uprights(d) {
     const f = find(d.pod, 'uprights'), p = f.params, b = bearingOf(d, p.bearing);
+    const ball = p.form === 'sphere';
+    const spreadRow = p.tube
+      ? kv([['Spread, outside (set by the tube)', f2(uprightSpread(d))]])
+      : `<div class="g2">${num('Spread, outside', P(f, 'spread'), 'mm', { min: 8 })}</div>${Math.abs(uprightSpread(d) - p.spread) > 0.01 ? kv([['Spread used (the motor lies between the holders)', f2(uprightSpread(d))]]) : ''}`;
     return head('Pod', 'Axle uprights', 'The two holders for the rear axle. Both seats are cut in one pass, so they are always in line.') + enable(f, 'Build the axle uprights') +
-      sel('Bearing', P(f, 'bearing'), choicesFor(d, 'bearing')) + `<label class="f">Holder</label>` + tiles(P(f, 'holder'), [
+      `<label class="f">Seat</label>` + tiles(P(f, 'form'), [
+        ['straight', 'Straight', '<path d="M8 21V11a9 9 0 0 1 18 0v10M5 21h24"/><path d="M13 7h8v8h-8z"/>'],
+        ['sphere', 'Spherical', '<path d="M8 21V11a9 9 0 0 1 18 0v10M5 21h24"/><circle cx="17" cy="11" r="4.5"/><path d="M14.5 11h5"/>'],
+      ], 2) +
+      (ball ? `
+      <div class="g2">${num('Ball diameter', P(f, 'ballD'), 'mm', { min: 1.5, tag: ' ' + srcTag(false) })}${num('Ball width (flat to flat)', P(f, 'ballW'), 'mm', { min: 0.5, tag: ' ' + srcTag(false) })}${num('Opening in the lip', P(f, 'opening'), 'mm', { min: 0.5 })}${num('Slits in the outer lip', P(f, 'slits'), '', { min: 0, int: true })}${num('Slit width', P(f, 'slitW'), 'mm', { min: 0.2 })}${num('Wall around the ball', P(f, 'wall'), 'mm', { min: 0.8 })}${num('Upright thickness', P(f, 'thick'), 'mm', { min: 1 })}</div>
+      <div class="note">A <b>spherical bushing</b> (Slot.it CH14, Sloting Plus SP053025 and the like: a ball with flat sides) snaps into a round socket from the wheel side and tilts with the axle, so the two can never bind. The lip holds the ball: its opening is smaller than the ball, larger than the axle. 3.8 × 2 mm is Sloting Plus's published size; measure your own.</div>`
+      : sel('Bearing', P(f, 'bearing'), choicesFor(d, 'bearing')) + `<label class="f">Holder</label>` + tiles(P(f, 'holder'), [
         ['closed', 'Closed', '<path d="M8 21V11a9 9 0 0 1 18 0v10M5 21h24"/><circle cx="17" cy="11" r="4"/>'],
         ['snap', 'Snap-in', '<path d="M8 21V11a9 9 0 0 1 5-8M26 21V11a9 9 0 0 0-5-8M5 21h24"/><path d="M13.5 8a4 4 0 1 0 7 0"/>'],
         ['clamp', 'Clamp', '<path d="M8 21V11a9 9 0 0 1 18 0v10M5 21h24"/><circle cx="17" cy="11" r="4"/><path d="M17 2v5"/>'],
       ], 3) + `
-      <div class="g2">${num('Seat diameter', P(f, 'seat'), 'mm', { min: 2, tag: ' ' + srcTag(b?.confirmed !== false && Math.abs((b?.seat ?? 0) - p.seat) < 0.011) })}${num('Spread, outside', P(f, 'spread'), 'mm', { min: 8 })}${num('Wall around seat', P(f, 'wall'), 'mm', { min: 0.8 })}${num('Upright thickness', P(f, 'thick'), 'mm', { min: 1 })}</div>
-      ${Math.abs(uprightSpread(d) - p.spread) > 0.01 ? kv([['Spread used (the motor lies between the holders)', f2(uprightSpread(d))]]) : ''}
+      <div class="g2">${num(p.tube ? 'Seat for the tube ends' : 'Seat diameter', P(f, 'seat'), 'mm', { min: 2, tag: ' ' + srcTag(b?.confirmed !== false && Math.abs((b?.seat ?? 0) - p.seat) < 0.011) })}${num('Wall around seat', P(f, 'wall'), 'mm', { min: 0.8 })}${num('Upright thickness', P(f, 'thick'), 'mm', { min: 1 })}</div>
+      <div class="note ${p.holder === 'closed' ? 'ok' : 'warn'}">${p.holder === 'closed' ? '<b>Closed holders</b> are the strongest. Ream to fit and add a drop of glue.' : p.holder === 'snap' ? '<b>Snap-in holders</b> are only advised for PETG or nylon; they tend to crack in PLA.' : '<b>Clamp holders</b> are split at the top so they can be pinched or glued shut.'}</div>`) + `
+      ${chk('One axle tube through both uprights', P(f, 'tube'))}
+      ${p.tube ? `<div class="g2">${num('Tube length', P(f, 'tubeLen'), 'mm', { min: 8, tag: ' ' + srcTag(false) })}${num('Tube diameter', P(f, 'tubeD'), 'mm', { min: 0.5, tag: ' ' + srcTag(false) })}</div>
+      <div class="note">An <b>axle tube</b> (Sloting Plus Combi Plus, or brass tubing) runs through both uprights, so they stand as far apart as the tube is long (end to end). Its diameter is what runs between them. ${ball ? 'Ball ends (Combi Plus Monoblock) sit in the spherical sockets; the length is taken over the balls.' : 'Straight ends (Combi Plus EVO: a Ø4.6–5 mm seat) sit flush with the outside of the uprights; glue them in.'} It cannot be used with an inline motor, whose crown gear sits between the uprights.</div>` : ''}
+      ${spreadRow}
       ${chk('Cross brace under the axle', P(f, 'brace'))}${chk('Buttress on the motor side', P(f, 'buttress'))}${chk('Lube hole under each seat', P(f, 'lube'))}
-      <div class="note ${p.holder === 'closed' ? 'ok' : 'warn'}">${p.holder === 'closed' ? '<b>Closed holders</b> are the strongest. Ream to fit and add a drop of glue.' : p.holder === 'snap' ? '<b>Snap-in holders</b> are only advised for PETG or nylon; they tend to crack in PLA.' : '<b>Clamp holders</b> are split at the top so they can be pinched or glued shut.'}</div>
       <div class="note">The printer's fix for sideways holes (${f2(d.printer.boreFix ?? d.printer.holeFix)} mm) is added to the seat when the part is built.</div>
-      <button class="btn sm ghost" data-act="library" data-kind="bearing">${ico('library')}Bearings in the library</button>`;
+      ${ball ? '' : `<button class="btn sm ghost" data-act="library" data-kind="bearing">${ico('library')}Bearings in the library</button>`}`;
   },
   lugs(d) {
     const f = find(d.pod, 'lugs');
@@ -913,7 +927,7 @@ function describe(f, d) {
     case 'split': return `cut at ${f2(p.along)} · ${p.tabs} key${p.tabs === 1 ? '' : 's'}`;
     case 'base': return `width ${f2(p.width)} · ${f2(p.thickness)} thick`;
     case 'motorSeat': return motorOf(d).name;
-    case 'uprights': return `${p.holder} · seat ${f2(p.seat)}`;
+    case 'uprights': return `${p.form === 'sphere' ? `spherical · ball ${f2(p.ballD)} × ${f2(p.ballW)}` : `${p.holder} · seat ${f2(p.seat)}`}${p.tube ? ` · tube ${f2(p.tubeLen)}` : ''}`;
     case 'lugs': return `${f2(p.patternX)} × ${f2(p.patternY)}`;
     case 'rib': return `${p.side === 'under' ? 'underneath' : 'on top'} · ${f2(p.h0)} to ${f2(p.h1)} high`;
     case 'wall': return `points ${Math.min(p.from, p.to) + 1} to ${Math.max(p.from, p.to) + 1} · ${f2(p.height)} high`;
@@ -1078,6 +1092,7 @@ function topSVG() {
     out.push(`<line class="part line" x1="${parts.shaft.x0}" y1="${parts.shaft.y0}" x2="${parts.shaft.x1}" y2="${parts.shaft.y1}"/>`);
     out.push(rotRect(parts.pinion.x, parts.pinion.y, parts.pinion.length, parts.pinion.d, parts.pinion.angle, 'part'));
     out.push(`<rect class="part" x="${parts.gear.x - parts.gear.d / 2}" y="${parts.gear.y - parts.gear.width / 2}" width="${parts.gear.d}" height="${parts.gear.width}" rx=".6"/>`);
+    for (const b of parts.bushes ?? []) out.push(`<rect class="part" x="${b.x - b.d / 2}" y="${b.y - b.w / 2}" width="${b.d}" height="${b.w}" rx="${Math.min(b.d, b.w) / 2.5}"/>`);
     if (parts.gearBoss) out.push(`<rect class="part" x="${parts.gearBoss.x - parts.gearBoss.d / 2}" y="${parts.gearBoss.y - parts.gearBoss.width / 2}" width="${parts.gearBoss.d}" height="${parts.gearBoss.width}" rx=".4"/>`);
     if (parts.guide) out.push(`<rect class="part" x="${parts.guide.x - parts.guide.length / 2 - 2}" y="${parts.guide.y - 0.9}" width="${parts.guide.length}" height="1.8" rx=".5"/>`);
     out.push('</g>');
@@ -1407,7 +1422,9 @@ function afterChange(path) {
   // A pod put on top of the chassis: its motor and axle go down through it by the plate's thickness, so the car rides as before.
   if (path.endsWith('.onTop')) { const b = find(d.pod, 'base').params; b.drop = b.onTop ? -find(d.chassis, 'outline').params.thickness : 0; }
   // A gear that would run into the rear tyre: the pod moves over as far as it takes to free it.
-  if ((path === 'drivetrain.layout' || path === 'drivetrain.gear' || path === 'drivetrain.drives') && !d.pod.imported) find(d.pod, 'base').params.sideways = podSideways(d);
+  // (An axle tube sets the spread of the uprights, and the gear sits outside them: it is placed again too.)
+  const tubeMoved = /\.(tube|tubeLen|form|ballW)$/.test(path) && find(d.pod, 'uprights').params.tube;
+  if ((path === 'drivetrain.layout' || path === 'drivetrain.gear' || path === 'drivetrain.drives' || tubeMoved) && !d.pod.imported) find(d.pod, 'base').params.sideways = podSideways(d);
   if (path.endsWith('.guide')) { const f = find(d.chassis, 'guide'); f.params.hole = guideOf(d, f.params.guide)?.hole ?? f.params.hole; }
   if (path.endsWith('.bearing')) { const f = find(d.pod, 'uprights'); f.params.seat = bearingOf(d, f.params.bearing)?.seat ?? f.params.seat; }
   // The rear of the car moves with the rear axle.

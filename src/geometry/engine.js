@@ -2,7 +2,7 @@
 // Runs in the worker (engine.worker.js) and in Node tests.
 // All booleans are done by Manifold, as in SlotForge Foundry.
 
-import { find, on, heights, motorOf, gearOf, motorPlace, podLayout, uprightSpread, gearSide, asRight, podShift, unshifted, podRide, kickActive, activeKicks, profileOf, bearingOf, couponHoles } from '../model.js';
+import { find, on, heights, motorOf, gearOf, motorPlace, podLayout, uprightSpread, seatSize, gearSide, asRight, podShift, unshifted, podRide, kickActive, activeKicks, profileOf, bearingOf, couponHoles } from '../model.js';
 import { createAnalyser } from './analyse.js';
 
 // The areas a kick-up lifts, seen from above: [x0, y0, x1, y1] each. `far` is how far 'everything' reaches.
@@ -678,6 +678,20 @@ export function createEngine(wasm) {
 
   // ------------------------------------------------------------ pod
 
+  // A socket for a spherical bushing, centred at (x, y, z) with the axle along Y: a ball-shaped hole, a
+  // smaller opening through both faces, and `slits` across the lip on the outer side (`out`: +1 or -1),
+  // reaching `half` from the middle to that face. Returns the pieces to cut away.
+  function socket(x, y, z, out, p, half, fix, grow = 0) {
+    const R = holeR(p.ballD + grow, fix), ro = holeR(p.opening + grow, fix), reach = R + Math.max(0.4, p.wall * 0.5);
+    const parts = [K(K(Manifold.sphere(R, 48)).translate([x, y, z])), cylY(x, z, y - half - 1, y + half + 1, ro)];
+    const y0 = out > 0 ? y : y - half - 1, y1 = out > 0 ? y + half + 1 : y;
+    for (let i = 0; i < (p.slits || 0); i++) {
+      const a = 45 + (i * 360) / p.slits;
+      parts.push(K(K(box(0, y0, -p.slitW / 2, reach, y1, p.slitW / 2).rotate([0, a, 0])).translate([x, 0, z])));
+    }
+    return parts;
+  }
+
   // A drivetrain on the left is built as its right-hand twin and turned over.
   function buildPod(d, notes) {
     // ...and a pod off the centre line is built on it and moved over.
@@ -745,11 +759,11 @@ export function createEngine(wasm) {
     }
 
     if (on(up)) {
-      const p = upP, zc = z0 + h.axle, hw = seatD / 2 + p.wall, zt = zc + seatD / 2 + p.wall;
+      const p = upP, ball = p.form === 'sphere', sd = seatSize(p), zc = z0 + h.axle, hw = sd / 2 + p.wall, zt = zc + sd / 2 + p.wall;
       const yo = uprightSpread(d) / 2, yi = yo - Math.min(p.thick, yo - 0.5);
       // The motor may clip a holder's corner (a shallow anglewinder does), but must leave the
       // bearing seat its wall: half the wall around the seat is kept clear.
-      const keep = seatD / 2 + p.wall / 2;
+      const keep = sd / 2 + p.wall / 2;
       const feet = u2([rect(wb - keep, yi, wb + keep, yo), rect(wb - keep, -yo, wb + keep, -yi)]);
       if (K(feet.intersect(motorWin)).area() > 0.05)
         notes.push({ ok: false, title: 'The motor cuts into a bearing holder', text: 'Move the motor, widen the spread of the uprights, or thin them.' });
@@ -759,17 +773,28 @@ export function createEngine(wasm) {
         if (p.buttress) add.push(box(wb - hw - 2.5, a, z0, wb + hw, b,Math.max(z0 + base.thickness, zc - seatD / 2 - 0.5)));
         if (p.lube) cut.push(cylZ(wb, s * (yo + yi) / 2, z0 - 1, zc, 0.6));
       }
+      // What runs between the uprights: the axle, or an axle tube round it.
+      const between = p.tube ? p.tubeD : d.car.axleD;
       if (p.brace) {
-        const bz = z0 + Math.max(base.thickness, Math.min(h.axle - d.car.axleD / 2 - 1.2, 5));
+        const bz = z0 + Math.max(base.thickness, Math.min(h.axle - between / 2 - 1.2, 5));
         add.push(box(wb - 1.2, -yi, z0, wb + 1.2, yi, bz));
       }
-      const sr = holeR(seatD, bfix);
+      const sr = holeR(sd, bfix);
       if (zc - sr < z0 + 0.6) notes.push({ ok: false, title: 'The axle sits too low in the pod', text: 'The bearing seat reaches the pod\'s floor. Raise the motor and axle in the pod (Pod › Base plate), or use larger rear tyres.' });
-      cut.push(cylY(wb, zc, -yo - 1, yo + 1, sr));
-      // Room for the axle between the seats.
-      cut.push(cylY(wb, zc, -yi + 0.01, yi - 0.01, d.car.axleD / 2 + 0.6));
-      if (p.holder === 'snap') cut.push(box(wb - sr * 0.84, -yo - 1, zc, wb + sr * 0.84, yo + 1, zt + 1));
-      if (p.holder === 'clamp') cut.push(box(wb - 0.4, -yo - 1, zc, wb + 0.4, yo + 1, zt + 1));
+      const yc = (yo + yi) / 2;
+      if (ball) {
+        // A round socket in the middle of each upright, with a lip on both faces: the ball snaps in from
+        // the wheel side, where slits let the lip give, and can tilt but not fall out.
+        for (const s of [1, -1]) cut.push(...socket(wb, s * yc, zc, s, p, yo - yc, bfix));
+        if (p.thick < p.ballW + 0.4) notes.push({ ok: false, title: 'The uprights are too thin for the ball', text: `A ball ${p.ballW} mm wide needs uprights at least ${(p.ballW + 0.4).toFixed(1)} mm thick, so that a lip is left on both sides of it.` });
+        if (p.opening >= p.ballD - 0.2) notes.push({ ok: false, title: 'The ball can fall out of its socket', text: `The opening (Ø${p.opening}) has to be smaller than the ball (Ø${p.ballD}): about 0.5 mm is usual.` });
+        if (p.opening < d.car.axleD + 0.3) notes.push({ ok: false, title: 'The opening is too small for the axle', text: `The axle (Ø${d.car.axleD}) needs room to tilt with the ball: make the opening at least Ø${(d.car.axleD + 0.3).toFixed(2)}.` });
+      } else cut.push(cylY(wb, zc, -yo - 1, yo + 1, sr));
+      // Room for the axle, or the axle tube, between the seats. A tube with ball ends runs into the sockets.
+      const inner = p.tube && ball ? yc : yi - 0.01;
+      cut.push(cylY(wb, zc, -inner, inner, between / 2 + 0.6));
+      if (!ball && p.holder === 'snap') cut.push(box(wb - sr * 0.84, -yo - 1, zc, wb + sr * 0.84, yo + 1, zt + 1));
+      if (!ball && p.holder === 'clamp') cut.push(box(wb - 0.4, -yo - 1, zc, wb + 0.4, yo + 1, zt + 1));
       if (wb + hw > lay.x1 + 0.01) notes.push({ ok: false, title: 'Uprights overhang the pod', text: 'The bearing holders reach past the pod base. Move the rear screws back or thin the wall.' });
     }
 
@@ -805,7 +830,7 @@ export function createEngine(wasm) {
     if (pieces > 1) notes.push({ ok: false, title: `The pod is in ${pieces} separate pieces`, text: 'Part of the pod is not joined to the rest. Widen the base or move the motor.' });
 
     const bearing = bearingOf(d, upP?.bearing);
-    if (on(up) && bearing && Math.abs(bearing.seat - seatD) > 0.011)
+    if (on(up) && upP.form !== 'sphere' && bearing && Math.abs(bearing.seat - seatD) > 0.011)
       notes.push({ ok: false, title: 'Seat differs from the bearing', text: `The ${bearing.name.split(' · ')[0].toLowerCase()} asks for Ø${bearing.seat}; the seat is Ø${seatD}.` });
 
     // The pod must stay clear of the rear tyres too (a motor lying across the car reaches furthest).
@@ -1012,6 +1037,8 @@ export function createEngine(wasm) {
         const s = spec.seat, zc = t + s.wall + (s.d + 0.5) / 2, zt = zc + (s.d + 0.5) / 2 + s.wall;
         add.push(box(left, D, 0, W, D + back, zt));
         spec.steps.forEach((step, i) => {
+          // A spherical socket: the ball and its opening both grow by the step; the slits open towards the front.
+          if (s.sphere) return cut.push(...socket(colX(i), D + back / 2, zc, -1, { ballD: s.d, opening: s.opening, slits: s.slits, slitW: s.slitW, wall: s.wall }, back / 2, 0, step));
           const r = (s.d + step) / 2;
           cut.push(cylY(colX(i), zc, D - 1, D + back + 1, r));
           if (s.holder === 'snap') cut.push(box(colX(i) - r * 0.84, D - 1, zc, colX(i) + r * 0.84, D + back + 1, zt + 1));

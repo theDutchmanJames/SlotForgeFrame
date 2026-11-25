@@ -166,7 +166,11 @@ export function newDesign(scale = '1/32') {
     // drop: the motor and the axle moved up (+) or down (−) in the pod, through its floor.
     feature('base', { width: big ? 30 : 25.4, thickness: 1.5, sideways: 0, onTop: false, rest: 2, drop: 0 }),
     feature('motorSeat', { wall: 2.0, clear: 0.3 }),
-    feature('uprights', { bearing: p.bearing, seat: BEARINGS[p.bearing].seat, holder: 'closed', spread: big ? 36 : 29, wall: 2.0, thick: 3.0, brace: true, buttress: true, lube: false }),
+    // form: a straight seat for a bearing or bushing, or a round socket for a spherical bushing (a ball with flat sides,
+    // ballD x ballW) that snaps in past a lip (`opening`) and can tilt; `slits` let the lip give.
+    // tube: one axle tube through both uprights (tubeLen end to end): its length sets how far apart they stand.
+    feature('uprights', { bearing: p.bearing, seat: BEARINGS[p.bearing].seat, holder: 'closed', spread: big ? 36 : 29, wall: 2.0, thick: 3.0, brace: true, buttress: true, lube: false,
+      form: 'straight', ballD: 3.8, ballW: 2.0, opening: 3.2, slits: 4, slitW: 0.6, tube: false, tubeLen: 29, tubeD: 3.0 }),
     // float: play for a pod that hangs on loosened screws: its screw holes are that much larger.
     feature('lugs', { patternX: 63.2, patternY: 20, rearBehindAxle: 6.6, lugD: 4.6, lugT: 2.0, hole: 2.3, float: 0 }),
   ];
@@ -268,6 +272,17 @@ export function heights(d) {
 // How far apart the bearing holders stand (outside to outside). A sidewinder motor lies
 // between them, so they are never closer than the motor is long.
 export function uprightSpread(d) {
+  const p = find(d.pod, 'uprights').params;
+  if (p.tube) return tubeSpread(p);
+  return motorSpread(d);
+}
+// With an axle tube the uprights stand where its ends are: flush with its straight ends, or with each
+// socket round a ball end (the length is taken over the balls).
+// The size of the hole the holder is built round: the seat, or the ball of a spherical bushing.
+export const seatSize = (p) => (p.form === 'sphere' ? p.ballD : p.seat);
+export const tubeSpread = (p) => round(p.form === 'sphere' ? p.tubeLen - p.ballW + p.thick : p.tubeLen, 3);
+// The spread the motor asks for (a sidewinder's can lies between the holders).
+export function motorSpread(d) {
   const p = find(d.pod, 'uprights').params, m = motorOf(d);
   if (d.drivetrain.layout !== 'sidewinder') return p.spread;
   // Room for the can between the holders, also on the side away from the gear
@@ -337,7 +352,7 @@ export function pinionOut(d) {
   if (d.drivetrain.layout !== 'anglewinder' || !on(up)) return least;
   const rad = (motorAngle(d) * Math.PI) / 180, ux = Math.sin(rad), uy = Math.cos(rad);
   const wb = d.car.wheelbase, side = gearSide(d), play = find(d.pod, 'motorSeat')?.params.clear ?? 0.3;
-  const hw = up.params.seat / 2 + up.params.wall, yo = uprightSpread(d) / 2, yi = yo - up.params.thick;
+  const hw = seatSize(up.params) / 2 + up.params.wall, yo = uprightSpread(d) / 2, yi = yo - up.params.thick;
   // The two holders from above. The can already carries its own play, so they are taken as they are.
   const feet = [1, -1].map((s) => [[wb - hw, s * yi], [wb + hw, s * yi], [wb + hw, s * yo], [wb - hw, s * yo]]);
   for (let out = least; out <= most + 1e-9; out += 0.1) {
@@ -497,6 +512,14 @@ export function partsLayout(d) {
   const side = gearSide(d);
   // A spur gear is shown as it is: a thin toothed disc by the wheel and a narrow boss that points in to the bearing.
   out.gear = { x: wb, y: side ? side.yd : (leftHand(d) ? -1 : 1) * (g.pinionD / 2 + 1.9) + podShift(d), z: z0 + h.axle, d: g.gearD, width: side ? side.t : 4 };
+  // The bearings or bushings in the uprights, and an axle tube between them.
+  out.bushes = [];
+  if (on(up) && !d.pod.imported) {
+    const p = up.params, yo = uprightSpread(d) / 2, yc = yo - p.thick / 2, o = podShift(d), z = z0 + h.axle;
+    const ball = p.form === 'sphere', b = bearingOf(d, p.bearing);
+    if (p.tube) out.bushes.push({ x: wb, y: o, z, d: p.tubeD, w: 2 * yc });
+    for (const s of [1, -1]) out.bushes.push(ball ? { x: wb, y: o + s * yc, z, d: p.ballD, w: p.ballW } : p.tube ? { x: wb, y: o + s * yc, z, d: p.seat, w: p.thick } : { x: wb, y: o + s * yc, z, d: p.seat, w: Math.min(p.thick, b?.width ?? p.thick) });
+  }
   out.gearBoss = null;
   if (side && side.t < side.w - 0.01) {
     const s = Math.sign(side.yd - side.y) || 1, from = side.y - (s * side.w) / 2, to = side.yd - (s * side.t) / 2;
@@ -529,10 +552,12 @@ export function unconfirmed(d) {
   const guide = find(d.chassis, 'guide');
   if (on(guide) && guideOf(d, guide.params.guide)?.confirmed === false) out.push('Guide hole');
   const up = find(d.pod, 'uprights');
-  if (on(up) && bearingOf(d, up.params.bearing)?.confirmed === false) out.push('Bearing seat');
+  if (on(up) && up.params.form !== 'sphere' && bearingOf(d, up.params.bearing)?.confirmed === false) out.push('Bearing seat');
+  if (on(up) && up.params.form === 'sphere') out.push('Spherical bushing size');
+  if (on(up) && up.params.tube) out.push('Axle tube length');
   if (!d.pod.imported && motorOf(d).confirmed === false) out.push('Motor sizes');
   if (!d.pod.imported && gearOf(d).confirmed === false) out.push('Gear sizes');
-  if (d.pod.imported) return out.filter((x) => x !== 'Bearing seat');
+  if (d.pod.imported) return out.filter((x) => !['Bearing seat', 'Spherical bushing size', 'Axle tube length'].includes(x));
   out.push(d.drivetrain.layout === 'inline' ? 'Motor-face distance' : 'Motor-to-axle distance');
   return out;
 }
@@ -623,7 +648,9 @@ export function couponHoles(d) {
   return {
     steps: COUPON_STEPS,
     rows,
-    seat: on(up) && !d.pod.imported ? { name: bearingOf(d, up.params.bearing)?.name ?? 'Bearing seat', d: up.params.seat, holder: up.params.holder, thick: up.params.thick, wall: up.params.wall } : null,
+    seat: !on(up) || d.pod.imported ? null : up.params.form === 'sphere'
+      ? { name: `Spherical bushing Ø${round(up.params.ballD)} × ${round(up.params.ballW)}`, d: up.params.ballD, sphere: true, opening: up.params.opening, slits: up.params.slits, slitW: up.params.slitW, holder: 'closed', thick: up.params.thick, wall: up.params.wall }
+      : { name: bearingOf(d, up.params.bearing)?.name ?? 'Bearing seat', d: up.params.seat, holder: up.params.holder, thick: up.params.thick, wall: up.params.wall },
     axle: { d: d.car.axleD },
     thickness: find(c, 'outline').params.thickness,
   };
@@ -653,6 +680,12 @@ export function checks(d) {
     const got = d.car.wheelbase - parts.pinion.x, off = Math.abs(got - want);
     add(off <= 0.6, off <= 0.6 ? 'Pinion meets the gear' : 'Pinion does not meet the gear',
       `These gears ask for the pinion ${want.toFixed(2)} mm ahead of the axle; it sits at ${got.toFixed(2)} mm.`);
+  }
+  const up = find(d.pod, 'uprights');
+  if (!d.pod.imported && on(up) && up.params.tube) {
+    if (d.drivetrain.layout === 'inline') add(false, 'An axle tube cannot pass the crown gear', 'With an inline motor the crown gear sits on the axle between the uprights, where the tube would run. Use separate bearings, or an anglewinder or sidewinder.');
+    else if (motorSpread(d) > tubeSpread(up.params) + 0.01) add(false, 'The axle tube is too short for the motor', `The motor needs the uprights ${motorSpread(d).toFixed(1)} mm apart (outside to outside); this tube puts them ${tubeSpread(up.params).toFixed(1)} mm apart.`);
+    else add(true, `Axle tube ${up.params.tubeLen} mm`, `The uprights stand ${tubeSpread(up.params).toFixed(1)} mm apart, outside to outside, so that the tube fits between them.`);
   }
   const kick = find(d.chassis, 'kickup');
   if (d.pod.imported) {
@@ -695,14 +728,14 @@ export function decodeProject(text) {
 const LIMIT = 600;
 const CHOICES = {
   style: ['closed', 'frame', 'lattice'], struts: ['none', 'axle', 'fan'], shape: ['round', 'bar'],
-  holder: ['closed', 'snap', 'clamp'], side: ['top', 'under'], zone: ['full', 'centre', 'sides'],
+  holder: ['closed', 'snap', 'clamp'], form: ['straight', 'sphere'], side: ['top', 'under'], zone: ['full', 'centre', 'sides'],
 };
 // Ranges for values where the general ±2000 limit is too loose.
 const RANGE = {
   thickness: [0.4, 20], round: [0, 50], railWidth: [0.2, 20], outerRail: [0.2, 20], pad: [0, 20], latticeCell: [3, 100],
   strakes: [0, 40], strakeT: [0.2, 10], angle: [0, 80], windows: [0, 20], bar: [0.2, 20], lean: [-45, 60],
   hole: [0.3, 20], bossD: [1, 40], bossH: [0, 40], padD: [1, 40], grub: [0, 10], recessD: [0, 40], recessDepth: [0, 20],
-  wall: [0.2, 20], thick: [0.2, 20], seat: [1, 20], spread: [4, 200], lugD: [1, 30], lugT: [0.4, 20], clear: [0, 5],
+  wall: [0.2, 20], thick: [0.2, 20], seat: [1, 20], ballD: [1.5, 12], ballW: [0.5, 10], opening: [0.5, 12], slits: [0, 8], slitW: [0.2, 2], tubeLen: [8, 80], tubeD: [0.5, 12], spread: [4, 200], lugD: [1, 30], lugT: [0.4, 20], clear: [0, 5],
   root: [0, 5], deep: [0.2, 20], floor: [0, 5], mass: [0, 200], reach: [0, 20], rise: [0, 30], sink: [0, 20], d: [1, 40], travel: [0, 6], float: [0, 2], sideways: [-15, 15], rest: [0, 10], drop: [-10, 10], gap: [0, 10], holeFix: [-0.5, 1], zoneHalf: [0.5, 200], bevelTop: [0, 1.5], bevelBottom: [0, 1.5], tabs: [1, 8], depth: [1, 20], neck: [1, 30], head: [1, 30], play: [0, 1], patternX: [5, 300], patternY: [2, 200], h0: [0, 60], h1: [0, 60], height: [0, 80], width: [0.2, 300], offset: [-20, 40],
 };
 const numIn = (v, def, key) => {
@@ -727,7 +760,7 @@ function cleanParams(def, raw, type) {
     // A guide or bearing may be one of the design's own; cleanDesign checks that it exists.
     else if (key === 'guide' || key === 'bearing') out[key] = typeof v === 'string' && KEY.test(v) ? v : dv;
     else if (typeof dv === 'string') out[key] = CHOICES[key]?.includes(v) ? v : dv;
-    else if (key === 'from' || key === 'to' || key === 'strakes' || key === 'windows' || key === 'tabs') out[key] = Math.round(numIn(v, dv, key === 'from' || key === 'to' ? undefined : key));
+    else if (key === 'from' || key === 'to' || key === 'strakes' || key === 'windows' || key === 'tabs' || key === 'slits') out[key] = Math.round(numIn(v, dv, key === 'from' || key === 'to' ? undefined : key));
     else out[key] = numIn(v, dv, key);
   }
   return out;

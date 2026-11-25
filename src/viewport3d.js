@@ -110,6 +110,7 @@ export function createViewport(host) {
     g.add(cyl(p.pinion.d, p.pinion.length, p.pinion.x, p.pinion.y, p.pinion.z, p.pinion.angle));
     g.add(cyl(p.gear.d, p.gear.width, p.gear.x, p.gear.y, p.gear.z));
     if (p.gearBoss) g.add(cyl(p.gearBoss.d, p.gearBoss.width, p.gearBoss.x, p.gearBoss.y, p.gearBoss.z));
+    for (const b of p.bushes ?? []) g.add(cyl(b.d, b.w, b.x, b.y, b.z));
     if (p.guide) {
       const blade = new THREE.Mesh(new THREE.BoxGeometry(p.guide.length, 1.8, 7), mats.part);
       blade.position.set(p.guide.x - 2, p.guide.y, -3.5);
