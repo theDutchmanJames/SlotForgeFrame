@@ -3,7 +3,7 @@ import { library } from './library.js';
 import { cleanItem, encodeShare, decodeShare, packMesh, unpackMesh, thumbOf, newItemId } from './library-core.js';
 import { readSTL, orient, guessOrientation, UPS } from './geometry/stl-read.js';
 import { pickMounts } from './geometry/analyse.js';
-import { cleanPart, round, motorOf, gearOf, find, adopt, moveRear, meshCentre, FEATURE_NAMES } from './model.js';
+import { cleanPart, round, motorOf, gearOf, find, adopt, moveRear, meshCentre, useBearing, FEATURE_NAMES } from './model.js';
 import { KINDS as COMPONENTS, COMPONENT_KINDS, builtins } from './components.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -190,7 +190,7 @@ export function createDialogs(ctx) {
     if (!row.builtin) adopt(d, kind, id, c);
     if (kind === 'motor') d.drivetrain.motor = id;
     else if (kind === 'gear') Object.assign(d.drivetrain, { layout: c.layout, gear: id, centre: round(meshCentre(c, c.layout)), angle: null });
-    else if (kind === 'bearing') Object.assign(find(d.pod, 'uprights').params, { bearing: id, seat: c.seat });
+    else if (kind === 'bearing') { const p = find(d.pod, 'uprights').params; p.bearing = id; useBearing(p, c); }
     else if (kind === 'guide') Object.assign(find(d.chassis, 'guide').params, { guide: id, hole: c.hole });
     else if (kind === 'printer') d.printer = { name: c.name, material: c.material, nozzle: c.nozzle, holeFix: c.holeFix, boreFix: c.boreFix, minWall: c.minWall, bridge: c.bridge, overhang: c.overhang };
     else if (kind === 'rules') d.rules = { maxWidth: c.maxWidth, guideLeadMax: c.guideLeadMax, minClearance: c.minClearance };

@@ -14,7 +14,7 @@ import { packMesh, unpackMesh } from './library-core.js';
 import { encodeAnvilChassis, placeBody, hullOf, bodyFit, bodyGuess, findArches, archFit, archNote } from './anvil.js';
 import { readSTL } from './geometry/stl-read.js';
 import {
-  newDesign, find, on, round, summary, heights, checks, partsLayout, podLayout, motorOf, gearOf, proposeCross, unconfirmed, uprightSpread, meshCentre, activeKicks, profileOf, pinionOut, motorAngle, gearAngle, traceWheels, traceArches, applyOutline, centreMounts, podShift, podSideways, podRide, rideClearance, balance,
+  newDesign, find, on, round, summary, heights, checks, partsLayout, podLayout, motorOf, gearOf, proposeCross, unconfirmed, uprightSpread, useBearing, meshCentre, activeKicks, profileOf, pinionOut, motorAngle, gearAngle, traceWheels, traceArches, applyOutline, centreMounts, podShift, podSideways, podRide, rideClearance, balance,
   encodeProject, decodeProject, createHistory, MATERIALS, FEATURE_NAMES, MULTI, newShape, shapesOf, gearsFor, bearingOf, guideOf, choicesFor, moveRear, couponHoles,
 } from './model.js';
 // ?inline: the pictures are built into the page, which is the only file the desktop app ships.
@@ -629,6 +629,15 @@ const PANELS = {
   },
   uprights(d) {
     const f = find(d.pod, 'uprights'), p = f.params, b = bearingOf(d, p.bearing);
+    // A flanged bearing or bushing: any bearing can have one, set here or in the library.
+    const flangeRows = (f, p, b) => {
+      const same = (k) => b?.confirmed !== false && Math.abs((b?.[k] ?? -1) - p[k]) < 0.011;
+      return chk('Flanged: the flange rests against the upright', P(f, 'flange')) + (p.flange ? `
+      <div class="g2">${num('Flange diameter', P(f, 'flangeD'), 'mm', { min: 1, tag: ' ' + srcTag(same('flangeD')) })}${num('Flange thickness', P(f, 'flangeT'), 'mm', { min: 0.1, tag: ' ' + srcTag(same('flangeT')) })}</div>
+      ${sel('Flange on the', P(f, 'flangeAt'), { out: 'Wheel side (takes the side load)', in: 'Motor side' })}
+      ${chk('Sink the flange into the upright', P(f, 'flangeRecess'))}
+      <div class="note">${p.flangeRecess ? `The flange sits in a recess ${f2(p.flangeT)} mm deep and Ø${f2(p.flangeD)} wide, flush with the face; the holder grows round it when it is bigger than the seat.` : `The flange stands ${f2(p.flangeT)} mm out of the face${p.flangeAt === 'out' ? ', so the gear moves out by as much' : ', towards the motor'}.`} The body goes in the seat as before.</div>` : '');
+    };
     const ball = p.form === 'sphere';
     const spreadRow = p.tube
       ? kv([['Spread, outside (set by the tube)', f2(uprightSpread(d))]])
@@ -647,6 +656,7 @@ const PANELS = {
         ['clamp', 'Clamp', '<path d="M8 21V11a9 9 0 0 1 18 0v10M5 21h24"/><circle cx="17" cy="11" r="4"/><path d="M17 2v5"/>'],
       ], 3) + `
       <div class="g2">${num(p.tube ? 'Seat for the tube ends' : 'Seat diameter', P(f, 'seat'), 'mm', { min: 2, tag: ' ' + srcTag(b?.confirmed !== false && Math.abs((b?.seat ?? 0) - p.seat) < 0.011) })}${num('Wall around seat', P(f, 'wall'), 'mm', { min: 0.8 })}${num('Upright thickness', P(f, 'thick'), 'mm', { min: 1 })}</div>
+      ${p.tube ? '' : flangeRows(f, p, b)}
       <div class="note ${p.holder === 'closed' ? 'ok' : 'warn'}">${p.holder === 'closed' ? '<b>Closed holders</b> are the strongest. Ream to fit and add a drop of glue.' : p.holder === 'snap' ? '<b>Snap-in holders</b> are only advised for PETG or nylon; they tend to crack in PLA.' : '<b>Clamp holders</b> are split at the top so they can be pinched or glued shut.'}</div>`) + `
       ${chk('One axle tube through both uprights', P(f, 'tube'))}
       ${p.tube ? `<div class="g2">${num('Tube length', P(f, 'tubeLen'), 'mm', { min: 8, tag: ' ' + srcTag(false) })}${num('Tube diameter', P(f, 'tubeD'), 'mm', { min: 0.5, tag: ' ' + srcTag(false) })}</div>
@@ -927,7 +937,7 @@ function describe(f, d) {
     case 'split': return `cut at ${f2(p.along)} · ${p.tabs} key${p.tabs === 1 ? '' : 's'}`;
     case 'base': return `width ${f2(p.width)} · ${f2(p.thickness)} thick`;
     case 'motorSeat': return motorOf(d).name;
-    case 'uprights': return `${p.form === 'sphere' ? `spherical · ball ${f2(p.ballD)} × ${f2(p.ballW)}` : `${p.holder} · seat ${f2(p.seat)}`}${p.tube ? ` · tube ${f2(p.tubeLen)}` : ''}`;
+    case 'uprights': return `${p.form === 'sphere' ? `spherical · ball ${f2(p.ballD)} × ${f2(p.ballW)}` : `${p.holder} · seat ${f2(p.seat)}`}${p.flange && p.form !== 'sphere' && !p.tube ? ` · flange ${f2(p.flangeD)}` : ''}${p.tube ? ` · tube ${f2(p.tubeLen)}` : ''}`;
     case 'lugs': return `${f2(p.patternX)} × ${f2(p.patternY)}`;
     case 'rib': return `${p.side === 'under' ? 'underneath' : 'on top'} · ${f2(p.h0)} to ${f2(p.h1)} high`;
     case 'wall': return `points ${Math.min(p.from, p.to) + 1} to ${Math.max(p.from, p.to) + 1} · ${f2(p.height)} high`;
@@ -1423,10 +1433,17 @@ function afterChange(path) {
   if (path.endsWith('.onTop')) { const b = find(d.pod, 'base').params; b.drop = b.onTop ? -find(d.chassis, 'outline').params.thickness : 0; }
   // A gear that would run into the rear tyre: the pod moves over as far as it takes to free it.
   // (An axle tube sets the spread of the uprights, and the gear sits outside them: it is placed again too.)
-  const tubeMoved = /\.(tube|tubeLen|form|ballW)$/.test(path) && find(d.pod, 'uprights').params.tube;
+  if (path.endsWith('.bearing')) { const f = find(d.pod, 'uprights'); useBearing(f.params, bearingOf(d, f.params.bearing)); }
+  // Things that move the gear out: a tube that sets the spread, or a flange standing out of the uprights.
+  const up = find(d.pod, 'uprights').params;
+  const tubeMoved = /\.(tube|tubeLen|form|ballW)$/.test(path) && up.tube;
   if ((path === 'drivetrain.layout' || path === 'drivetrain.gear' || path === 'drivetrain.drives' || tubeMoved) && !d.pod.imported) find(d.pod, 'base').params.sideways = podSideways(d);
+  // A flange may need the pod moved further over; one set by hand is kept when it already leaves room.
+  else if (/\.(flange|flangeT|flangeAt|flangeRecess|bearing)$/.test(path) && !d.pod.imported) {
+    const base = find(d.pod, 'base').params, need = podSideways(d);
+    if (Math.abs(need) > Math.abs(base.sideways || 0)) base.sideways = need;
+  }
   if (path.endsWith('.guide')) { const f = find(d.chassis, 'guide'); f.params.hole = guideOf(d, f.params.guide)?.hole ?? f.params.hole; }
-  if (path.endsWith('.bearing')) { const f = find(d.pod, 'uprights'); f.params.seat = bearingOf(d, f.params.bearing)?.seat ?? f.params.seat; }
   // The rear of the car moves with the rear axle.
   if (path === 'car.wheelbase') moveRear(d, JSON.parse(lastSnap).car.wheelbase, d.car.wheelbase);
 }

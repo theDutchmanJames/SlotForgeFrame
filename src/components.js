@@ -42,10 +42,10 @@ export const GEARS = {
 };
 
 export const BEARINGS = {
-  ball: { name: 'Ball bearing 3/32" · seat Ø4.75', seat: 4.75, width: 2.4, confirmed: true },
-  bushing: { name: 'Flanged bronze bushing · seat Ø4.9', seat: 4.9, width: 2.5, confirmed: false },
-  universal: { name: 'Sloting Plus universal bushing · seat Ø4.8', seat: 4.8, width: 2.5, confirmed: true },
-  ball3: { name: 'Ball bearing 3 mm axle · seat Ø6', seat: 6.0, width: 2.5, confirmed: true },
+  ball: { name: 'Ball bearing 3/32" · seat Ø4.75', seat: 4.75, width: 2.4, flangeD: 0, flangeT: 0, confirmed: true },
+  bushing: { name: 'Flanged bronze bushing · seat Ø4.9', seat: 4.9, width: 2.5, flangeD: 6.0, flangeT: 0.6, confirmed: false },
+  universal: { name: 'Sloting Plus universal bushing · seat Ø4.8', seat: 4.8, width: 2.5, flangeD: 0, flangeT: 0, confirmed: true },
+  ball3: { name: 'Ball bearing 3 mm axle · seat Ø6', seat: 6.0, width: 2.5, flangeD: 0, flangeT: 0, confirmed: true },
 };
 
 export const GUIDES = {
@@ -136,9 +136,9 @@ export const KINDS = {
   },
   bearing: {
     one: 'Bearing', many: 'Bearings', group: 'Components', inDesign: true,
-    fields: [['seat', 'Seat diameter', [1, 20], 'mm'], ['width', 'Width', [0.5, 10], 'mm']],
-    fresh: { name: 'My bearing', seat: 4.75, width: 2.4, confirmed: false },
-    line: (c) => `seat Ø${c.seat}`,
+    fields: [['seat', 'Seat diameter', [1, 20], 'mm'], ['width', 'Width', [0.5, 10], 'mm'], ['flangeD', 'Flange diameter (0 for none)', [0, 30], 'mm'], ['flangeT', 'Flange thickness', [0, 5], 'mm']],
+    fresh: { name: 'My bearing', seat: 4.75, width: 2.4, flangeD: 0, flangeT: 0, confirmed: false },
+    line: (c) => `seat Ø${c.seat}${c.flangeD > 0 ? ` · flange Ø${c.flangeD} × ${c.flangeT}` : ''}`,
   },
   guide: {
     one: 'Guide', many: 'Guides', group: 'Components', inDesign: true,

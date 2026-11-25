@@ -169,8 +169,11 @@ export function newDesign(scale = '1/32') {
     // form: a straight seat for a bearing or bushing, or a round socket for a spherical bushing (a ball with flat sides,
     // ballD x ballW) that snaps in past a lip (`opening`) and can tilt; `slits` let the lip give.
     // tube: one axle tube through both uprights (tubeLen end to end): its length sets how far apart they stand.
+    // flange: a flanged bearing or bushing (flangeD x flangeT) whose flange rests against the wheel side or the
+    // motor side of each upright (flangeAt), sunk into a recess or standing proud of the face (flangeRecess).
     feature('uprights', { bearing: p.bearing, seat: BEARINGS[p.bearing].seat, holder: 'closed', spread: big ? 36 : 29, wall: 2.0, thick: 3.0, brace: true, buttress: true, lube: false,
-      form: 'straight', ballD: 3.8, ballW: 2.0, opening: 3.2, slits: 4, slitW: 0.6, tube: false, tubeLen: 29, tubeD: 3.0 }),
+      form: 'straight', ballD: 3.8, ballW: 2.0, opening: 3.2, slits: 4, slitW: 0.6, tube: false, tubeLen: 29, tubeD: 3.0,
+      flange: false, flangeD: 6.0, flangeT: 0.6, flangeAt: 'out', flangeRecess: true }),
     // float: play for a pod that hangs on loosened screws: its screw holes are that much larger.
     feature('lugs', { patternX: 63.2, patternY: 20, rearBehindAxle: 6.6, lugD: 4.6, lugT: 2.0, hole: 2.3, float: 0 }),
   ];
@@ -280,6 +283,19 @@ export function uprightSpread(d) {
 // socket round a ball end (the length is taken over the balls).
 // The size of the hole the holder is built round: the seat, or the ball of a spherical bushing.
 export const seatSize = (p) => (p.form === 'sphere' ? p.ballD : p.seat);
+// A flange counts on a straight seat of its own (an axle tube's ends sit in the seats instead).
+export const flanged = (p) => p.flange === true && p.form !== 'sphere' && !p.tube;
+// How far a flange stands out of an upright's face on one side ('out': the wheel side, 'in': the motor side).
+export const flangeProud = (p, at) => (flanged(p) && !p.flangeRecess && p.flangeAt === at ? p.flangeT : 0);
+// The size the holder is built round: the seat or the ball, or a sunk flange when that is bigger.
+export const holderSize = (p) => (flanged(p) && p.flangeRecess ? Math.max(seatSize(p), p.flangeD) : seatSize(p));
+// Puts a bearing to work in the uprights: its seat, and its flange when it has one.
+export function useBearing(p, b) {
+  if (!b) return;
+  p.seat = b.seat;
+  p.flange = b.flangeD > 0 && b.flangeT > 0;
+  if (p.flange) Object.assign(p, { flangeD: b.flangeD, flangeT: b.flangeT });
+}
 export const tubeSpread = (p) => round(p.form === 'sphere' ? p.tubeLen - p.ballW + p.thick : p.tubeLen, 3);
 // The spread the motor asks for (a sidewinder's can lies between the holders).
 export function motorSpread(d) {
@@ -288,7 +304,8 @@ export function motorSpread(d) {
   // Room for the can between the holders, also on the side away from the gear
   // (a long shaft pushes the motor that way).
   const clear = find(d.pod, 'motorSeat')?.params.clear ?? 0.3;
-  return Math.max(p.spread, m.length + 2 * p.thick + 2.8, pinionReach(m) + m.length / 2 + clear + p.thick - 2.1);
+  const t = p.thick + flangeProud(p, 'in');
+  return Math.max(p.spread, m.length + 2 * t + 2.8, pinionReach(m) + m.length / 2 + clear + t - 2.1);
 }
 // Where a sidewinder or anglewinder gear runs: outside the pod, beside the wheel.
 // (An inline crown runs between the bearing holders instead; this returns null for it.)
@@ -308,7 +325,9 @@ export function gearSide(d) {
   // the way: `yd` is its middle and `t` its thickness; `y` and `w` are the middle and width of the whole gear.
   const g = gearOf(d), shape = gearShape(g, d.drivetrain.layout), w = shape.discT + shape.bossL;
   // It starts a little clear of the bearing holder: an anglewinder's crown stands further out than a spur gear.
-  const from = uprightSpread(d) / 2 + (d.drivetrain.layout === 'anglewinder' ? 2.5 : 0.3);
+  // A flange standing out of the upright's wheel side pushes the gear out by its thickness.
+  const up = find(d.pod, 'uprights'), proud = on(up) ? flangeProud(up.params, 'out') : 0;
+  const from = uprightSpread(d) / 2 + proud + (d.drivetrain.layout === 'anglewinder' ? 2.5 : 0.3);
   return { y: from + w / 2, w, r: g.gearD / 2, yd: from + (shape.boss === 'in' ? shape.bossL : 0) + shape.discT / 2, t: shape.discT };
 }
 // The shape of a gear: what its gear set says, or else what such gears usually are (a spur gear: a 2 mm
@@ -352,7 +371,7 @@ export function pinionOut(d) {
   if (d.drivetrain.layout !== 'anglewinder' || !on(up)) return least;
   const rad = (motorAngle(d) * Math.PI) / 180, ux = Math.sin(rad), uy = Math.cos(rad);
   const wb = d.car.wheelbase, side = gearSide(d), play = find(d.pod, 'motorSeat')?.params.clear ?? 0.3;
-  const hw = seatSize(up.params) / 2 + up.params.wall, yo = uprightSpread(d) / 2, yi = yo - up.params.thick;
+  const hw = holderSize(up.params) / 2 + up.params.wall, yo = uprightSpread(d) / 2, yi = yo - up.params.thick - flangeProud(up.params, 'in');
   // The two holders from above. The can already carries its own play, so they are taken as they are.
   const feet = [1, -1].map((s) => [[wb - hw, s * yi], [wb + hw, s * yi], [wb + hw, s * yo], [wb - hw, s * yo]]);
   for (let out = least; out <= most + 1e-9; out += 0.1) {
@@ -447,7 +466,7 @@ export function podLayout(d) {
   const half = [m.length / 2 + seat.clear + seat.wall, m.width / 2 + seat.clear + seat.wall];
   const seatFoot = d.drivetrain.layout === 'inline' || !on(find(d.pod, 'motorSeat')) ? null
     : [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([a, b]) => [place.x + Math.cos(rad) * a * half[0] - Math.sin(rad) * b * half[1], place.y + Math.sin(rad) * a * half[0] + Math.cos(rad) * b * half[1]]);
-  const behind = on(up) ? up.params.seat / 2 + up.params.wall + 0.1 : 0;
+  const behind = on(up) ? holderSize(up.params) / 2 + up.params.wall + 0.1 : 0;
   return {
     points: [[frontX, hy], [frontX, -hy], [rearX, hy], [rearX, -hy]],
     x0: frontX + 3,
@@ -519,6 +538,12 @@ export function partsLayout(d) {
     const ball = p.form === 'sphere', b = bearingOf(d, p.bearing);
     if (p.tube) out.bushes.push({ x: wb, y: o, z, d: p.tubeD, w: 2 * yc });
     for (const s of [1, -1]) out.bushes.push(ball ? { x: wb, y: o + s * yc, z, d: p.ballD, w: p.ballW } : p.tube ? { x: wb, y: o + s * yc, z, d: p.seat, w: p.thick } : { x: wb, y: o + s * yc, z, d: p.seat, w: Math.min(p.thick, b?.width ?? p.thick) });
+    // A flange against one face of each upright: in a recess in the face, or standing out of it.
+    if (flanged(p)) {
+      const face = p.flangeAt === 'in' ? yo - p.thick : yo, into = p.flangeAt === 'in' ? 1 : -1, t = p.flangeT;
+      const mid = face + (p.flangeRecess ? into : -into) * t / 2;
+      for (const s of [1, -1]) out.bushes.push({ x: wb, y: o + s * mid, z, d: p.flangeD, w: t, flange: true });
+    }
   }
   out.gearBoss = null;
   if (side && side.t < side.w - 0.01) {
@@ -555,9 +580,13 @@ export function unconfirmed(d) {
   if (on(up) && up.params.form !== 'sphere' && bearingOf(d, up.params.bearing)?.confirmed === false) out.push('Bearing seat');
   if (on(up) && up.params.form === 'sphere') out.push('Spherical bushing size');
   if (on(up) && up.params.tube) out.push('Axle tube length');
+  if (on(up) && flanged(up.params)) {
+    const b = bearingOf(d, up.params.bearing), same = (a, v) => Math.abs((a ?? -1) - v) < 0.011;
+    if (!(b?.confirmed && same(b.flangeD, up.params.flangeD) && same(b.flangeT, up.params.flangeT))) out.push('Flange size');
+  }
   if (!d.pod.imported && motorOf(d).confirmed === false) out.push('Motor sizes');
   if (!d.pod.imported && gearOf(d).confirmed === false) out.push('Gear sizes');
-  if (d.pod.imported) return out.filter((x) => !['Bearing seat', 'Spherical bushing size', 'Axle tube length'].includes(x));
+  if (d.pod.imported) return out.filter((x) => !['Bearing seat', 'Spherical bushing size', 'Axle tube length', 'Flange size'].includes(x));
   out.push(d.drivetrain.layout === 'inline' ? 'Motor-face distance' : 'Motor-to-axle distance');
   return out;
 }
@@ -650,7 +679,8 @@ export function couponHoles(d) {
     rows,
     seat: !on(up) || d.pod.imported ? null : up.params.form === 'sphere'
       ? { name: `Spherical bushing Ø${round(up.params.ballD)} × ${round(up.params.ballW)}`, d: up.params.ballD, sphere: true, opening: up.params.opening, slits: up.params.slits, slitW: up.params.slitW, holder: 'closed', thick: up.params.thick, wall: up.params.wall }
-      : { name: bearingOf(d, up.params.bearing)?.name ?? 'Bearing seat', d: up.params.seat, holder: up.params.holder, thick: up.params.thick, wall: up.params.wall },
+      : { name: bearingOf(d, up.params.bearing)?.name ?? 'Bearing seat', d: up.params.seat, holder: up.params.holder, thick: up.params.thick, wall: up.params.wall,
+        flange: flanged(up.params) && up.params.flangeRecess ? { d: up.params.flangeD, t: up.params.flangeT } : null },
     axle: { d: d.car.axleD },
     thickness: find(c, 'outline').params.thickness,
   };
@@ -728,14 +758,14 @@ export function decodeProject(text) {
 const LIMIT = 600;
 const CHOICES = {
   style: ['closed', 'frame', 'lattice'], struts: ['none', 'axle', 'fan'], shape: ['round', 'bar'],
-  holder: ['closed', 'snap', 'clamp'], form: ['straight', 'sphere'], side: ['top', 'under'], zone: ['full', 'centre', 'sides'],
+  holder: ['closed', 'snap', 'clamp'], form: ['straight', 'sphere'], flangeAt: ['out', 'in'], side: ['top', 'under'], zone: ['full', 'centre', 'sides'],
 };
 // Ranges for values where the general ±2000 limit is too loose.
 const RANGE = {
   thickness: [0.4, 20], round: [0, 50], railWidth: [0.2, 20], outerRail: [0.2, 20], pad: [0, 20], latticeCell: [3, 100],
   strakes: [0, 40], strakeT: [0.2, 10], angle: [0, 80], windows: [0, 20], bar: [0.2, 20], lean: [-45, 60],
   hole: [0.3, 20], bossD: [1, 40], bossH: [0, 40], padD: [1, 40], grub: [0, 10], recessD: [0, 40], recessDepth: [0, 20],
-  wall: [0.2, 20], thick: [0.2, 20], seat: [1, 20], ballD: [1.5, 12], ballW: [0.5, 10], opening: [0.5, 12], slits: [0, 8], slitW: [0.2, 2], tubeLen: [8, 80], tubeD: [0.5, 12], spread: [4, 200], lugD: [1, 30], lugT: [0.4, 20], clear: [0, 5],
+  wall: [0.2, 20], thick: [0.2, 20], seat: [1, 20], ballD: [1.5, 12], ballW: [0.5, 10], opening: [0.5, 12], slits: [0, 8], slitW: [0.2, 2], tubeLen: [8, 80], tubeD: [0.5, 12], flangeD: [1, 30], flangeT: [0.1, 5], spread: [4, 200], lugD: [1, 30], lugT: [0.4, 20], clear: [0, 5],
   root: [0, 5], deep: [0.2, 20], floor: [0, 5], mass: [0, 200], reach: [0, 20], rise: [0, 30], sink: [0, 20], d: [1, 40], travel: [0, 6], float: [0, 2], sideways: [-15, 15], rest: [0, 10], drop: [-10, 10], gap: [0, 10], holeFix: [-0.5, 1], zoneHalf: [0.5, 200], bevelTop: [0, 1.5], bevelBottom: [0, 1.5], tabs: [1, 8], depth: [1, 20], neck: [1, 30], head: [1, 30], play: [0, 1], patternX: [5, 300], patternY: [2, 200], h0: [0, 60], h1: [0, 60], height: [0, 80], width: [0.2, 300], offset: [-20, 40],
 };
 const numIn = (v, def, key) => {

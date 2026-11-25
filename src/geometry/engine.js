@@ -2,7 +2,7 @@
 // Runs in the worker (engine.worker.js) and in Node tests.
 // All booleans are done by Manifold, as in SlotForge Foundry.
 
-import { find, on, heights, motorOf, gearOf, motorPlace, podLayout, uprightSpread, seatSize, gearSide, asRight, podShift, unshifted, podRide, kickActive, activeKicks, profileOf, bearingOf, couponHoles } from '../model.js';
+import { find, on, heights, motorOf, gearOf, motorPlace, podLayout, uprightSpread, seatSize, holderSize, flanged, flangeProud, gearSide, asRight, podShift, unshifted, podRide, kickActive, activeKicks, profileOf, bearingOf, couponHoles } from '../model.js';
 import { createAnalyser } from './analyse.js';
 
 // The areas a kick-up lifts, seen from above: [x0, y0, x1, y1] each. `far` is how far 'everything' reaches.
@@ -759,7 +759,7 @@ export function createEngine(wasm) {
     }
 
     if (on(up)) {
-      const p = upP, ball = p.form === 'sphere', sd = seatSize(p), zc = z0 + h.axle, hw = sd / 2 + p.wall, zt = zc + sd / 2 + p.wall;
+      const p = upP, ball = p.form === 'sphere', sd = seatSize(p), zc = z0 + h.axle, hw = holderSize(p) / 2 + p.wall, zt = zc + holderSize(p) / 2 + p.wall;
       const yo = uprightSpread(d) / 2, yi = yo - Math.min(p.thick, yo - 0.5);
       // The motor may clip a holder's corner (a shallow anglewinder does), but must leave the
       // bearing seat its wall: half the wall around the seat is kept clear.
@@ -790,6 +790,21 @@ export function createEngine(wasm) {
         if (p.opening >= p.ballD - 0.2) notes.push({ ok: false, title: 'The ball can fall out of its socket', text: `The opening (Ø${p.opening}) has to be smaller than the ball (Ø${p.ballD}): about 0.5 mm is usual.` });
         if (p.opening < d.car.axleD + 0.3) notes.push({ ok: false, title: 'The opening is too small for the axle', text: `The axle (Ø${d.car.axleD}) needs room to tilt with the ball: make the opening at least Ø${(d.car.axleD + 0.3).toFixed(2)}.` });
       } else cut.push(cylY(wb, zc, -yo - 1, yo + 1, sr));
+      if (flanged(p)) {
+        // A flanged bearing: its flange rests against the wheel side or the motor side of each upright,
+        // in a recess as deep as the flange, or standing out of the face.
+        const fr = holeR(p.flangeD, bfix), t = p.flangeT, inSide = p.flangeAt === 'in';
+        for (const s of [1, -1]) {
+          if (p.flangeRecess) {
+            const [a, b] = inSide ? [yi - 0.01, yi + t] : [yo - t, yo + 1];
+            cut.push(cylY(wb, zc, Math.min(s * a, s * b), Math.max(s * a, s * b), fr));
+          } else if (inSide && K(rect(wb - fr, s > 0 ? yi - t : -yi, wb + fr, s > 0 ? yi : -yi + t).intersect(motorWin)).area() > 0.05)
+            notes.push({ ok: false, title: 'The flange touches the motor', text: 'The flange stands out of the upright towards the motor. Sink it into the upright, put it on the wheel side, or move the motor.' });
+        }
+        if (p.flangeD < p.seat + 0.4) notes.push({ ok: false, title: 'The flange is no bigger than the seat', text: `A flange of Ø${p.flangeD} cannot rest against the upright round a seat of Ø${p.seat}: it would slip through. Measure the flange, or turn the flange off.` });
+        if (p.flangeRecess && p.thick - t < 1) notes.push({ ok: false, title: 'The upright is too thin for the flange recess', text: `With a ${t} mm recess, ${(p.thick - t).toFixed(1)} mm of the upright is left to hold the seat: at least 1 mm is needed. Thicken the uprights, or let the flange stand out of the face.` });
+        if (zc - p.flangeD / 2 < z0 + base.thickness) notes.push({ ok: false, title: 'The flange reaches into the pod floor', text: 'The axle sits too low for a flange this big. Raise the axle in the pod (Pod › Base plate), or use a smaller flange.' });
+      }
       // Room for the axle, or the axle tube, between the seats. A tube with ball ends runs into the sockets.
       const inner = p.tube && ball ? yc : yi - 0.01;
       cut.push(cylY(wb, zc, -inner, inner, between / 2 + 0.6));
@@ -1034,13 +1049,15 @@ export function createEngine(wasm) {
       });
       // Bearing seats in a wall along the back, as thick as the pod's uprights and in the same holder style.
       if (spec.seat) {
-        const s = spec.seat, zc = t + s.wall + (s.d + 0.5) / 2, zt = zc + (s.d + 0.5) / 2 + s.wall;
+        const s = spec.seat, sz = Math.max(s.d, s.flange?.d ?? 0), zc = t + s.wall + (sz + 0.5) / 2, zt = zc + (sz + 0.5) / 2 + s.wall;
         add.push(box(left, D, 0, W, D + back, zt));
         spec.steps.forEach((step, i) => {
           // A spherical socket: the ball and its opening both grow by the step; the slits open towards the front.
           if (s.sphere) return cut.push(...socket(colX(i), D + back / 2, zc, -1, { ballD: s.d, opening: s.opening, slits: s.slits, slitW: s.slitW, wall: s.wall }, back / 2, 0, step));
           const r = (s.d + step) / 2;
           cut.push(cylY(colX(i), zc, D - 1, D + back + 1, r));
+          // A flange recess in the front face, growing with the seat.
+          if (s.flange) cut.push(cylY(colX(i), zc, D - 1, D + Math.min(s.flange.t, back - 0.6), (s.flange.d + step) / 2));
           if (s.holder === 'snap') cut.push(box(colX(i) - r * 0.84, D - 1, zc, colX(i) + r * 0.84, D + back + 1, zt + 1));
           if (s.holder === 'clamp') cut.push(box(colX(i) - 0.4, D - 1, zc, colX(i) + 0.4, D + back + 1, zt + 1));
         });
