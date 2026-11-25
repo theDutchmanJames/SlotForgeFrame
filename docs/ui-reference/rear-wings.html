@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-tone="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Frame: rear wings preview</title>
+<link rel="stylesheet" href="./theme.css">
+<link rel="stylesheet" href="./anvil-style.css">
+<style>
+/* Design preview for the Wings workspace. Everything on the page is live: the wing really is drawn from the settings. */
+:root { --c-plate: color-mix(in srgb, var(--ink) 62%, var(--canvas)); --c-part: #6fb6ff; --c-body: color-mix(in srgb, var(--ink) 22%, var(--canvas)); }
+:root[data-tone='light'] { --c-part: #1f6fd6; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.4 var(--font-ui); }
+.brand-name { font: italic 700 27px/1 var(--font-title); text-transform: uppercase; letter-spacing: .02em; }
+.brand-name b { color: var(--accent-text); }
+.tools .end, .pb .end { margin-left: auto; display: flex; gap: 4px; align-items: center; }
+.sub { display: flex; gap: 4px; align-items: center; padding: 6px 14px; border-bottom: 1px solid var(--line); background: var(--panel-soft); }
+.sub .lab { font: 600 10.5px var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--accent-text); margin-right: 6px; }
+.new { font: 700 9px var(--font-ui); letter-spacing: .1em; text-transform: uppercase; padding: 1px 5px; border-radius: 6px; background: var(--accent); color: var(--on-accent); margin-left: 4px; }
+.work { display: grid; grid-template-columns: 1fr 340px; height: calc(100vh - 150px); min-height: 600px; }
+.view { position: relative; background: var(--canvas); overflow: hidden; border-right: 1px solid var(--line); }
+.view .grid { position: absolute; inset: 0; background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 24px 24px; }
+.stage { position: absolute; inset: 52px 14px 162px 14px; display: grid; grid-template-columns: 1fr 1.25fr; gap: 14px; }
+.card { position: relative; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--panel) 70%, transparent); display: flex; flex-direction: column; min-height: 0; }
+.card h4 { margin: 0; padding: 8px 12px 0; font: 600 10.5px var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+.card svg { flex: 1; width: 100%; min-height: 0; }
+.views { position: absolute; left: 14px; top: 12px; right: 14px; display: flex; gap: 6px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--panel); }
+.seg button { border: 0; background: none; color: var(--muted); padding: 4px 10px; font: 500 12px var(--font-ui); cursor: pointer; }
+.seg button.on { background: var(--sel, var(--hover)); color: var(--ink); }
+.presets { position: absolute; left: 14px; right: 14px; bottom: 14px; height: 136px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.presets .row { display: flex; gap: 8px; overflow-x: auto; }
+.pre { flex: 0 0 auto; width: 92px; border: 1px solid var(--line); border-radius: 10px; background: var(--canvas); padding: 4px; cursor: pointer; color: var(--muted); font-size: 11px; text-align: center; }
+.pre:hover, .pre.on { border-color: var(--accent); color: var(--ink); }
+.pre svg { width: 84px; height: 62px; display: block; margin: 0 auto 2px; }
+.side > * { flex-shrink: 0; }
+.side { background: var(--panel); overflow-y: auto; padding: 12px 14px 30px; }
+.side h3 { margin: 0 0 2px; font: italic 700 18px var(--font-title); text-transform: uppercase; }
+.eb { font: 600 10.5px var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--accent-text); }
+.side p.d { color: var(--muted); margin: 2px 0 10px; font-size: 12px; }
+.tabs { display: flex; gap: 4px; margin: 8px 0; flex-wrap: wrap; }
+.tabs button { border: 1px solid var(--line); background: var(--canvas); color: var(--muted); border-radius: 8px; padding: 4px 9px; font: 500 12px var(--font-ui); cursor: pointer; }
+.tabs button.on { border-color: var(--accent); color: var(--ink); box-shadow: inset 0 0 0 1px var(--accent); }
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; margin: 6px 0; }
+label.f { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: var(--muted); }
+label.f input { background: var(--box, var(--canvas)); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 5px 7px; font: 500 12.5px var(--font-mono); width: 100%; box-sizing: border-box; }
+.chk { display: flex; gap: 7px; align-items: center; margin: 5px 0; font-size: 12.5px; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 6px 0; }
+.tiles.t2 { grid-template-columns: repeat(2, 1fr); }
+.tiles.t4 { grid-template-columns: repeat(4, 1fr); }
+.tile { border: 1px solid var(--line); border-radius: 9px; background: var(--canvas); color: var(--muted); padding: 6px 4px; text-align: center; font-size: 11.5px; cursor: pointer; }
+.tile.on { border-color: var(--accent); color: var(--ink); box-shadow: inset 0 0 0 1px var(--accent); }
+.note { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-left: 3px solid var(--c-part); border-radius: 8px; padding: 7px 9px; margin: 8px 0; background: var(--canvas); }
+.note.warn { border-left-color: var(--warn); }
+.note b { color: var(--ink); }
+.checks { position: absolute; right: 14px; top: 12px; display: flex; gap: 8px; font-size: 12px; flex-wrap: wrap; justify-content: flex-end; max-width: 60%; }
+.checks span { display: inline-flex; gap: 5px; align-items: center; padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
+.dot.w { background: var(--warn); }
+.explain { max-width: 1200px; margin: 0 auto; padding: 18px 20px 40px; color: var(--muted); font-size: 13px; }
+.explain h2 { color: var(--ink); font: italic 700 20px var(--font-title); text-transform: uppercase; margin: 14px 0 8px; }
+.explain li { margin: 3px 0; }
+.explain b { color: var(--ink); }
+/* drawing */
+.wing { fill: var(--c-plate); stroke: color-mix(in srgb, var(--ink) 75%, var(--canvas)); stroke-width: .08; stroke-linejoin: round; }
+.plate { fill: color-mix(in srgb, var(--c-plate) 70%, var(--canvas)); stroke: color-mix(in srgb, var(--ink) 75%, var(--canvas)); stroke-width: .08; stroke-linejoin: round; }
+.leg { fill: var(--accent); opacity: .9; }
+.pin { fill: var(--accent); }
+.stake { fill: color-mix(in srgb, var(--accent) 60%, var(--canvas)); }
+.glue { fill: #e6c14a; opacity: .8; }
+.bodyw { fill: var(--c-body); stroke: color-mix(in srgb, var(--ink) 35%, var(--canvas)); stroke-width: .06; }
+.dim { stroke: var(--muted); stroke-width: .06; fill: none; }
+.dimt { fill: var(--muted); font: 500 1.05px var(--font-mono); font-size: var(--fs, 1.05px); text-anchor: middle; }
+.lbl { fill: var(--muted); font: 600 .9px var(--font-ui); font-size: calc(var(--fs, 1.05px) * .85); letter-spacing: .08em; text-transform: uppercase; }
+@media (max-width: 900px) { .work { grid-template-columns: 1fr; height: auto; } .view { height: 760px; } .stage { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="pb" style="display:flex;align-items:center;gap:14px;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--panel)">
+  <span class="brand-name"><b>F</b>rame</span>
+  <div><div style="font:600 10.5px var(--font-ui);letter-spacing:.12em;color:var(--muted)">1/32 · CHASSIS + POD + INSERTS + WINGS</div><div style="font:italic 700 18px var(--font-title);text-transform:uppercase">New chassis</div></div>
+  <div class="end"><span class="seg"><button data-tone-set="light">Light</button><button data-tone-set="dark" class="on">Dark</button></span></div>
+</header>
+<nav class="tools" style="display:flex;gap:4px;align-items:center;padding:6px 14px;border-bottom:1px solid var(--line);background:var(--panel)">
+  <button class="tbtn">Car</button><button class="tbtn">Outline</button><button class="tbtn">Shape</button><button class="tbtn">Fill</button><button class="tbtn">Features</button>
+  <button class="tbtn">Pod</button><button class="tbtn">Body</button><button class="tbtn">Inserts</button>
+  <button class="tbtn on">Wings<span class="new">new</span></button>
+  <button class="tbtn">Print</button>
+</nav>
+<div class="sub">
+  <span class="lab">Wings</span>
+  <button class="tbtn on" data-tab="wing">Wing</button>
+  <button class="tbtn" data-tab="plates">Endplates</button>
+  <button class="tbtn" data-tab="legs">Legs and mounting</button>
+  <button class="tbtn" data-tab="print">Print</button>
+  <span style="flex:1"></span>
+  <button class="tbtn">Drilling template</button>
+  <button class="tbtn">Save to library</button>
+  <button class="tbtn">Export STL</button>
+</div>
+
+<div class="work">
+  <div class="view">
+    <div class="grid"></div>
+    <div class="views">
+      <span class="seg"><button class="on">2D</button><button title="Not drawn in this preview">3D</button><button title="With a body loaded from Anvil">On the body</button></span>
+      <span class="seg" id="scaleSeg"><button class="on" data-s="1/32">1/32</button><button data-s="1/24">1/24</button></span>
+    </div>
+    <div class="checks" id="checks"></div>
+    <div class="stage">
+      <div class="card"><h4><span>From behind</span><span id="frontInfo"></span></h4><svg id="front"></svg></div>
+      <div class="card"><h4><span>From the side · section through a leg</span><span id="sideInfo"></span></h4><svg id="side"></svg></div>
+    </div>
+    <div class="presets">
+      <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:600 10.5px var(--font-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">Start from a wing · every one is just settings you can change</span><span style="font-size:11.5px;color:var(--muted)">Your saved wings appear here too</span></div>
+      <div class="row" id="presetRow"></div>
+    </div>
+  </div>
+  <aside class="side" id="panel"></aside>
+</div>
+
+<div class="explain">
+  <h2>How it is put together</h2>
+  <ul>
+    <li><b>A wing is four parts, each with its own tab:</b> the wing itself (span, chord, profile, angle, a Gurney flap, an optional second element), the endplates (a shape and its size), the legs (swan neck from above, or posts from below, how many, how far apart, how tall) and how it is fixed to the body.</li>
+    <li><b>Fixing to the body is the part that matters most on a slotcar.</b> Each leg ends in one or two pins that go through holes in the body. <b>Melted:</b> the pin is longer than the body wall by about its own diameter, and that bit is melted over from inside into a small mushroom head. <b>Glued:</b> short locating pins, or a flat foot that is glued on top of the body. A collar on the pin (optional) sits on top of the body, so the wing always stands at the same height.</li>
+    <li><b>The body is drawn in the section:</b> its wall thickness (hard plastic or Lexan) and the angle of the deck the legs stand on, so the legs come out the right length and the pins stand square to the body.</li>
+    <li><b>Ready-made wings to start from</b>, sized for 1/32 or 1/24: GT3 swan neck, GT3 on posts, LMP, DTM with two elements, Group C, and a classic flat wing. They are taken from the proportions of the real cars (a GT3 wing is about 1.8 m wide with a 300 mm chord: 56 × 9.5 mm in 1/32).</li>
+    <li><b>Checks:</b> a wing, a leg or an endplate thinner than your nozzle can print, a trailing edge too thin, legs too slender for their height, pins too thin to melt or too short for the wall, endplates that do not cover the wing's ends, and a wing wider than your rules allow.</li>
+    <li><b>Print:</b> in one piece, upside down so the wing's top lies on the bed (swan neck), or as a kit: the wing with its endplates, and the legs apart, which slot in. A drilling template (a strip with the hole spacing) helps put the holes in the body in the right place.</li>
+  </ul>
+  <h2>Ideas beyond the brief</h2>
+  <ul>
+    <li><b>On the body:</b> Frame already loads the body from SlotForge Anvil. The wing can stand on it: drag it along the tail and the legs follow the body's surface, each one cut to the right length, the pins square to the skin.</li>
+    <li><b>Mount spots shared with Anvil</b>, as the body mounts already are: Anvil can then put the holes (or small sockets for the pins) in a printed body itself.</li>
+    <li><b>Downforce has no meaning at this scale</b>, but the angle of the wing still changes its look; the angle and the Gurney flap are there for that, not for grip.</li>
+    <li><b>Weight:</b> a wing sits high and at the very back. Frame can show its weight, and how much it moves the centre of gravity (it already works that out for the chassis).</li>
+  </ul>
+  <p>This page is a design preview: the drawings are made live from the settings, but 3D, export, the template and the library are not wired up here.</p>
+</div>
+
+<script>
+'use strict';
+// ------------------------------------------------------------ a wing, as the app would keep it (1/32, mm)
+const BASE = {
+  span: 56, chord: 9.5, thick: 12, camber: 6, angle: 8, gurney: 0.5, element2: false, chord2: 4, angle2: 25, gap: 0.6,
+  plate: 'gt3', plateT: 0.8, above: 3, below: 2.5, fwd: 1, aft: 1.5,
+  legs: 'swan', count: 2, spacing: 26, height: 9, legW: 1.2, legD: 3, lean: 0, attach: 45,
+  fix: 'melt', pinD: 1.2, pins: 1, wall: 1.0, collar: true, deck: 6,
+};
+const PRESETS = {
+  'GT3 swan neck': {},
+  'GT3 on posts': { legs: 'posts', attach: 40, height: 8, gurney: 0.4 },
+  'LMP': { span: 58, chord: 8, thick: 10, angle: 6, plate: 'tall', below: 6, above: 2, aft: 2.5, legs: 'swan', count: 1, height: 10, legD: 5 },
+  'DTM two element': { span: 54, chord: 7, element2: true, chord2: 4, angle2: 28, plate: 'rect', above: 4, below: 3, legs: 'posts', height: 7, attach: 35 },
+  'Group C': { span: 60, chord: 10, thick: 11, element2: true, chord2: 4.5, angle2: 22, plate: 'round', above: 4, below: 7, legs: 'posts', count: 2, spacing: 18, height: 6 },
+  'Classic flat': { chord: 8, thick: 5, camber: 0, angle: 4, gurney: 0, plate: 'rect', above: 1.5, below: 1.5, fwd: 0, aft: 0, legs: 'posts', height: 6, legD: 2.4, fix: 'glue' },
+};
+let scale = '1/32';
+let s = { ...BASE };
+let tab = 'wing';
+const k = () => (scale === '1/24' ? 32 / 24 : 1);
+const LEN = ['span', 'chord', 'chord2', 'gap', 'above', 'below', 'fwd', 'aft', 'spacing', 'height', 'legW', 'legD', 'gurney', 'plateT', 'deck'];
+const load = (name) => { s = { ...BASE, ...PRESETS[name] }; for (const key of LEN) s[key] = +(s[key] * k()).toFixed(2); current = name; render(); };
+let current = 'GT3 swan neck';
+
+// ------------------------------------------------------------ the wing's profile (an upside-down NACA 4-digit section)
+// Points round the section, chord along x (0 at the leading edge), z up, then turned by the angle (trailing edge up).
+function section(chord, thickPct, camberPct, angle, lead = [0, 0]) {
+  const n = 28, t = thickPct / 100, m = camberPct / 100, p = 0.4, up = [], lo = [];
+  for (let i = 0; i <= n; i++) {
+    const x = (1 - Math.cos((i / n) * Math.PI)) / 2;
+    const yt = 5 * t * (0.2969 * Math.sqrt(x) - 0.126 * x - 0.3516 * x * x + 0.2843 * x ** 3 - 0.1036 * x ** 4);
+    const yc = m ? (x < p ? (m / (p * p)) * (2 * p * x - x * x) : (m / ((1 - p) ** 2)) * (1 - 2 * p + 2 * p * x - x * x)) : 0;
+    // Upside down: the camber bulges downward, as on every wing that presses a car down.
+    up.push([x * chord, (-yc + yt) * chord]); lo.push([x * chord, (-yc - yt) * chord]);
+  }
+  const a = (angle * Math.PI) / 180, rot = ([x, z]) => [lead[0] + x * Math.cos(a), lead[1] + x * Math.sin(a) + z * Math.cos(a)];
+  return { pts: [...up.map(rot), ...lo.reverse().map(rot)], te: rot([chord, 0]), top: (fx) => rot([fx * chord, 0]) };
+}
+const path = (pts) => 'M' + pts.map((p) => p.map((v) => v.toFixed(3)).join(' ')).join('L') + 'Z';
+
+function draw(target, opts = {}) {
+  const w = s, out = [];
+  const deckA = (w.deck * Math.PI) / 180; // the body slopes down towards the tail
+  const deckZ = (x) => -Math.tan(deckA) * (x - w.chord / 2);
+  const lead = [0, w.height];
+  // Leading edge low, trailing edge up: the angle a wing presses the car down with.
+  const main = section(w.chord, w.thick, w.camber, w.angle, lead);
+  // The flap starts just above and a little ahead of the wing's trailing edge, with the gap between them.
+  const flap = w.element2 ? section(w.chord2, w.thick * 0.9, w.camber, w.angle2, [main.te[0] - 0.15 * w.chord2, main.te[1] + w.gap]) : null;
+  const te = flap ? flap.te : main.te;
+  if (target === 'side') {
+    const x0 = -w.fwd - 4, x1 = Math.max(te[0], w.chord) + w.aft + 4;
+    // The body: its skin, as thick as its wall, sloping by the deck angle.
+    out.push(`<path class="bodyw" d="M${x0} ${-deckZ(x0)}L${x1} ${-deckZ(x1)}L${x1} ${-deckZ(x1) + w.wall}L${x0} ${-deckZ(x0) + w.wall}Z"/>`);
+    out.push(`<text class="lbl" x="${x0 + 0.5}" y="${-deckZ(x0) + w.wall + 1.4}">Body · ${w.wall} mm wall</text>`);
+    // The endplate behind the wing.
+    const ez0 = Math.min(lead[1], te[1]) - w.below, ez1 = Math.max(lead[1], te[1]) + w.above, ex0 = -w.fwd, ex1 = Math.max(te[0], w.chord) + w.aft;
+    let plate;
+    if (w.plate === 'rect') plate = `M${ex0} ${-ez0}H${ex1}V${-ez1}H${ex0}Z`;
+    else if (w.plate === 'round') { const r = Math.min(3, (ez1 - ez0) / 2); plate = `M${ex0 + r} ${-ez0}H${ex1 - r}Q${ex1} ${-ez0} ${ex1} ${-ez0 - r}V${-ez1 + r}Q${ex1} ${-ez1} ${ex1 - r} ${-ez1}H${ex0 + r}Q${ex0} ${-ez1} ${ex0} ${-ez1 + r}V${-ez0 - r}Q${ex0} ${-ez0} ${ex0 + r} ${-ez0}Z`; }
+    else if (w.plate === 'tall') plate = `M${ex0} ${-ez0}L${ex1} ${-(ez0 + 1)}V${-ez1}L${ex0 + (ex1 - ex0) * 0.35} ${-ez1}L${ex0} ${-(ez1 - 2)}Z`;
+    else plate = `M${ex0} ${-(ez0 + 0.8)}L${ex0 + (ex1 - ex0) * 0.3} ${-ez0}H${ex1}V${-ez1}L${ex0 + (ex1 - ex0) * 0.15} ${-ez1}L${ex0} ${-(ez1 - 1.2)}Z`;
+    out.push(`<path class="plate" d="${plate}"/>`);
+    // The wing, its second element and the Gurney flap (a small tab up at the trailing edge).
+    out.push(`<path class="wing" d="${path(main.pts.map(([x, z]) => [x, -z]))}"/>`);
+    if (flap) out.push(`<path class="wing" d="${path(flap.pts.map(([x, z]) => [x, -z]))}"/>`);
+    if (w.gurney > 0) out.push(`<rect class="wing" x="${te[0] - 0.25}" y="${-te[1] - w.gurney}" width="0.3" height="${w.gurney}"/>`);
+    // A leg, seen from the side: a swan neck comes up behind the wing and over its top; a post stands under it.
+    const att = main.top(w.attach / 100), foot = w.legs === 'swan' ? Math.max(te[0], w.chord) + 0.8 : att[0] + Math.tan((w.lean * Math.PI) / 180) * w.height, legHalf = w.legD / 2;
+    const fz = deckZ(foot);
+    if (w.legs === 'swan') {
+      const topZ = Math.max(lead[1], te[1]) + 1.6, d = w.legD * 0.45;
+      out.push(`<path class="leg" d="M${foot - legHalf} ${-fz}L${foot - legHalf} ${-(topZ - 2)}Q${foot - legHalf} ${-topZ} ${foot - legHalf - 2} ${-topZ}L${att[0]} ${-topZ}L${att[0]} ${-(att[1])}L${att[0] + d} ${-(att[1] + 0.15)}L${att[0] + d} ${-(topZ - d)}L${foot + legHalf - 2.2} ${-(topZ - d)}Q${foot + legHalf} ${-(topZ - d)} ${foot + legHalf} ${-(topZ - d - 2)}L${foot + legHalf} ${-deckZ(foot + legHalf)}Z"/>`);
+    } else {
+      out.push(`<path class="leg" d="M${att[0] - legHalf} ${-(att[1] - 0.3)}L${foot - legHalf} ${-deckZ(foot - legHalf)}L${foot + legHalf} ${-deckZ(foot + legHalf)}L${att[0] + legHalf} ${-(att[1] - 0.3)}Z"/>`);
+    }
+    // Fixing: pins through the wall, melted into a head inside; or a glued foot.
+    const pins = w.pins === 2 ? [foot - legHalf * 0.55, foot + legHalf * 0.55] : [foot];
+    for (const px of pins) {
+      const pz = deckZ(px);
+      if (w.fix === 'melt') {
+        out.push(`<rect class="pin" x="${px - w.pinD / 2}" y="${-pz}" width="${w.pinD}" height="${w.wall}"/>`);
+        out.push(`<ellipse class="stake" cx="${px}" cy="${-pz + w.wall + w.pinD * 0.35}" rx="${w.pinD * 0.95}" ry="${w.pinD * 0.4}"/>`);
+      } else out.push(`<rect class="pin" x="${px - w.pinD / 2}" y="${-pz}" width="${w.pinD}" height="${w.wall * 0.7}"/>`);
+    }
+    if (w.fix === 'glue') out.push(`<rect class="glue" x="${foot - legHalf - 0.6}" y="${-fz - 0.25}" width="${w.legD + 1.2}" height="0.25"/>`);
+    if (w.collar && w.fix === 'melt') out.push(`<rect class="leg" x="${foot - legHalf - 0.5}" y="${-fz - 0.4}" width="${w.legD + 1}" height="0.4"/>`);
+    // Dimensions.
+    out.push(`<path class="dim" d="M${x0 + 1.4} ${-deckZ(0)}V${-lead[1]}M${x0 + 1} ${-deckZ(0)}h.8M${x0 + 1} ${-lead[1]}h.8"/><text class="dimt" x="${x0 + 0.6}" y="${-(lead[1] + deckZ(0)) / 2}" transform="rotate(-90 ${x0 + 0.6} ${-(lead[1] + deckZ(0)) / 2})">height ${w.height.toFixed(1)}</text>`);
+    out.push(`<path class="dim" d="M0 ${-ez1 - 1.2}H${w.chord}M0 ${-ez1 - 1.5}v.6M${w.chord} ${-ez1 - 1.5}v.6"/><text class="dimt" x="${w.chord / 2}" y="${-ez1 - 1.6}">chord ${w.chord.toFixed(1)} · ${w.angle}°</text>`);
+    return { svg: out.join(''), box: [x0, -ez1 - 3, x1 - x0, ez1 + 3 + w.wall + 2.5 + Math.abs(deckZ(x0))] };
+  }
+  // From behind: the span, the endplates, the legs and the pins under the body's skin.
+  const half = w.span / 2, zw = w.height + w.chord * Math.sin((w.angle * Math.PI) / 180) / 2, thick = Math.max(0.5, (w.thick / 100) * w.chord);
+  const ez0 = w.height - w.below, ez1 = zw + w.above + (w.element2 ? 1.5 : 0), W = half + w.plateT + 3;
+  out.push(`<rect class="bodyw" x="${-W}" y="0" width="${2 * W}" height="${w.wall}"/>`);
+  out.push(`<rect class="wing" x="${-half}" y="${-zw - thick / 2}" width="${w.span}" height="${thick}"/>`);
+  if (w.element2) out.push(`<rect class="wing" x="${-half}" y="${-zw - thick / 2 - 1.6}" width="${w.span}" height="${thick * 0.7}"/>`);
+  for (const sx of [-1, 1]) out.push(`<rect class="plate" x="${sx > 0 ? half : -half - w.plateT}" y="${-ez1}" width="${w.plateT}" height="${ez1 - ez0}"/>`);
+  const legs = w.count === 1 ? [0] : [-w.spacing / 2, w.spacing / 2];
+  for (const lx of legs) {
+    const top = w.legs === 'swan' ? zw + thick / 2 + 1.6 : zw - thick / 2;
+    out.push(`<rect class="leg" x="${lx - w.legW / 2}" y="${-top}" width="${w.legW}" height="${top}"/>`);
+    if (w.fix === 'melt') {
+      out.push(`<rect class="pin" x="${lx - w.pinD / 2}" y="0" width="${w.pinD}" height="${w.wall}"/><ellipse class="stake" cx="${lx}" cy="${w.wall + w.pinD * 0.35}" rx="${w.pinD * 0.95}" ry="${w.pinD * 0.4}"/>`);
+      if (w.collar) out.push(`<rect class="leg" x="${lx - w.legW / 2 - 0.5}" y="-0.4" width="${w.legW + 1}" height="0.4"/>`);
+    } else out.push(`<rect class="pin" x="${lx - w.pinD / 2}" y="0" width="${w.pinD}" height="${w.wall * 0.7}"/><rect class="glue" x="${lx - w.legW / 2 - 0.6}" y="-0.25" width="${w.legW + 1.2}" height="0.25"/>`);
+  }
+  out.push(`<path class="dim" d="M${-half} ${-ez1 - 1.4}H${half}M${-half} ${-ez1 - 1.7}v.6M${half} ${-ez1 - 1.7}v.6"/><text class="dimt" x="0" y="${-ez1 - 1.8}">span ${w.span.toFixed(1)}</text>`);
+  if (w.count === 2) out.push(`<path class="dim" d="M${-w.spacing / 2} ${w.wall + 2}H${w.spacing / 2}"/><text class="dimt" x="0" y="${w.wall + 3.3}">legs ${w.spacing.toFixed(1)} apart</text>`);
+  return { svg: out.join(''), box: [-W, -ez1 - 3, 2 * W, ez1 + 3 + w.wall + 4] };
+}
+
+function render() {
+  for (const t of ['front', 'side']) {
+    const d = draw(t), el = document.getElementById(t);
+    el.setAttribute('viewBox', d.box.map((v) => v.toFixed(2)).join(' '));
+    el.innerHTML = d.svg;
+    // Text the same size on screen in both views: a share of what each view shows.
+    el.style.setProperty('--fs', (Math.max(d.box[2], d.box[3] * 1.3) * 0.028).toFixed(3) + 'px');
+  }
+  document.getElementById('frontInfo').textContent = `${s.span.toFixed(1)} wide`;
+  document.getElementById('sideInfo').textContent = s.legs === 'swan' ? 'swan neck' : 'on posts';
+  const nozzle = 0.4, notes = [];
+  const te = (s.thick / 100) * s.chord * 0.25;
+  notes.push(te < nozzle ? ['w', 'Trailing edge thinner than the nozzle'] : ['ok', 'Wing prints with a 0.4 nozzle']);
+  notes.push(s.legW < nozzle * 2 ? ['w', 'Legs thinner than two lines'] : s.height / s.legW > 10 ? ['w', 'Legs slender for their height'] : ['ok', 'Legs stiff enough']);
+  notes.push(s.fix === 'melt' && s.pinD < 1 ? ['w', 'Pins too thin to melt over'] : ['ok', s.fix === 'melt' ? `Pins ${(s.wall + s.pinD).toFixed(1)} long, melted inside` : 'Glued on']);
+  notes.push(s.span + 2 * s.plateT > 64 * k() ? ['w', 'Wider than the rules'] : ['ok', `${(s.span + 2 * s.plateT).toFixed(1)} over the endplates`]);
+  document.getElementById('checks').innerHTML = notes.map(([c, t]) => `<span><i class="dot ${c === 'w' ? 'w' : ''}"></i>${t}</span>`).join('');
+  document.querySelectorAll('.pre').forEach((p) => p.classList.toggle('on', p.dataset.p === current));
+  panel();
+}
+
+// ------------------------------------------------------------ the panel
+const num = (label, key, step = 0.1, tag = '') => `<label class="f">${label}${tag}<input type="number" step="${step}" value="${s[key]}" data-k="${key}"></label>`;
+const tiles = (key, list, cls = '') => `<div class="tiles ${cls}">${list.map(([v, t]) => `<div class="tile ${s[key] === v ? 'on' : ''}" data-k="${key}" data-v="${v}">${t}</div>`).join('')}</div>`;
+function panel() {
+  const tabs = [['wing', 'Wing'], ['plates', 'Endplates'], ['legs', 'Legs and mounting'], ['print', 'Print']];
+  let h = `<div class="eb">Wings</div><h3>Rear wing</h3><p class="d">A wing for the body, printed apart and fixed to it with pins through the body. Start from a wing below the view, then make it yours.</p>
+    <div class="tabs">${tabs.map(([v, t]) => `<button class="${tab === v ? 'on' : ''}" data-tab="${v}">${t}</button>`).join('')}</div>`;
+  if (tab === 'wing') h += `<div class="g2">${num('Span (between the endplates)', 'span')}${num('Chord (front to back)', 'chord')}${num('Thickness (% of chord)', 'thick', 1)}${num('Camber (% of chord)', 'camber', 1)}${num('Angle (°)', 'angle', 1)}${num('Gurney flap (0: none)', 'gurney')}</div>
+      <label class="chk"><input type="checkbox" data-k="element2" ${s.element2 ? 'checked' : ''}>A second element behind it (a flap)</label>
+      ${s.element2 ? `<div class="g2">${num('Flap chord', 'chord2')}${num('Flap angle (°)', 'angle2', 1)}${num('Gap to the wing', 'gap')}</div>` : ''}
+      <div class="note">The section is a wing profile turned upside down, as on the real cars. At this scale it does nothing for grip; the angle and the flap are there for the look.</div>`;
+  if (tab === 'plates') h += tiles('plate', [['gt3', 'GT3'], ['rect', 'Square'], ['round', 'Rounded'], ['tall', 'LMP, tall']], 't4') + `<div class="g2">${num('Thickness', 'plateT')}${num('Above the wing', 'above')}${num('Below the wing', 'below')}${num('Ahead of the wing', 'fwd')}${num('Behind the wing', 'aft')}</div>
+      <div class="note">Or <b>draw your own</b> endplate outline, as with the inserts' own shapes, or import it as an SVG.</div>`;
+  if (tab === 'legs') h += tiles('legs', [['swan', 'Swan neck'], ['posts', 'Posts below']], 't2') + `<div class="g2">${num('Legs (1 or 2)', 'count', 1)}${s.count === 2 ? num('Apart (centre to centre)', 'spacing') : ''}${num('Height above the body', 'height')}${num('Leg width (from behind)', 'legW')}${num('Leg depth (from the side)', 'legD')}${s.legs === 'posts' ? num('Lean (°)', 'lean', 1) : ''}${num('Holds the wing at (% chord)', 'attach', 5)}</div>
+      <label class="f" style="margin-top:8px">Fixed to the body</label>` + tiles('fix', [['melt', 'Pins, melted inside'], ['glue', 'Glued']], 't2') + `<div class="g2">${num('Pin diameter', 'pinD')}${num('Pins per leg', 'pins', 1)}${num('Body wall', 'wall', 0.1, '<span style="color:var(--warn-text);font-size:10px"> measure</span>')}${num('Body slope (°)', 'deck', 1)}</div>
+      ${s.fix === 'melt' ? `<label class="chk"><input type="checkbox" data-k="collar" ${s.collar ? 'checked' : ''}>A collar on top of the body, so the wing always stands at the same height</label><div class="note">The pins are as long as the wall plus their own diameter (${(s.wall + s.pinD).toFixed(1)} mm). Push them through, then melt the ends over from inside with a soldering iron: each becomes a small head that holds.</div>` : `<div class="note">Short pins only locate the wing, with a flat foot under each leg for the glue. Thin CA glue or a canopy glue for a Lexan body.</div>`}`;
+  if (tab === 'print') h += tiles('printAs', [['one', 'One piece'], ['kit', 'Kit: legs apart']], 't2') + `<div class="note">In one piece it prints upside down, the top of the wing on the bed, the legs pointing up. As a kit the wing prints flat and the legs on their side, with slots so they go together square.</div>
+      <div class="note">A <b>drilling template</b> is a thin strip with holes at the legs' spacing, to lay on the body and drill through.</div>`;
+  const el = document.getElementById('panel');
+  el.innerHTML = h;
+  el.querySelectorAll('input[data-k]').forEach((i) => i.addEventListener('change', () => { s[i.dataset.k] = i.type === 'checkbox' ? i.checked : +i.value; current = null; render(); }));
+  el.querySelectorAll('.tile[data-k]').forEach((t) => t.addEventListener('click', () => { s[t.dataset.k] = t.dataset.v; current = null; render(); }));
+  el.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { tab = b.dataset.tab; syncTabs(); render(); }));
+}
+function syncTabs() { document.querySelectorAll('.sub [data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab)); }
+document.querySelectorAll('.sub [data-tab]').forEach((b) => b.addEventListener('click', () => { tab = b.dataset.tab; syncTabs(); render(); }));
+
+// ------------------------------------------------------------ the presets strip, scale and theme
+function presetRow() {
+  document.getElementById('presetRow').innerHTML = Object.keys(PRESETS).map((n) => {
+    const keep = s; s = { ...BASE, ...PRESETS[n] }; const d = draw('side'); s = keep;
+    return `<div class="pre" data-p="${n}"><svg viewBox="${d.box.join(' ')}">${d.svg.replace(/<text[^>]*>[^<]*<\/text>/g, '').replace(/<path class="dim"[^>]*\/>/g, '')}</svg>${n}</div>`;
+  }).join('');
+  document.querySelectorAll('.pre').forEach((p) => p.addEventListener('click', () => load(p.dataset.p)));
+}
+document.querySelectorAll('#scaleSeg button').forEach((b) => b.addEventListener('click', () => {
+  scale = b.dataset.s; document.querySelectorAll('#scaleSeg button').forEach((x) => x.classList.toggle('on', x === b)); load(current ?? 'GT3 swan neck');
+}));
+document.querySelectorAll('[data-tone-set]').forEach((bt) => bt.addEventListener('click', () => {
+  document.documentElement.dataset.tone = document.documentElement.dataset.theme = bt.dataset.toneSet;
+  document.querySelectorAll('[data-tone-set]').forEach((x) => x.classList.toggle('on', x === bt));
+}));
+presetRow();
+load('GT3 swan neck');
+</script>
+</body>
+</html>
