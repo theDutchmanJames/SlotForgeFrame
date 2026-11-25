@@ -4,7 +4,7 @@
 
 import { find, on, heights, motorOf, gearOf, motorPlace, podLayout, uprightSpread, seatSize, holderSize, flanged, flangeProud, gearSide, asRight, podShift, unshifted, podRide, kickActive, activeKicks, profileOf, bearingOf, couponHoles } from '../model.js';
 import { createAnalyser } from './analyse.js';
-import { layerShape, directional, insertOf, insertChecks } from '../inserts.js';
+import { layerShape, directional, insertOf, insertChecks, ringSizes } from '../inserts.js';
 
 // The areas a kick-up lifts, seen from above: [x0, y0, x1, y1] each. `far` is how far 'everything' reaches.
 export function kickAreas(d, far) {
@@ -1239,19 +1239,18 @@ export function createEngine(wasm) {
       bin = [];
     }
   }
-  // A calibration ring: plain discs of the insert's size, from 0.10 mm under to 0.15 mm over,
-  // numbered 1 to 6. The one that presses in firmly tells the clearance to use.
-  const RING_STEPS = [-0.1, -0.05, 0, 0.05, 0.1, 0.15];
+  // A calibration ring: plain discs round the middle size you set, numbered from the smallest.
+  // The one that presses in firmly and stays is the size to print.
   function insertRing(args) {
     bin = [];
     try {
-      const b = args.insert.base, t = Math.min(1.2, b.thick), gap = b.od + 3;
-      const parts = RING_STEPS.map((step, i) => {
-        const x = i * gap, r = (b.od + step) / 2;
-        return u3([cylZ(x, 0, 0, t, r), ...digit(i + 1, x - 0.9, -1.6, t, 1.8, 3.2, 0.5, 0.4)]);
+      const sizes = ringSizes(args.ring), t = Math.min(1.2, args.insert.base.thick), gap = Math.max(...sizes) + 3;
+      const parts = sizes.map((d, i) => {
+        const x = i * gap;
+        return u3([cylZ(x, 0, 0, t, d / 2), ...digit(i + 1, x - 0.9, -1.6, t, 1.8, 3.2, 0.5, 0.4)]);
       });
       const all = u3(parts);
-      return { mesh: meshOf(all), steps: RING_STEPS.map((s) => Math.round((b.od + s) * 1000) / 1000), pieces: RING_STEPS.length };
+      return { mesh: meshOf(all), sizes, pieces: sizes.length };
     } finally {
       for (const o of bin) try { o.delete(); } catch { /* already freed */ }
       bin = [];

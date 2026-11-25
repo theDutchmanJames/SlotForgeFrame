@@ -949,14 +949,18 @@ export const checks = [
     const [set] = await app.downloads(async () => { await page.click('[data-act=pop][data-pop=export]'); await page.click('.popmenu [data-act=exportinserts]'); });
     assert.equal(set.name, 'New chassis wheel inserts.stl');
     assert.ok(stlTriangles(set.bytes) > 500);
+    // The calibration ring is made round a middle size you set.
     await app.tool('inserts', 'insertRing');
+    await app.set('inserts.ring.centre', 11.6);
     const [ring] = await app.downloads(() => page.click('#panel [data-act=exportring]'));
     assert.equal(ring.name, 'New chassis insert calibration ring.stl');
-    // Telling the app which disc fitted sets the size.
-    await page.click('#panel [data-act=insring][data-v="0.05"]');
+    assert.equal(await page.locator('#panel [data-act=insring][data-k=rear]').count(), 7);
+    // Telling the app which disc fitted sets that size, the same however often it is clicked.
+    await page.click('#panel [data-act=insring][data-k=rear] >> nth=4');
+    await page.click('#panel [data-act=insring][data-k=rear] >> nth=4');
     const fitted = (await insert()).rear.base;
-    assert.equal(fitted.od, 11.85);
-    assert.equal(fitted.clear, 0.075);
+    assert.equal(fitted.od, 11.65);
+    assert.equal(fitted.clear, 0.175);
   }],
 
   ['every tool opens its panel and every shaping tool adds a feature that builds', async (app) => {

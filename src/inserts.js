@@ -69,8 +69,13 @@ export function newInsert(scale = '1/32') {
   const base = newBase(scale);
   return { ...presetFor('5-spoke', base), faceDown: false };
 }
+// The calibration ring: seven discs round a middle size you set (your best guess at the pocket),
+// `step` apart. Disc 4 is the middle one.
+export const RING_COUNT = 7;
+export const newRing = (scale = '1/32') => ({ centre: newBase(scale).od, step: 0.05 });
+export const ringSizes = (ring) => Array.from({ length: RING_COUNT }, (_, i) => round(ring.centre + (i - (RING_COUNT - 1) / 2) * ring.step));
 export function newInserts(scale = '1/32') {
-  return { same: true, rear: newInsert(scale), front: newInsert(scale) };
+  return { same: true, rear: newInsert(scale), front: newInsert(scale), ring: newRing(scale) };
 }
 // The insert for one end of the car: the front copies the rear when both are the same.
 export const insertOf = (d, which) => (which === 'front' && !d.inserts.same ? d.inserts.front : d.inserts.rear);
@@ -110,7 +115,8 @@ export function cleanInsert(raw, scale = '1/32') {
 }
 export function cleanInserts(raw, scale = '1/32') {
   if (!raw || typeof raw !== 'object') return newInserts(scale);
-  return { same: raw.same !== false, rear: cleanInsert(raw.rear, scale), front: cleanInsert(raw.front ?? raw.rear, scale) };
+  const rear = cleanInsert(raw.rear, scale), ring = cleanObj({ centre: rear.base.od, step: 0.05 }, raw.ring, { centre: [2, 50], step: [0.01, 0.5] });
+  return { same: raw.same !== false, rear, front: cleanInsert(raw.front ?? raw.rear, scale), ring };
 }
 
 // ------------------------------------------------------------ the pattern as 2D shapes

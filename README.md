@@ -108,7 +108,7 @@ Frame works along eight menus, roughly in the order you build a car: **Car, Outl
 - **Patterns from layers:** spokes (straight, bent, split, or crossed into a mesh), holes (round, slot or window), rings, bolts with a hex or centre-lock nut, and shapes you draw yourself or import as SVG. Each layer repeats round the centre by itself and is cut through, sunk into the face or raised from it. A dish, a rim lip and a centre hole complete the face.
 - **Start from a pattern:** 5-spoke, split 10, mesh, 8-hole, turbine, slots, windows and dish, all of them only layers you can change.
 - **Front and rear:** the same insert all round, or one of each. The set of four prints on one plate; a pattern that bends one way is mirrored for the other side of the car.
-- **Fit and checks:** a calibration ring of six numbered discs finds the size that presses in firmly. Frame warns about spokes thinner than the nozzle, holes that run into each other, a pattern that cuts the insert into loose pieces, and an insert that stands out of its pocket.
+- **Fit and checks:** a calibration ring of seven numbered discs, round a middle size you set and a step you choose, finds the size that presses in firmly. Frame warns about spokes thinner than the nozzle, holes that run into each other, a pattern that cuts the insert into loose pieces, and an insert that stands out of its pocket.
 
 ### Bought and shared parts
 

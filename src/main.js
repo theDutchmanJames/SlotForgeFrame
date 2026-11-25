@@ -17,7 +17,7 @@ import {
   newDesign, find, on, round, summary, heights, checks, partsLayout, podLayout, motorOf, gearOf, proposeCross, unconfirmed, uprightSpread, useBearing, meshCentre, activeKicks, profileOf, pinionOut, motorAngle, gearAngle, traceWheels, traceArches, applyOutline, centreMounts, podShift, podSideways, podRide, rideClearance, balance,
   encodeProject, decodeProject, createHistory, MATERIALS, FEATURE_NAMES, MULTI, newShape, shapesOf, gearsFor, bearingOf, guideOf, choicesFor, moveRear, couponHoles,
 } from './model.js';
-import { PRESETS as INSERT_PRESETS, LAYER_TYPES, LAYER_NAMES, MODES, MODE_NAMES, presetFor, newLayer, layerShape, circle as insCircle, directional, fitToSegment, cleanInsert } from './inserts.js';
+import { ringSizes, RING_COUNT, PRESETS as INSERT_PRESETS, LAYER_TYPES, LAYER_NAMES, MODES, MODE_NAMES, presetFor, newLayer, layerShape, circle as insCircle, directional, fitToSegment, cleanInsert } from './inserts.js';
 // ?inline: the pictures are built into the page, which is the only file the desktop app ships.
 import iconUrl from './assets/slotforge-frame.svg?inline';
 import wordmarkDark from './assets/frame-dark.svg?inline';
@@ -612,12 +612,15 @@ const PANEL_INSERT = (d) => {
   return h;
 };
 const PANEL_RING = (d) => {
-  const b = d.inserts.rear.base, steps = [-0.1, -0.05, 0, 0.05, 0.1, 0.15];
-  return head('Inserts', 'Calibration ring', 'Six plain discs the size of the rear insert, from 0.10 mm under to 0.15 mm over, numbered 1 to 6. Press each into your wheel: the one that goes in firmly and stays is the size to print.') +
-    `<div class="kv">${steps.map((s, i) => [`Disc ${i + 1}`, `Ø${f2(b.od + s)}`]).map(([k, v]) => `<span>${k}</span><b>${v}</b>`).join('')}</div>
+  const ins = d.inserts, sizes = ringSizes(ins.ring), mid = (RING_COUNT - 1) / 2;
+  const ends = ins.same ? [['rear', 'Which one fitted?']] : [['rear', 'Which one fitted the rear wheels?'], ['front', 'Which one fitted the front wheels?']];
+  return head('Inserts', 'Calibration ring', `${RING_COUNT} plain discs round a middle size you set. Press each into your wheel: the one that goes in firmly and stays is the size to print.`) +
+    `<div class="g2">${num('Middle disc (your best guess)', 'inserts.ring.centre', 'mm', { min: 2, max: 50 })}${num('Step between discs', 'inserts.ring.step', 'mm', { min: 0.01, max: 0.5 })}</div>
+    <div class="row"><button class="btn sm ghost" data-act="insringfrom" data-k="rear">Use the ${ins.same ? 'insert' : 'rear insert'}'s size (Ø${f2(ins.rear.base.od)})</button>${ins.same ? '' : `<button class="btn sm ghost" data-act="insringfrom" data-k="front">Use the front's (Ø${f2(ins.front.base.od)})</button>`}</div>
+    <div class="kv">${sizes.map((s, i) => `<span>Disc ${i + 1}${i === mid ? ' (middle)' : ''}</span><b>Ø${f2(s)}</b>`).join('')}</div>
     <button class="btn primary" data-act="exportring">${ico('export')}Export the calibration ring</button>
-    <label class="f">Which one fitted?</label><div class="seg wide">${steps.map((s, i) => `<button data-act="insring" data-v="${s}">${i + 1}</button>`).join('')}</div>
-    <div class="note">Picking one sets the rear insert to that size, and the clearance to match its pocket${d.inserts.same ? '' : ' (do the front on its own if its wheels differ)'}.</div>`;
+    ${ends.map(([k, t]) => `<label class="f">${t}</label><div class="seg wide">${sizes.map((s, i) => `<button data-act="insring" data-k="${k}" data-v="${s}" title="Ø${f2(s)}">${i + 1}</button>`).join('')}</div>`).join('')}
+    <div class="note">Picking one sets ${ins.same ? 'the inserts' : 'that insert'} to the size of that disc, and the clearance to match the pocket. The list shows the sizes the ring is made with: set the middle size before you export it, and leave it while you try the discs.</div>`;
 };
 
 const PANELS = {
@@ -1439,13 +1442,16 @@ const ACTIONS = {
     b.od = round(b.pocketD - 2 * b.clear, 3);
     commit();
   },
+  // The disc that fitted: its size becomes the insert's, whatever the insert was before.
   insring(el) {
-    for (const key of state.design.inserts.same ? ['rear'] : ['rear']) {
-      const b = state.design.inserts[key].base;
-      b.od = round(b.od + +el.dataset.v, 3);
-      b.clear = round((b.pocketD - b.od) / 2, 3);
-    }
-    toast(`The rear insert is now Ø${f2(state.design.inserts.rear.base.od)}.`);
+    const key = state.design.inserts.same ? 'rear' : el.dataset.k, b = state.design.inserts[key].base;
+    b.od = round(+el.dataset.v, 3);
+    b.clear = round((b.pocketD - b.od) / 2, 3);
+    toast(`The ${state.design.inserts.same ? 'inserts are' : key + ' insert is'} now Ø${f2(b.od)}.`);
+    commit();
+  },
+  insringfrom(el) {
+    state.design.inserts.ring.centre = state.design.inserts[el.dataset.k].base.od;
     commit();
   },
   insptadd() {
@@ -1492,9 +1498,9 @@ const ACTIONS = {
     }, (e) => toast(e.message, true));
   },
   exportring() {
-    call('insertRing', { insert: state.design.inserts.rear }).then((ring) => {
+    call('insertRing', { insert: state.design.inserts.rear, ring: state.design.inserts.ring }).then((ring) => {
       download(encodeSTL(layFlat(ring.mesh), 'SlotForge Frame insert calibration ring'), `${fileBase()} insert calibration ring.stl`, 'model/stl');
-      toast('Exported the calibration ring: six discs, numbered 1 to 6.');
+      toast(`Exported the calibration ring: ${ring.pieces} discs, Ø${f2(ring.sizes[0])} to Ø${f2(ring.sizes.at(-1))}, numbered from the smallest.`);
     }, (e) => toast(e.message, true));
   },
   menu(el) {

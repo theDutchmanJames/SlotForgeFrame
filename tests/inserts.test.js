@@ -107,15 +107,23 @@ test('the set of four mirrors a pattern that bends one way, and lays the inserts
   assert.equal(engine.insertSet(d).pieces, 4);
 });
 
-test('the calibration ring has six numbered discs round the insert size', () => {
-  const d = newDesign(), ring = engine.insertRing({ insert: d.inserts.rear });
-  assert.equal(ring.pieces, 6);
-  assert.deepEqual(ring.steps, [-0.1, -0.05, 0, 0.05, 0.1, 0.15].map((s) => Math.round((d.inserts.rear.base.od + s) * 1000) / 1000));
+test('the calibration ring has seven numbered discs round a middle size you set', () => {
+  const d = newDesign();
+  assert.equal(d.inserts.ring.centre, d.inserts.rear.base.od, 'it starts at the insert size');
+  d.inserts.ring = { centre: 15.3, step: 0.05 };
+  const ring = engine.insertRing({ insert: d.inserts.rear, ring: d.inserts.ring });
+  assert.equal(ring.pieces, 7);
+  assert.deepEqual(ring.sizes, [15.15, 15.2, 15.25, 15.3, 15.35, 15.4, 15.45]);
+  // Kept in the file, and kept in range.
+  assert.deepEqual(decodeProject(encodeProject(d)).inserts.ring, { centre: 15.3, step: 0.05 });
+  const raw = JSON.parse(encodeProject(d));
+  raw.inserts.ring = { centre: 99, step: 0 };
+  assert.deepEqual(cleanDesign(raw).inserts.ring, { centre: 50, step: 0.01 });
 });
 
 test('inserts are kept in the design file and in the library, and cleaned on the way in', () => {
   const d = newDesign();
-  d.inserts = { same: false, rear: withPreset('Slots'), front: withPreset('Mesh') };
+  d.inserts = { same: false, rear: withPreset('Slots'), front: withPreset('Mesh'), ring: { centre: 11.7, step: 0.04 } };
   d.inserts.front.layers.push(newLayer('draw'));
   const back = decodeProject(encodeProject(d));
   assert.deepEqual(back.inserts, JSON.parse(JSON.stringify(d.inserts)));
