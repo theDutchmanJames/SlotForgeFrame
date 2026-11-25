@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-tone="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Frame: wheel inserts preview</title>
+<link rel="stylesheet" href="./theme.css">
+<link rel="stylesheet" href="./anvil-style.css">
+<style>
+/* Design preview for the Inserts workspace. Everything on the page is live: the pattern tools really draw. */
+:root { --c-plate: color-mix(in srgb, var(--ink) 62%, var(--canvas)); --c-part: #6fb6ff; --c-alu: color-mix(in srgb, var(--ink) 30%, var(--canvas)); }
+:root[data-tone='light'] { --c-part: #1f6fd6; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.4 var(--font-ui); }
+.brand-name { font: italic 700 27px/1 var(--font-title); text-transform: uppercase; letter-spacing: .02em; }
+.brand-name b { color: var(--accent-text); }
+.tools .end, .pb .end { margin-left: auto; display: flex; gap: 4px; align-items: center; }
+.sub { display: flex; gap: 4px; align-items: center; padding: 6px 14px; border-bottom: 1px solid var(--line); background: var(--panel-soft); }
+.sub .lab { font: 600 10.5px var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--accent-text); margin-right: 6px; }
+.new { font: 700 9px var(--font-ui); letter-spacing: .1em; text-transform: uppercase; padding: 1px 5px; border-radius: 6px; background: var(--accent); color: var(--on-accent); margin-left: 4px; }
+.work { display: grid; grid-template-columns: 1fr 330px; height: calc(100vh - 150px); min-height: 560px; }
+.view { position: relative; background: var(--canvas); overflow: hidden; border-right: 1px solid var(--line); }
+.view .grid { position: absolute; inset: 0; background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 24px 24px; }
+.stage { position: absolute; inset: 52px 14px 162px 14px; display: grid; grid-template-columns: 1.25fr 1fr; gap: 14px; }
+.card { position: relative; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--panel) 70%, transparent); display: flex; flex-direction: column; min-height: 0; }
+.card h4 { margin: 0; padding: 8px 12px 0; font: 600 10.5px var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+.card svg { flex: 1; width: 100%; min-height: 0; }
+.views { position: absolute; left: 14px; top: 12px; right: 14px; display: flex; gap: 6px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--panel); }
+.seg button { border: 0; background: none; color: var(--muted); padding: 4px 10px; font: 500 12px var(--font-ui); cursor: pointer; }
+.seg button.on { background: var(--sel, var(--hover)); color: var(--ink); }
+.presets { position: absolute; left: 14px; right: 14px; bottom: 14px; height: 136px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.presets .row { display: flex; gap: 8px; overflow-x: auto; }
+.pre { flex: 0 0 auto; width: 76px; border: 1px solid var(--line); border-radius: 10px; background: var(--canvas); padding: 4px; cursor: pointer; color: var(--muted); font-size: 11px; text-align: center; }
+.pre:hover { border-color: var(--accent); color: var(--ink); }
+.pre svg { width: 64px; height: 64px; display: block; margin: 0 auto 2px; }
+.side > * { flex-shrink: 0; }
+.side { background: var(--panel); overflow-y: auto; padding: 12px 14px 30px; }
+.side h3 { margin: 0 0 2px; font: italic 700 18px var(--font-title); text-transform: uppercase; }
+.side .eb { font: 600 10.5px var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--accent-text); }
+.side p.d { color: var(--muted); margin: 2px 0 10px; font-size: 12px; }
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; margin: 6px 0; }
+label.f { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: var(--muted); }
+label.f input, label.f select { background: var(--box, var(--canvas)); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 5px 7px; font: 500 12.5px var(--font-mono); width: 100%; box-sizing: border-box; }
+label.f input[type=range] { padding: 0; accent-color: var(--accent); }
+.tag { font-size: 10px; padding: 0 5px; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); color: var(--warn-text); margin-left: 4px; }
+.chk { display: flex; gap: 7px; align-items: center; margin: 5px 0; font-size: 12.5px; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 6px 0; }
+.tile { border: 1px solid var(--line); border-radius: 9px; background: var(--canvas); color: var(--muted); padding: 6px 4px; text-align: center; font-size: 11.5px; cursor: pointer; }
+.tile.on { border-color: var(--accent); color: var(--ink); box-shadow: inset 0 0 0 1px var(--accent); }
+.lyrs { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 8px 0; }
+.lyr { display: grid; grid-template-columns: 18px 1fr auto auto; gap: 8px; align-items: center; padding: 6px 9px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 12.5px; }
+.lyr:last-child { border-bottom: 0; }
+.lyr.on { background: var(--sel, var(--hover)); box-shadow: inset 3px 0 0 var(--accent); }
+.lyr small { color: var(--muted); font-size: 11px; }
+.lyr .mode { font: 600 9.5px var(--font-ui); letter-spacing: .08em; text-transform: uppercase; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); }
+.lyr .x { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 14px; }
+.addrow { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 10px; }
+.addrow button, .btnl { border: 1px solid var(--line); background: var(--canvas); color: var(--ink); border-radius: 8px; padding: 4px 8px; font: 500 12px var(--font-ui); cursor: pointer; }
+.addrow button:hover, .btnl:hover { border-color: var(--accent); }
+.note { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-left: 3px solid var(--c-part); border-radius: 8px; padding: 7px 9px; margin: 8px 0; background: var(--canvas); }
+.note.warn { border-left-color: var(--warn); }
+.note b { color: var(--ink); }
+hr.s { border: 0; border-top: 1px solid var(--line); margin: 12px 0; }
+.checks { position: absolute; right: 14px; top: 12px; display: flex; gap: 10px; font-size: 12px; }
+.checks span { display: inline-flex; gap: 5px; align-items: center; padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
+.dot.w { background: var(--warn); }
+.explain { max-width: 1200px; margin: 0 auto; padding: 18px 20px 40px; color: var(--muted); font-size: 13px; }
+.explain h2 { color: var(--ink); font: italic 700 20px var(--font-title); text-transform: uppercase; margin: 8px 0; }
+.explain li { margin: 3px 0; }
+.explain b { color: var(--ink); }
+/* drawing */
+.base { fill: var(--c-plate); }
+.recess { fill: color-mix(in srgb, var(--c-plate) 55%, var(--canvas)); }
+.raise { fill: color-mix(in srgb, var(--ink) 88%, var(--canvas)); }
+.cut { fill: var(--canvas); }
+.alu { fill: var(--c-alu); stroke: color-mix(in srgb, var(--ink) 45%, var(--canvas)); stroke-width: .08; }
+.tyre { fill: color-mix(in srgb, var(--ink) 12%, var(--canvas)); stroke: color-mix(in srgb, var(--ink) 25%, var(--canvas)); stroke-width: .08; }
+.ins { fill: var(--c-plate); stroke: var(--accent); stroke-width: .08; }
+.dim { stroke: var(--muted); stroke-width: .05; fill: none; }
+.dimt { fill: var(--muted); font: 500 .62px var(--font-mono); text-anchor: middle; }
+.wedge { fill: none; stroke: var(--accent); stroke-width: .06; stroke-dasharray: .25 .2; }
+.ghostaxle { fill: none; stroke: var(--muted); stroke-width: .05; stroke-dasharray: .3 .2; }
+@media (max-width: 900px) { .work { grid-template-columns: 1fr; height: auto; } .view { height: 760px; } .stage { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="pb" style="display:flex;align-items:center;gap:14px;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--panel)">
+  <div class="brand" style="display:flex;gap:10px;align-items:center">
+    <span class="brand-name"><b>F</b>rame</span>
+  </div>
+  <div class="who"><div class="eb" style="font:600 10.5px var(--font-ui);letter-spacing:.12em;color:var(--muted)">1/32 · CHASSIS + POD + INSERTS</div><div style="font:italic 700 18px var(--font-title);text-transform:uppercase">New chassis</div></div>
+  <div class="end">
+    <span class="seg"><button data-tone-set="light">Light</button><button data-tone-set="dark" class="on">Dark</button></span>
+  </div>
+</header>
+<nav class="tools" style="display:flex;gap:4px;align-items:center;padding:6px 14px;border-bottom:1px solid var(--line);background:var(--panel)">
+  <button class="tbtn">Car</button><button class="tbtn">Outline</button><button class="tbtn">Shape</button><button class="tbtn">Fill</button><button class="tbtn">Features</button>
+  <button class="tbtn">Pod</button><button class="tbtn">Body</button>
+  <button class="tbtn on">Inserts<span class="new">new</span></button>
+  <button class="tbtn">Print</button>
+</nav>
+<div class="sub">
+  <span class="lab">Inserts</span>
+  <button class="tbtn on" data-wheel="rear">Rear insert</button>
+  <button class="tbtn" data-wheel="front">Front insert</button>
+  <label class="chk" style="margin-left:8px"><input type="checkbox" id="same" checked>Same pattern front and rear</label>
+  <span style="flex:1"></span>
+  <button class="tbtn">Calibration ring</button>
+  <button class="tbtn">Save to library</button>
+  <button class="tbtn">Export STL (set of 4)</button>
+</div>
+
+<div class="work">
+  <div class="view">
+    <div class="grid"></div>
+    <div class="views">
+      <span class="seg" id="faceMode"><button class="on" data-m="face">Face</button><button data-m="wedge">One segment</button></span>
+      <span class="seg" id="showWheel"><button class="on" data-w="1">In the wheel</button><button data-w="0">Insert alone</button></span>
+      <span class="seg"><button class="on">2D</button><button title="Not drawn in this preview">3D</button></span>
+    </div>
+    <div class="checks" id="checks"></div>
+    <div class="stage">
+      <div class="card"><h4><span>Face</span><span id="faceInfo"></span></h4><svg id="face" viewBox="-10 -10 20 20"></svg></div>
+      <div class="card"><h4><span>Section through the wheel</span><span id="secInfo"></span></h4><svg id="section" viewBox="-1 -10 14 20"></svg></div>
+    </div>
+    <div class="presets">
+      <div style="display:flex;justify-content:space-between;align-items:center"><span class="eb" style="font:600 10.5px var(--font-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">Start from a pattern · every one is just layers you can change</span><span style="font-size:11.5px;color:var(--muted)">Your saved inserts appear here too</span></div>
+      <div class="row" id="presetRow"></div>
+    </div>
+  </div>
+
+  <aside class="side" id="side"></aside>
+</div>
+
+<div class="explain">
+  <h2>How the pattern tools work</h2>
+  <ul>
+    <li><b>An insert is a base plus layers.</b> The base is the disc (or a cup with a skirt that slides into the wheel), its dish, rim lip and centre hole. Each layer adds one kind of pattern on top.</li>
+    <li><b>Every layer repeats round the centre by itself.</b> You set a count; the app draws one and copies it round, so a pattern is always even. The "One segment" view shows the wedge you are actually shaping.</li>
+    <li><b>Every layer is cut through, sunk in or raised</b>, with its own depth or height. Five spokes are a "cut through" spokes layer; a raised centre nut is a "raise" layer.</li>
+    <li><b>Five layer types cover most real wheels:</b> Spokes (straight, curved, split, crossed into a mesh), Holes (round, slot or window, in a ring), Ring (a step or groove), Bolts &amp; nut (studs on a circle and a hex or centre-lock nut) and Draw your own (draw one segment with the outline tools, or import an SVG; it is repeated like the rest).</li>
+    <li><b>Fit comes from the wheel:</b> the pocket diameter and depth in your aluminium wheel, plus a clearance, decide the insert's size. A calibration ring prints the insert's outside in steps of 0.05 mm, like the chassis coupon does for holes.</li>
+    <li><b>Checks:</b> spokes or bars thinner than your nozzle can print, a pattern that leaves the insert in loose pieces, holes that run into each other, a centre hole smaller than the axle or grub screw access, and an insert thicker than the pocket is deep.</li>
+    <li><b>Print:</b> a set of four (or two front and two rear), face down on the plate so the face comes out smooth. Directional patterns (curved or turbine) are mirrored for the other side of the car.</li>
+  </ul>
+  <p>This page is a design preview: the drawings are made live from the settings, but 3D, export and the library are not wired up here.</p>
+</div>
+
+<script>
+'use strict';
+// ------------------------------------------------------------ the insert, as the app would keep it
+const PRESETS = {
+  '5-spoke': { base: {}, layers: [{ type: 'spokes', mode: 'cut', count: 5, hub: 2.3, rim: 5.3, wHub: 1.5, wRim: 1.9, curve: 0, split: 0, crossed: false }, { type: 'bolts', mode: 'raise', count: 5, pcd: 3.0, d: 0.45, nut: 'none', nutD: 1.6, h: 0.2 }] },
+  'Split 10': { base: {}, layers: [{ type: 'spokes', mode: 'cut', count: 5, hub: 2.0, rim: 5.4, wHub: 0.7, wRim: 0.8, curve: 0, split: 0.9, crossed: false }, { type: 'bolts', mode: 'raise', count: 0, pcd: 3, d: .4, nut: 'lock', nutD: 2.2, h: 0.3 }] },
+  'Mesh': { base: { lip: 0.6 }, layers: [{ type: 'spokes', mode: 'cut', count: 14, hub: 2.2, rim: 5.4, wHub: 0.45, wRim: 0.45, curve: 40, split: 0, crossed: true }, { type: 'ring', mode: 'raise', r: 2.2, w: 0.5, h: 0.2 }, { type: 'bolts', mode: 'raise', count: 0, pcd: 3, d: .4, nut: 'lock', nutD: 2.6, h: 0.3 }] },
+  '8-hole': { base: { dish: 0.6 }, layers: [{ type: 'holes', mode: 'cut', count: 8, at: 4.0, shape: 'round', size: 1.4, len: 1.4 }, { type: 'bolts', mode: 'raise', count: 4, pcd: 2.6, d: 0.4, nut: 'none', nutD: 1.6, h: 0.2 }] },
+  'Turbine': { base: {}, layers: [{ type: 'spokes', mode: 'cut', count: 16, hub: 2.4, rim: 5.4, wHub: 0.55, wRim: 0.75, curve: 55, split: 0, crossed: false }, { type: 'ring', mode: 'raise', r: 2.4, w: 0.6, h: 0.25 }] },
+  'Slots': { base: { dish: 0.4 }, layers: [{ type: 'holes', mode: 'cut', count: 6, at: 4.0, shape: 'slot', size: 1.0, len: 2.4 }, { type: 'ring', mode: 'recess', r: 5.2, w: 0.35, h: 0.2 }, { type: 'bolts', mode: 'raise', count: 6, pcd: 2.4, d: 0.35, nut: 'hex', nutD: 1.5, h: 0.25 }] },
+  'Windows': { base: {}, layers: [{ type: 'holes', mode: 'cut', count: 7, at: 3.8, shape: 'window', size: 1.6, len: 2.3 }, { type: 'bolts', mode: 'raise', count: 0, pcd: 3, d: .4, nut: 'hex', nutD: 1.8, h: 0.3 }] },
+  'Dish': { base: { dish: 1.0, lip: 0.8 }, layers: [{ type: 'ring', mode: 'recess', r: 4.4, w: 0.25, h: 0.15 }, { type: 'bolts', mode: 'raise', count: 4, pcd: 2.6, d: 0.45, nut: 'none', nutD: 1.6, h: 0.2 }] },
+  'Draw your own': { base: {}, layers: [{ type: 'draw', mode: 'cut', count: 6 }] },
+};
+const BASE = { form: 'disc', od: 11.8, thick: 1.4, dish: 0, lip: 0.5, lipH: 0.2, hole: 2.6, skirt: 2.0, wall: 0.6, wheelOD: 16.5, pocket: 12.0, pocketDepth: 1.6, clear: 0.1 };
+let state = { base: { ...BASE }, layers: [], sel: 0, wedge: false, inWheel: true };
+const load = (name) => { const p = PRESETS[name]; state.base = { ...BASE, ...p.base }; state.layers = p.layers.map((l) => ({ ...l })); state.sel = 0; render(); };
+
+// ------------------------------------------------------------ drawing a pattern (mm, centre at 0,0)
+const pol = (r, a) => [r * Math.cos(a), r * Math.sin(a)];
+const pts = (list) => 'M' + list.map((p) => p.map((v) => v.toFixed(3)).join(' ')).join('L') + 'Z';
+const circ = (cx, cy, r) => `M${cx - r} ${cy}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0Z`;
+const ann = (r0, r1) => circ(0, 0, r1) + circ(0, 0, r0);
+// One spoke from hub to rim: its width runs from wHub to wRim, and it bends by `curve` degrees on the way out.
+function spoke(L, a0, sign = 1) {
+  const n = 14, left = [], right = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, r = L.hub + (L.rim - L.hub) * t, w = L.wHub + (L.wRim - L.wHub) * t;
+    const a = a0 + sign * (L.curve * Math.PI / 180) * t, h = w / 2 / r;
+    left.push(pol(r, a - h)); right.push(pol(r, a + h));
+  }
+  return pts([...left, ...right.reverse()]);
+}
+// What one layer draws: an `area` (cut, sunk or raised) and, for spokes, the `keep` that stays.
+function layerShapes(L, R) {
+  const out = { area: '', keep: '' };
+  if (L.type === 'spokes') {
+    out.area = ann(Math.max(0.2, L.hub), Math.min(R - 0.05, L.rim));
+    for (let i = 0; i < L.count; i++) {
+      const a = (i / L.count) * Math.PI * 2 - Math.PI / 2;
+      if (L.split > 0) { const g = L.split / 2 / ((L.hub + L.rim) / 2); out.keep += spoke(L, a - g) + spoke(L, a + g); }
+      else out.keep += spoke(L, a);
+      if (L.crossed) out.keep += spoke(L, a + Math.PI / L.count, -1);
+    }
+  } else if (L.type === 'holes') {
+    for (let i = 0; i < L.count; i++) {
+      const a = (i / L.count) * Math.PI * 2 - Math.PI / 2, [x, y] = pol(L.at, a);
+      if (L.shape === 'round') out.area += circ(x, y, L.size / 2);
+      else if (L.shape === 'slot') {
+        const ux = Math.cos(a), uy = Math.sin(a), h = (L.len - L.size) / 2, r = L.size / 2;
+        const p0 = [x - ux * h, y - uy * h], p1 = [x + ux * h, y + uy * h], nx = -uy * r, ny = ux * r;
+        out.area += `M${p0[0] + nx} ${p0[1] + ny}L${p1[0] + nx} ${p1[1] + ny}A${r} ${r} 0 0 0 ${p1[0] - nx} ${p1[1] - ny}L${p0[0] - nx} ${p0[1] - ny}A${r} ${r} 0 0 0 ${p0[0] + nx} ${p0[1] + ny}Z`;
+      } else {
+        // A window: a trapezoid between two radii, wider at the rim.
+        const r0 = L.at - L.len / 2, r1 = L.at + L.len / 2, h0 = (L.size * 0.6) / 2 / r0, h1 = L.size / 2 / r1;
+        out.area += pts([pol(r0, a - h0), pol(r1, a - h1), pol(r1, a + h1), pol(r0, a + h0)]);
+      }
+    }
+  } else if (L.type === 'ring') out.area = ann(Math.max(0.1, L.r - L.w / 2), L.r + L.w / 2);
+  else if (L.type === 'bolts') {
+    for (let i = 0; i < L.count; i++) { const [x, y] = pol(L.pcd, (i / L.count) * Math.PI * 2 - Math.PI / 2); out.area += circ(x, y, L.d / 2); }
+    const r = L.nutD / 2;
+    if (L.nut === 'hex') out.area += pts([0, 1, 2, 3, 4, 5].map((i) => pol(r, i * Math.PI / 3 + Math.PI / 6)));
+    if (L.nut === 'lock') { const p = []; for (let i = 0; i < 60; i++) { const a = i / 60 * Math.PI * 2; p.push(pol(r * (0.8 + 0.2 * Math.max(0, Math.cos(a * 3)) ** 3), a)); } out.area += pts(p); }
+  } else if (L.type === 'draw') {
+    // A stand-in for a drawn shape: a leaf in one segment, repeated.
+    for (let i = 0; i < L.count; i++) {
+      const a = (i / L.count) * Math.PI * 2 - Math.PI / 2, p = [];
+      for (let j = 0; j <= 20; j++) { const t = j / 20, r = 2.2 + 3 * t; p.push(pol(r, a + 0.45 * Math.sin(Math.PI * t) * (1 - 0.3 * t))); }
+      for (let j = 20; j >= 0; j--) { const t = j / 20, r = 2.2 + 3 * t; p.push(pol(r, a + 0.1 * Math.sin(Math.PI * t))); }
+      out.area += pts(p);
+    }
+  }
+  return out;
+}
+function faceSVG(ins, opts = {}) {
+  const b = ins.base, R = b.od / 2;
+  let defs = '', body = `<path class="base" d="${circ(0, 0, R)}"/>`;
+  if (b.dish > 0) body += `<circle r="${R - b.lip}" fill="url(#dish${opts.id || ''})"/>`, defs += `<radialGradient id="dish${opts.id || ''}"><stop offset="0" stop-color="#000" stop-opacity=".28"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>`;
+  if (b.lip > 0) body += `<path class="raise" fill-rule="evenodd" d="${ann(R - b.lip, R)}" opacity=".55"/>`;
+  ins.layers.forEach((L, i) => {
+    const s = layerShapes(L, R), cls = L.mode === 'cut' ? 'cut' : L.mode;
+    if (!s.area) return;
+    if (s.keep) {
+      const id = `m${opts.id || ''}${i}`;
+      defs += `<mask id="${id}"><path fill="#fff" fill-rule="evenodd" d="${s.area}"/><path fill="#000" d="${s.keep}"/></mask>`;
+      body += `<path class="${cls}" mask="url(#${id})" d="${circ(0, 0, R)}"/>`;
+    } else body += `<path class="${cls}" fill-rule="nonzero" d="${s.area}"/>`;
+  });
+  body += `<path class="cut" d="${circ(0, 0, b.hole / 2)}"/>`;
+  return { defs, body };
+}
+
+// ------------------------------------------------------------ the two views
+function render() {
+  const ins = state, b = ins.base, R = b.od / 2;
+  const face = document.getElementById('face');
+  const f = faceSVG(ins);
+  let wheel = '';
+  if (state.inWheel) wheel = `<circle class="tyre" r="${b.wheelOD / 2 + 2.2}"/><circle class="alu" r="${b.wheelOD / 2}"/><circle class="cut" r="${b.pocket / 2}"/>`;
+  let wedge = '';
+  const rep = ins.layers[ins.sel];
+  if (state.wedge && rep && rep.count) {
+    const n = rep.type === 'spokes' && rep.crossed ? rep.count * 2 : rep.count, a0 = -Math.PI / 2 - Math.PI / n, a1 = a0 + 2 * Math.PI / n, r = R + 0.6;
+    wedge = `<path class="wedge" d="M0 0L${pol(r, a0).join(' ')}A${r} ${r} 0 0 1 ${pol(r, a1).join(' ')}Z"/>`;
+    // Dim everything outside the segment.
+    wedge += `<path d="${circ(0, 0, r + 4)}M0 0L${pol(r, a1).join(' ')}A${r} ${r} 0 0 0 ${pol(r, a0).join(' ')}Z" fill="var(--canvas)" opacity=".72" fill-rule="evenodd"/>`;
+  }
+  const span = state.inWheel ? b.wheelOD / 2 + 3 : R + 1.5;
+  face.setAttribute('viewBox', `${-span} ${-span} ${2 * span} ${2 * span}`);
+  face.innerHTML = `<defs>${f.defs}</defs>${wheel}${f.body}${wedge}
+    <path class="dim" d="M${-R} ${span - 0.9}H${R}M${-R} ${span - 1.2}v.6M${R} ${span - 1.2}v.6"/><text class="dimt" x="0" y="${span - 1.1}">Ø${b.od.toFixed(2)}</text>`;
+  document.getElementById('faceInfo').textContent = `Ø${b.od.toFixed(2)} · ${ins.layers.length} layer${ins.layers.length === 1 ? '' : 's'}`;
+
+  // Section: the wheel cut through its middle, the insert in its pocket, the axle along the bottom edge.
+  const sec = document.getElementById('section'), W = 8.5, hub = b.hole / 2, P = b.pocket / 2, pd = b.pocketDepth, wr = b.wheelOD / 2;
+  const t = b.thick, z0 = pd - t; // insert sits flush with the outer face (x = 0 is the outer face, x grows inwards)
+  let s = `<rect class="tyre" x="-.1" y="${-wr - 2.2}" width="${W + .2}" height="${2.2}"/><rect class="tyre" x="-.1" y="${wr}" width="${W + .2}" height="${2.2}"/>`;
+  s += `<path class="alu" d="M0 ${-wr}H${W}V${wr}H0V${P}H${pd}V${-P}H0Z"/>`;
+  s += `<rect class="cut" x="${pd - .01}" y="${-1.19}" width="${W - pd + .02}" height="2.38"/><path class="ghostaxle" d="M${pd} -1.19H${W + .8}M${pd} 1.19H${W + .8}"/>`;
+  // The insert: face, dish, lip, centre hole, and a skirt for the cup form.
+  const ir = R, lip = b.lip, dish = b.dish;
+  let face2 = `M${z0} ${-ir}H${z0 + t}V${ir}H${z0}`;
+  if (lip > 0) face2 += `V${ir - lip}`;
+  face2 += dish > 0 ? `Q${z0 + Math.min(dish, t - 0.3)} 0 ${z0} ${-(ir - lip)}` : `V${-(ir - lip)}`;
+  face2 += 'Z';
+  s += `<path class="ins" d="${face2}"/>`;
+  if (b.form === 'cup') s += `<path class="ins" d="M${z0 + t} ${-ir}h${b.skirt}v${b.wall}h${-b.skirt}ZM${z0 + t} ${ir}h${b.skirt}v${-b.wall}h${-b.skirt}Z"/>`;
+  s += `<rect class="cut" x="${z0 - .02}" y="${-hub}" width="${t + .04}" height="${2 * hub}"/>`;
+  s += `<path class="dim" d="M${-0.5} ${-P}V${P}M-.7 ${-P}h.4M-.7 ${P}h.4"/><text class="dimt" x="-.95" y="0" transform="rotate(-90 -.95 0)">pocket Ø${b.pocket.toFixed(2)}</text>`;
+  s += `<path class="dim" d="M0 ${wr + 3}H${pd}M0 ${wr + 2.8}v.4M${pd} ${wr + 2.8}v.4"/><text class="dimt" x="${pd / 2}" y="${wr + 3.8}">depth ${pd}</text>`;
+  s += `<text class="dimt" x="${W / 2 + 1}" y="${-wr - 2.8}">wheel Ø${b.wheelOD}</text><text class="dimt" x="${W + .5}" y=".25" text-anchor="start">axle</text>`;
+  sec.setAttribute('viewBox', `-2 ${-wr - 4} ${W + 4.5} ${2 * wr + 8.5}`);
+  sec.innerHTML = s;
+  document.getElementById('secInfo').textContent = b.form === 'cup' ? 'cup with skirt' : 'flat disc';
+
+  // Checks, as the app would show them.
+  const notes = [];
+  const fit = b.pocket - b.clear * 2;
+  notes.push(Math.abs(fit - b.od) < 0.011 ? ['ok', `Fits a Ø${b.pocket} pocket`] : ['w', `Ø${b.od} vs pocket Ø${b.pocket}`]);
+  const thin = ins.layers.some((L) => L.type === 'spokes' && Math.min(L.wHub, L.wRim) < 0.42);
+  notes.push(thin ? ['w', 'Spokes thinner than the nozzle'] : ['ok', 'Prints with a 0.4 nozzle']);
+  notes.push(b.thick > b.pocketDepth + 0.01 ? ['w', 'Stands out of the pocket'] : ['ok', 'Sits in the pocket']);
+  document.getElementById('checks').innerHTML = notes.map(([k, t]) => `<span><i class="dot ${k === 'w' ? 'w' : ''}"></i>${t}</span>`).join('');
+  side();
+}
+
+// ------------------------------------------------------------ the panel
+const num = (label, key, obj, opt = {}) => `<label class="f">${label}${opt.tag ? '<span class="tag">measure</span>' : ''}<input type="number" step="${opt.step ?? 0.05}" value="${obj[key]}" data-k="${key}" data-o="${opt.o}"></label>`;
+const rng = (label, key, obj, min, max, step, o) => `<label class="f">${label} <span style="color:var(--ink);font-family:var(--font-mono)">${obj[key]}</span><input type="range" min="${min}" max="${max}" step="${step}" value="${obj[key]}" data-k="${key}" data-o="${o}"></label>`;
+const NAMES = { spokes: 'Spokes', holes: 'Holes', ring: 'Ring', bolts: 'Bolts & nut', draw: 'Draw your own' };
+const MODES = { cut: 'Cut through', recess: 'Sunk', raise: 'Raised' };
+const sum = (L) => L.type === 'spokes' ? `${L.count}${L.split ? ' split' : ''}${L.crossed ? ' crossed' : ''}${L.curve ? ', curved' : ''}` : L.type === 'holes' ? `${L.count} ${L.shape}` : L.type === 'ring' ? `at r ${L.r}` : L.type === 'bolts' ? `${L.count} studs · ${L.nut === 'none' ? 'no nut' : L.nut === 'hex' ? 'hex nut' : 'centre lock'}` : `${L.count} × your shape`;
+function side() {
+  const b = state.base, L = state.layers[state.sel];
+  let h = `<div class="eb">Inserts · rear</div><h3>Insert</h3><p class="d">A disc that presses into the pocket in the face of an aluminium wheel. Set the wheel first; the insert's size follows it.</p>
+  <div class="g2">${num('Wheel diameter', 'wheelOD', b, { o: 'b' })}${num('Pocket diameter', 'pocket', b, { o: 'b', tag: 1 })}${num('Pocket depth', 'pocketDepth', b, { o: 'b', tag: 1 })}${num('Fit clearance', 'clear', b, { o: 'b', step: 0.01 })}</div>
+  <div class="note">Insert Ø = pocket − 2 × clearance = <b>${(b.pocket - 2 * b.clear).toFixed(2)}</b> mm. <button class="btnl" id="fitbtn" style="margin-left:4px">Use it</button></div>
+  <div class="tiles" style="grid-template-columns:1fr 1fr"><div class="tile ${b.form === 'disc' ? 'on' : ''}" data-form="disc">Flat disc</div><div class="tile ${b.form === 'cup' ? 'on' : ''}" data-form="cup">Cup with skirt</div></div>
+  <div class="g2">${num('Insert diameter', 'od', b, { o: 'b' })}${num('Thickness', 'thick', b, { o: 'b' })}${num('Dish (concave)', 'dish', b, { o: 'b' })}${num('Rim lip width', 'lip', b, { o: 'b' })}${num('Centre hole', 'hole', b, { o: 'b' })}${b.form === 'cup' ? num('Skirt length', 'skirt', b, { o: 'b' }) + num('Skirt wall', 'wall', b, { o: 'b' }) : ''}</div>
+  <hr class="s"><div class="eb">Pattern</div>
+  <div class="lyrs">${state.layers.map((x, i) => `<div class="lyr ${i === state.sel ? 'on' : ''}" data-sel="${i}"><span>${i + 1}</span><span>${NAMES[x.type]}<br><small>${sum(x)}</small></span><span class="mode">${MODES[x.mode]}</span><button class="x" data-del="${i}" title="Remove">×</button></div>`).join('') || '<div class="lyr"><span></span><span style="color:var(--muted)">No layers: a plain disc</span></div>'}</div>
+  <div class="addrow">${Object.entries(NAMES).map(([k, n]) => `<button data-add="${k}">+ ${n}</button>`).join('')}</div>`;
+  if (L) {
+    h += `<div class="eb">${NAMES[L.type]}</div><div class="tiles">${Object.entries(MODES).map(([k, n]) => `<div class="tile ${L.mode === k ? 'on' : ''}" data-mode="${k}">${n}</div>`).join('')}</div>`;
+    if (L.type === 'spokes') h += `<div class="g2">${rng('Spokes', 'count', L, 3, 24, 1, 'l')}${rng('Bend', 'curve', L, -80, 80, 1, 'l')}${num('From (hub)', 'hub', L, { o: 'l' })}${num('To (rim)', 'rim', L, { o: 'l' })}${num('Width at hub', 'wHub', L, { o: 'l' })}${num('Width at rim', 'wRim', L, { o: 'l' })}${num('Split gap', 'split', L, { o: 'l' })}</div><label class="chk"><input type="checkbox" data-k="crossed" data-o="l" ${L.crossed ? 'checked' : ''}>Crossed (a second set bent the other way: a mesh)</label>`;
+    if (L.type === 'holes') h += `<div class="tiles">${['round', 'slot', 'window'].map((k) => `<div class="tile ${L.shape === k ? 'on' : ''}" data-shape="${k}">${k[0].toUpperCase() + k.slice(1)}</div>`).join('')}</div><div class="g2">${rng('Holes', 'count', L, 2, 20, 1, 'l')}${num('At radius', 'at', L, { o: 'l' })}${num('Size', 'size', L, { o: 'l' })}${L.shape !== 'round' ? num('Length', 'len', L, { o: 'l' }) : ''}</div>`;
+    if (L.type === 'ring') h += `<div class="g2">${num('Radius', 'r', L, { o: 'l' })}${num('Width', 'w', L, { o: 'l' })}${num(L.mode === 'raise' ? 'Height' : 'Depth', 'h', L, { o: 'l' })}</div>`;
+    if (L.type === 'bolts') h += `<div class="g2">${rng('Studs', 'count', L, 0, 10, 1, 'l')}${num('On a circle of r', 'pcd', L, { o: 'l' })}${num('Stud size', 'd', L, { o: 'l' })}${num('Height', 'h', L, { o: 'l' })}</div><div class="tiles">${[['none', 'No nut'], ['hex', 'Hex nut'], ['lock', 'Centre lock']].map(([k, n]) => `<div class="tile ${L.nut === k ? 'on' : ''}" data-nut="${k}">${n}</div>`).join('')}</div>${L.nut !== 'none' ? `<div class="g2">${num('Nut size', 'nutD', L, { o: 'l' })}</div>` : ''}`;
+    if (L.type === 'draw') h += `<div class="g2">${rng('Copies', 'count', L, 1, 24, 1, 'l')}</div><div class="note"><b>Draw one segment</b> with the same pen as the chassis outline (points, curves, drag the handles), or <b>import an SVG</b>. The app shows the wedge you draw in and copies it round. The leaf shape here stands in for yours.</div><div class="addrow"><button>Draw in the segment</button><button>Import SVG…</button></div>`;
+    if (L.mode !== 'cut' && L.type !== 'ring' && L.type !== 'bolts') h += `<div class="g2">${num(L.mode === 'raise' ? 'Height' : 'Depth', 'h', { h: L.h ?? 0.3 }, { o: 'l' })}</div>`;
+  }
+  h += `<div class="note warn"><b>Unconfirmed sizes:</b> pocket diameter and depth differ per wheel maker. Measure your wheel, then print the calibration ring before a full set.</div>`;
+  const el = document.getElementById('side');
+  el.innerHTML = h;
+  el.querySelectorAll('input[data-k]').forEach((inp) => inp.addEventListener(inp.type === 'range' ? 'input' : 'change', () => {
+    const obj = inp.dataset.o === 'b' ? state.base : state.layers[state.sel];
+    obj[inp.dataset.k] = inp.type === 'checkbox' ? inp.checked : +inp.value;
+    render();
+  }));
+  const on = (sel, fn) => el.querySelectorAll(sel).forEach((n) => n.addEventListener('click', (e) => { fn(n, e); render(); }));
+  on('[data-sel]', (n, e) => { if (!e.target.dataset.del) state.sel = +n.dataset.sel; });
+  on('[data-del]', (n) => { state.layers.splice(+n.dataset.del, 1); state.sel = Math.max(0, state.sel - 1); });
+  on('[data-add]', (n) => {
+    const t = n.dataset.add, fresh = { spokes: PRESETS['5-spoke'].layers[0], holes: PRESETS['8-hole'].layers[0], ring: PRESETS.Turbine.layers[1], bolts: PRESETS['5-spoke'].layers[1], draw: PRESETS['Draw your own'].layers[0] }[t];
+    state.layers.push({ ...fresh }); state.sel = state.layers.length - 1;
+  });
+  on('[data-mode]', (n) => { state.layers[state.sel].mode = n.dataset.mode; });
+  on('[data-shape]', (n) => { state.layers[state.sel].shape = n.dataset.shape; });
+  on('[data-nut]', (n) => { state.layers[state.sel].nut = n.dataset.nut; });
+  on('[data-form]', (n) => { state.base.form = n.dataset.form; });
+  on('#fitbtn', () => { state.base.od = +(state.base.pocket - 2 * state.base.clear).toFixed(2); });
+}
+
+// ------------------------------------------------------------ presets strip and view switches
+document.getElementById('presetRow').innerHTML = Object.keys(PRESETS).map((n, i) => {
+  const p = PRESETS[n], f = faceSVG({ base: { ...BASE, ...p.base }, layers: p.layers }, { id: 'p' + i }), R = BASE.od / 2 + .3;
+  return `<div class="pre" data-p="${n}"><svg viewBox="${-R} ${-R} ${2 * R} ${2 * R}"><defs>${f.defs}</defs>${f.body}</svg>${n}</div>`;
+}).join('');
+document.querySelectorAll('.pre').forEach((n) => n.addEventListener('click', () => load(n.dataset.p)));
+const segs = (id, fn) => document.querySelectorAll(`#${id} button`).forEach((bt) => bt.addEventListener('click', () => { document.querySelectorAll(`#${id} button`).forEach((x) => x.classList.toggle('on', x === bt)); fn(bt); render(); }));
+segs('faceMode', (bt) => { state.wedge = bt.dataset.m === 'wedge'; });
+segs('showWheel', (bt) => { state.inWheel = bt.dataset.w === '1'; });
+document.querySelectorAll('[data-tone-set]').forEach((bt) => bt.addEventListener('click', () => {
+  document.documentElement.dataset.tone = document.documentElement.dataset.theme = bt.dataset.toneSet;
+  document.querySelectorAll('[data-tone-set]').forEach((x) => x.classList.toggle('on', x === bt));
+}));
+load('5-spoke');
+</script>
+</body>
+</html>
