@@ -34,7 +34,7 @@ else {
   if (data.failed) problems.push(data.message);
   const p = data.page ?? {};
   if (p.brand !== 'SlotForge Frame') problems.push('The brand is missing.');
-  if (p.menus !== 8) problems.push(`Expected 8 menus, saw ${p.menus}.`);
+  if (p.menus !== 9) problems.push(`Expected 9 menus, saw ${p.menus}.`);
   if (!(p.pictures?.length >= 2) || p.pictures.includes(false)) problems.push('A picture (the app icon or the SlotForge mark) did not load: ' + JSON.stringify(p.pictures));
   if (!p.engine) problems.push('The geometry engine did not start.');
   if (!p.built) problems.push('The first design was not built' + (p.error ? ': ' + p.error : '.'));

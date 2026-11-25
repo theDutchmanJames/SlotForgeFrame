@@ -46,14 +46,18 @@ export function createViewport(host) {
     pod: new THREE.MeshStandardMaterial({ roughness: 0.6, metalness: 0.05 }),
     part: new THREE.MeshStandardMaterial({ roughness: 0.5, transparent: true, opacity: 0.34, depthWrite: false }),
     body: new THREE.MeshStandardMaterial({ roughness: 0.7, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide }),
+    insert: new THREE.MeshStandardMaterial({ roughness: 0.45, metalness: 0.15 }),
   };
-  const groups = { chassis: new THREE.Group(), pod: new THREE.Group(), parts: new THREE.Group(), body: new THREE.Group(), track: new THREE.Group() };
+  const groups = { chassis: new THREE.Group(), pod: new THREE.Group(), parts: new THREE.Group(), body: new THREE.Group(), track: new THREE.Group(), insert: new THREE.Group() };
   for (const g of Object.values(groups)) scene.add(g);
   let grid = null;
+  let shown = 'car', saved = null;
+  groups.insert.visible = false;
 
   function colours() {
     mats.chassis.color = resolve(css('--c-plate', '#9aa3ad'));
     mats.pod.color = resolve(css('--accent', '#e5484d'));
+    mats.insert.color = resolve(css('--c-plate', '#9aa3ad'));
     mats.part.color = resolve(css('--c-part', '#6fb6ff'));
     mats.body.color = resolve(css('--ink', '#e8e6e1'));
     if (grid) { groups.track.remove(grid); grid.geometry.dispose(); }
@@ -140,7 +144,9 @@ export function createViewport(host) {
       setMesh(groups.chassis, chassis, mats.chassis);
       setMesh(groups.pod, pod, mats.pod);
       setParts(parts);
-      if (target) controls.target.set(target, 0, 6), controls.update();
+      // While an insert is shown, the car's camera is kept for when the car comes back.
+      if (target && shown === 'insert' && saved) saved.target.set(target, 0, 6);
+      else if (target) controls.target.set(target, 0, 6), controls.update();
       draw();
     },
     // The body from Anvil, see-through, or nothing.
@@ -159,6 +165,30 @@ export function createViewport(host) {
       groups.pod.visible = pod;
       groups.parts.visible = parts;
       groups.track.visible = track;
+      draw();
+    },
+    // A wheel insert, shown on its own (mode 'insert') with the camera close in; 'car' brings the car back.
+    setInsert(mesh) {
+      setMesh(groups.insert, mesh, mats.insert);
+      draw();
+    },
+    mode(m) {
+      if (m === shown) return;
+      if (m === 'insert') {
+        saved = { pos: camera.position.clone(), target: controls.target.clone(), vis: Object.fromEntries(Object.entries(groups).map(([k, g]) => [k, g.visible])) };
+        for (const [k, g] of Object.entries(groups)) g.visible = k === 'insert';
+        camera.position.set(-9, -16, 15);
+        controls.target.set(0, 0, 0.6);
+      } else {
+        groups.insert.visible = false;
+        if (saved) {
+          camera.position.copy(saved.pos);
+          controls.target.copy(saved.target);
+          for (const [k, g] of Object.entries(groups)) if (k !== 'insert') g.visible = saved.vis[k];
+        }
+      }
+      shown = m;
+      controls.update();
       draw();
     },
     colours,

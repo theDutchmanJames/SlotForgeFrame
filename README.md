@@ -102,11 +102,19 @@ Frame works along eight menus, roughly in the order you build a car: **Car, Outl
 - **Motor seat, base plate and mount lugs,** each with its own sizes.
 - **Live preview:** axles, wheels, tyres, motor, pinion and gear are drawn in place in the top view and in 3D.
 
+### Wheel inserts
+
+- **Inserts for aluminium wheels:** a disc, or a cup with a skirt, that presses into the pocket in the face of an insert wheel. Set the wheel's diameter and its pocket, and the insert's size follows, with a fit clearance you choose.
+- **Patterns from layers:** spokes (straight, bent, split, or crossed into a mesh), holes (round, slot or window), rings, bolts with a hex or centre-lock nut, and shapes you draw yourself or import as SVG. Each layer repeats round the centre by itself and is cut through, sunk into the face or raised from it. A dish, a rim lip and a centre hole complete the face.
+- **Start from a pattern:** 5-spoke, split 10, mesh, 8-hole, turbine, slots, windows and dish, all of them only layers you can change.
+- **Front and rear:** the same insert all round, or one of each. The set of four prints on one plate; a pattern that bends one way is mirrored for the other side of the car.
+- **Fit and checks:** a calibration ring of six numbered discs finds the size that presses in firmly. Frame warns about spokes thinner than the nozzle, holes that run into each other, a pattern that cuts the insert into loose pieces, and an insert that stands out of its pocket.
+
 ### Bought and shared parts
 
 - **Rear axle seats:** a straight seat for a ball bearing or bushing, or a round snap-in socket for a spherical bushing (Slot.it CH14, Sloting Plus ball joints) that tilts with the axle. A flanged bearing or bushing gets its flange on the wheel or motor side, sunk into a recess or standing out of the face; any bearing, your own included, can have one. Or one axle tube through both uprights, such as a Sloting Plus Combi Plus, which sets how far apart they stand.
 - **Import an STL** of a pod or a chassis you bought or downloaded. Frame measures it, finds its screw holes, and fits the chassis round an imported pod. An imported chassis can be made editable: its shape becomes your outline.
-- **Library:** every chassis and pod you make or import, kept in one file on your computer, with motors, gear sets, bearings, guides, printers, rule sets and car presets beside them. Add components of your own.
+- **Library:** every chassis, pod and wheel insert you make or import, kept in one file on your computer, with motors, gear sets, bearings, guides, printers, rule sets and car presets beside them. Add components of your own.
 - **Share:** export a part, or the whole library, as a `.framelib` file for other SlotForge Frame users, and open theirs.
 
 ### Work with SlotForge Anvil

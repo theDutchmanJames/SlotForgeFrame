@@ -72,3 +72,30 @@
 .sp .t { cursor: pointer; }
 .sp.cur { background: var(--sel); color: var(--ink); font-weight: 600; box-shadow: inset 3px 0 0 var(--accent); }
 .sp.cur small { font-weight: 400; }
+
+/* Wheel inserts: the face, the section through the wheel, and the panel's pattern tiles. */
+.ins-base { fill: var(--c-plate); }
+.ins-recess { fill: color-mix(in srgb, var(--c-plate) 52%, var(--canvas)); }
+.ins-raise { fill: color-mix(in srgb, var(--ink) 90%, var(--canvas)); }
+.ins-cut { fill: var(--canvas); }
+.ins-alu { fill: color-mix(in srgb, var(--ink) 30%, var(--canvas)); stroke: color-mix(in srgb, var(--ink) 45%, var(--canvas)); stroke-width: .06; }
+.ins-tyre { fill: color-mix(in srgb, var(--ink) 12%, var(--canvas)); stroke: color-mix(in srgb, var(--ink) 25%, var(--canvas)); stroke-width: .06; }
+.ins-pocket { fill: color-mix(in srgb, var(--ink) 8%, var(--canvas)); }
+.ins-part { fill: var(--c-plate); stroke: var(--accent); stroke-width: .06; }
+.ins-selline { fill: none; stroke: var(--accent); stroke-width: .045; opacity: .85; fill-rule: evenodd; pointer-events: none; }
+.ins-dim { stroke: var(--muted); stroke-width: .05; fill: none; }
+.ins-dimt { fill: var(--muted); font-family: var(--font-mono); font-weight: 500; text-anchor: middle; }
+.ins-wedge { fill: none; stroke: var(--accent); stroke-width: .07; stroke-dasharray: .3 .22; pointer-events: none; }
+.ins-dimout { fill: var(--canvas); opacity: .72; pointer-events: none; }
+.ins-pen { fill: none; stroke: var(--focus); stroke-width: .06; stroke-dasharray: .25 .18; pointer-events: none; }
+#topview .hd[data-drag=ipt] { stroke-width: .05; }
+#insec { width: 190px; }
+#insec svg { max-height: 240px; }
+.ins-sec { font-size: 11.5px; line-height: 1.45; }
+.ins-presets { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.ins-pre { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px 5px; border: 1px solid var(--line); border-radius: 9px; background: var(--canvas); color: var(--muted); font: 500 10.5px var(--font-ui); cursor: pointer; }
+.ins-pre:hover { border-color: color-mix(in srgb, var(--accent) 65%, var(--line)); color: var(--ink); }
+.ins-pre svg { width: 100%; max-width: 46px; aspect-ratio: 1; }
+.ins-add { display: flex; flex-wrap: wrap; gap: 5px; }
+.panel .seg.wide { align-self: stretch; display: flex; }
+.panel .seg.wide button { flex: 1; }

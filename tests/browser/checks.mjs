@@ -15,7 +15,7 @@ export const checks = [
   ['the app starts, builds the default design and passes its checks', async (app) => {
     const { page, assert } = app;
     assert.equal(await page.locator('.brand').getAttribute('aria-label'), 'SlotForge Frame');
-    assert.equal(await page.locator('#menus [data-act=menu]').count(), 8);
+    assert.equal(await page.locator('#menus [data-act=menu]').count(), 9);
     assert.ok((await page.locator('#topview path.plate').count()) >= 1, 'the top view shows the plate');
     assert.match(await page.locator('#status').innerText(), /All checks pass/);
     assert.deepEqual((await app.notes()).filter((n) => !n.ok && n.title !== 'The chassis is open beside the gear'), []);
@@ -890,6 +890,73 @@ export const checks = [
     await app.set('hole', 2.9);
     await app.tool('print', 'coupon');
     await page.waitForFunction(() => document.querySelectorAll('#panel svg circle.hole').length === 30 && /Ø2\.9 mm/.test(document.querySelector('#panel .crows')?.textContent ?? ''));
+  }],
+
+  ['wheel inserts: a pattern is picked, layered, drawn, shown in 3D and exported as a set', async (app) => {
+    const { page, assert } = app;
+    const built = () => page.waitForFunction(() => { const b = window.slotforgeFrame.state.insBuilt; return b?.data && b.key === JSON.stringify([window.slotforgeFrame.state.design.inserts.rear, window.slotforgeFrame.state.design.printer.nozzle, window.slotforgeFrame.state.design.car.axleD]); }, null, { timeout: 30000 });
+    const insert = () => page.evaluate(() => JSON.parse(JSON.stringify(window.slotforgeFrame.state.design.inserts)));
+    await app.tool('inserts', 'insertRear');
+    await built();
+    // The face is drawn in the view, layer by layer, with the section through the wheel beside it.
+    assert.equal(await page.locator('#topview mask').count(), 2, 'the 5-spoke start has two layers');
+    assert.ok(await page.locator('#insec svg').isVisible());
+    // A pattern from the panel replaces the layers; the list on the right follows.
+    await page.click('#panel [data-act=inspreset][data-p="Mesh"]');
+    await built();
+    assert.equal((await insert()).rear.layers.length, 3);
+    assert.equal(await page.locator('#steps .sp').count(), 3);
+    assert.equal(await app.state(() => window.slotforgeFrame.state.insBuilt.data.pieces), 1, 'the mesh insert is one piece');
+    // A layer is added and changed; only the insert is built again, not the car.
+    await app.state(() => { window.builtBefore = window.slotforgeFrame.state.built; });
+    await page.click('#panel [data-act=insadd][data-t=holes]');
+    await app.set('layers.3.count', 6);
+    await built();
+    assert.equal((await insert()).rear.layers[3].count, 6);
+    assert.equal(await page.locator('#steps .sp.cur .n').innerText(), '4');
+    assert.ok(await app.state(() => window.slotforgeFrame.state.built === window.builtBefore), 'the chassis was not rebuilt');
+    // Undo takes the layer away again.
+    await page.click('[data-act=undo]');
+    await page.click('[data-act=undo]');
+    await built();
+    assert.equal((await insert()).rear.layers.length, 3);
+    // A drawn layer: its points have handles in the view, and dragging one moves it.
+    await page.click('#panel [data-act=insadd][data-t=draw]');
+    await built();
+    const handle = page.locator('#topview [data-drag=ipt][data-i="4"]');
+    const box = await handle.boundingBox(), was = (await insert()).rear.layers[3].points[4];
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 - 12, box.y + box.height / 2 - 6, { steps: 4 });
+    await page.mouse.up();
+    await built();
+    assert.notDeepEqual((await insert()).rear.layers[3].points[4], was, 'the point moved');
+    // The front can have its own insert.
+    await page.click('#sub [data-act=tool][data-tool=insertFront]');
+    await page.click('#panel input[data-path="inserts.same"]');
+    await page.click('#panel [data-act=inspreset][data-p="8-hole"]');
+    const both = await insert();
+    assert.equal(both.same, false);
+    assert.equal(both.front.layers[0].type, 'holes');
+    assert.equal(both.rear.layers[0].type, 'spokes');
+    // 3D shows the insert alone; another menu brings the car back.
+    await page.click('#viewbar [data-act=view][data-view="3d"]');
+    assert.ok(await page.locator('#gl canvas').isVisible());
+    await app.tool('pod', 'base');
+    assert.equal(await page.locator('#viewbar [data-act=focus]').count(), 3, 'the car view bar is back');
+    await page.click('#viewbar [data-act=view][data-view=top]');
+    // The set of four comes out as one STL; the calibration ring as another.
+    const [set] = await app.downloads(async () => { await page.click('[data-act=pop][data-pop=export]'); await page.click('.popmenu [data-act=exportinserts]'); });
+    assert.equal(set.name, 'New chassis wheel inserts.stl');
+    assert.ok(stlTriangles(set.bytes) > 500);
+    await app.tool('inserts', 'insertRing');
+    const [ring] = await app.downloads(() => page.click('#panel [data-act=exportring]'));
+    assert.equal(ring.name, 'New chassis insert calibration ring.stl');
+    // Telling the app which disc fitted sets the size.
+    await page.click('#panel [data-act=insring][data-v="0.05"]');
+    const fitted = (await insert()).rear.base;
+    assert.equal(fitted.od, 11.85);
+    assert.equal(fitted.clear, 0.075);
   }],
 
   ['every tool opens its panel and every shaping tool adds a feature that builds', async (app) => {

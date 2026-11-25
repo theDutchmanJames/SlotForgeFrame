@@ -4,6 +4,7 @@
 
 import { find, on, heights, motorOf, gearOf, motorPlace, podLayout, uprightSpread, seatSize, holderSize, flanged, flangeProud, gearSide, asRight, podShift, unshifted, podRide, kickActive, activeKicks, profileOf, bearingOf, couponHoles } from '../model.js';
 import { createAnalyser } from './analyse.js';
+import { layerShape, directional, insertOf, insertChecks } from '../inserts.js';
 
 // The areas a kick-up lifts, seen from above: [x0, y0, x1, y1] each. `far` is how far 'everything' reaches.
 export function kickAreas(d, far) {
@@ -1156,5 +1157,106 @@ export function createEngine(wasm) {
     return { area: cells * CELL * CELL, depth, at };
   }
 
-  return { build, coupon, trace, bodyClash, setMesh, dropMesh, analyse: (mesh) => analyser.analyse(mesh) };
+  // ---------- wheel inserts
+  // One insert as it prints: the back on the bed (z = 0), the face up. The 2D pattern is drawn as seen
+  // from the front of the face (y down); in the solid +y is up, so it is turned over on the way in.
+  function insertSolid(ins) {
+    const b = ins.base, R = b.od / 2, back = b.form === 'cup' ? b.skirt : 0, top = back + b.thick;
+    const rings = (list) => u2(list.map((r) => poly(r.map(([x, y]) => [x, -y]))));
+    let solid = cylZ(0, 0, back, top, R);
+    if (b.form === 'cup') solid = u3([solid, K(cylZ(0, 0, 0, back + 0.01, R).subtract(cylZ(0, 0, -1, back + 1, Math.max(0.1, R - b.wall))))]);
+    if (b.lip > 0 && b.lipH > 0) solid = u3([solid, K(cylZ(0, 0, top - 0.01, top + b.lipH, R).subtract(cylZ(0, 0, top - 1, top + b.lipH + 1, Math.max(0.05, R - b.lip))))]);
+    // The dish: a shallow spherical hollow inside the lip.
+    const dish = Math.min(b.dish, b.thick - 0.4);
+    if (dish > 0.01) {
+      const a = Math.max(0.1, R - b.lip), Rs = (a * a + dish * dish) / (2 * dish);
+      solid = K(solid.subtract(K(K(Manifold.sphere(Rs, 192)).translate([0, 0, top - dish + Rs]))));
+    }
+    // The layers, in order: each is cut through, sunk into the face or raised from it, following its shape.
+    const H = top + 10;
+    for (const L of ins.layers) {
+      const sh = layerShape(L, R);
+      if (!sh.add.length) continue;
+      let area = rings(sh.add);
+      if (sh.sub.length) area = K(area.subtract(rings(sh.sub)));
+      if (area.area() <= EPS) continue;
+      const column = ext(area, H + 2, -1);
+      if (L.mode === 'cut') solid = K(solid.subtract(column));
+      else if (L.mode === 'recess') {
+        // The top `h` of the face: the solid less itself moved down.
+        const skin = K(solid.subtract(K(solid.translate([0, 0, -L.h]))));
+        solid = K(solid.subtract(K(skin.intersect(column))));
+      } else {
+        const shell = K(K(solid.translate([0, 0, L.h])).subtract(solid));
+        solid = u3([solid, K(shell.intersect(column))]);
+      }
+    }
+    if (b.hole > 0) solid = K(solid.subtract(cylZ(0, 0, -1, H, b.hole / 2)));
+    return solid;
+  }
+  // Faces down: turned over and back onto the bed. Only sensible for a flat face.
+  const placed = (solid, faceDown) => {
+    if (!faceDown) return solid;
+    const t = K(solid.rotate([180, 0, 0]));
+    return K(t.translate([0, 0, -t.boundingBox().min[2]]));
+  };
+  const pieceCount = (solid) => solid.decompose().map(K).filter((p) => p.volume() > 0.05).length;
+  // One insert, for the views: its mesh, size and pieces, the notes, and its outline from the front.
+  function insert(args) {
+    bin = [];
+    try {
+      const ins = args.insert, solid = insertSolid(ins);
+      if (solid.status() !== 'NoError' || solid.isEmpty()) throw Error('The insert could not be built. Check the sizes of its layers.');
+      const pieces = pieceCount(solid), bb = solid.boundingBox();
+      const notes = insertChecks(ins, { nozzle: args.nozzle, axleD: args.axleD });
+      if (pieces > 1) notes.push({ ok: false, title: 'The insert falls apart', text: `The pattern cuts it into ${pieces} loose pieces. Make sure every spoke or bar reaches both the hub and the rim.` });
+      return {
+        mesh: meshOf(solid), volume: solid.volume(), pieces, notes,
+        size: [bb.max[0] - bb.min[0], bb.max[1] - bb.min[1], bb.max[2] - bb.min[2]],
+        top: polysOf(K(solid.project())).map((ring) => ring.map(([x, y]) => [x, -y])),
+      };
+    } finally {
+      for (const o of bin) try { o.delete(); } catch { /* already freed */ }
+      bin = [];
+    }
+  }
+  // The set to print: two rear and two front inserts on one plate. A pattern that bends one way is
+  // mirrored for the left-hand wheels, so both sides of the car turn the same way.
+  function insertSet(design) {
+    bin = [];
+    try {
+      const list = [];
+      for (const which of ['rear', 'front']) {
+        const ins = insertOf(design, which), solid = insertSolid(ins);
+        list.push({ ins, solid }, { ins, solid: directional(ins) ? K(solid.mirror([1, 0, 0])) : solid });
+      }
+      const gap = Math.max(...list.map((p) => p.ins.base.od)) + 4;
+      const all = u3(list.map(({ ins, solid }, i) => K(placed(solid, ins.faceDown).translate([(i % 2) * gap, Math.floor(i / 2) * gap, 0]))));
+      if (all.status() !== 'NoError' || all.isEmpty()) throw Error('The inserts could not be built.');
+      return { mesh: meshOf(all), pieces: pieceCount(all), volume: all.volume() };
+    } finally {
+      for (const o of bin) try { o.delete(); } catch { /* already freed */ }
+      bin = [];
+    }
+  }
+  // A calibration ring: plain discs of the insert's size, from 0.10 mm under to 0.15 mm over,
+  // numbered 1 to 6. The one that presses in firmly tells the clearance to use.
+  const RING_STEPS = [-0.1, -0.05, 0, 0.05, 0.1, 0.15];
+  function insertRing(args) {
+    bin = [];
+    try {
+      const b = args.insert.base, t = Math.min(1.2, b.thick), gap = b.od + 3;
+      const parts = RING_STEPS.map((step, i) => {
+        const x = i * gap, r = (b.od + step) / 2;
+        return u3([cylZ(x, 0, 0, t, r), ...digit(i + 1, x - 0.9, -1.6, t, 1.8, 3.2, 0.5, 0.4)]);
+      });
+      const all = u3(parts);
+      return { mesh: meshOf(all), steps: RING_STEPS.map((s) => Math.round((b.od + s) * 1000) / 1000), pieces: RING_STEPS.length };
+    } finally {
+      for (const o of bin) try { o.delete(); } catch { /* already freed */ }
+      bin = [];
+    }
+  }
+
+  return { build, coupon, trace, bodyClash, setMesh, dropMesh, insert, insertSet, insertRing, analyse: (mesh) => analyser.analyse(mesh) };
 }

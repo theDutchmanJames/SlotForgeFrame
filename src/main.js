@@ -17,6 +17,7 @@ import {
   newDesign, find, on, round, summary, heights, checks, partsLayout, podLayout, motorOf, gearOf, proposeCross, unconfirmed, uprightSpread, useBearing, meshCentre, activeKicks, profileOf, pinionOut, motorAngle, gearAngle, traceWheels, traceArches, applyOutline, centreMounts, podShift, podSideways, podRide, rideClearance, balance,
   encodeProject, decodeProject, createHistory, MATERIALS, FEATURE_NAMES, MULTI, newShape, shapesOf, gearsFor, bearingOf, guideOf, choicesFor, moveRear, couponHoles,
 } from './model.js';
+import { PRESETS as INSERT_PRESETS, LAYER_TYPES, LAYER_NAMES, MODES, MODE_NAMES, presetFor, newLayer, layerShape, circle as insCircle, directional, fitToSegment, cleanInsert } from './inserts.js';
 // ?inline: the pictures are built into the page, which is the only file the desktop app ships.
 import iconUrl from './assets/slotforge-frame.svg?inline';
 import wordmarkDark from './assets/frame-dark.svg?inline';
@@ -53,6 +54,10 @@ const state = {
   focus: 'both',
   show: { parts: true, track: true, body: true, solid: false },
   tab: 'chassis',
+  insSel: 0, // the chosen layer of the insert being edited
+  insPt: null, // the chosen point of a drawn layer
+  insView: { wedge: false, wheel: true },
+  insBuilt: null, // the insert as built: { key, data } or { key, error }
   pop: null,
   built: null,
   busy: false,
@@ -79,6 +84,7 @@ const MENUS = [
   ['features', 'Features', 'feature', [['guide', 'Guide holder', 'guide'], ['frontAxle', 'Front axle', 'axle'], ['bodyMounts', 'Body mounts', 'post'], ['tab', 'Body support', 'wall'], ['podMounts', 'Pod mounts', 'lug'], ['podOpening', 'Pod opening', 'cut'], ['holder', 'Magnet / ballast', 'pocket'], ['wire', 'Wire guide', 'wire'], ['chip', 'Chip mount', 'level']]],
   ['pod', 'Pod', 'pod', [['drivetrain', 'Drivetrain', 'gear'], ['base', 'Base plate', 'level'], ['motorSeat', 'Motor seat', 'motor'], ['uprights', 'Axle uprights', 'bearing'], ['lugs', 'Mount lugs', 'lug']]],
   ['body', 'Body', 'body', [['body', 'Body and Anvil', 'body']]],
+  ['inserts', 'Inserts', 'insert', [['insertRear', 'Rear insert', 'insert'], ['insertFront', 'Front insert', 'insert'], ['insertRing', 'Calibration ring', 'coupon']]],
   ['print', 'Print', 'print', [['printer', 'Printer', 'print'], ['coupon', 'Calibration coupon', 'coupon']]],
 ];
 const POD_TOOLS = new Set(['drivetrain', 'base', 'motorSeat', 'uprights', 'lugs']);
@@ -212,13 +218,17 @@ function dropUnusedMeshes() {
     }
 }
 
+// The design less its inserts: when only an insert changed, the chassis and the pod need no new build.
+const carPart = (d) => JSON.stringify({ ...d, inserts: null });
 function commit() {
+  const before = carPart(JSON.parse(lastSnap));
   history.push(lastSnap);
   lastSnap = JSON.stringify(state.design);
   state.saved = false;
   autosave();
   renderSoon();
-  rebuild();
+  if (carPart(state.design) !== before) rebuild();
+  rebuildInsert();
 }
 function clampSelection() {
   const pts = find(state.design.chassis, 'outline').params.points;
@@ -358,6 +368,7 @@ function skeleton() {
         <div class="float views" id="viewbar"></div>
         <div class="float errbar" id="err" hidden></div>
         <div class="float checks" id="lights"></div>
+        <div class="float inset" id="insec" hidden></div>
       </div>
       <aside class="side">
         <div class="panel" id="panel"></div>
@@ -421,7 +432,8 @@ function renderTop() {
       <span class="pop"><button class="btn primary" data-act="pop" data-pop="export">${ico('export')}Export</button>${state.pop === 'export' ? `<div class="popmenu">
         <button data-act="export" data-what="chassis">${ico('outline')}Chassis STL<small>${weight('chassis')}</small></button>
         <button data-act="export" data-what="pod">${ico('pod')}Pod STL<small>${weight('pod')}</small></button>
-        <button data-act="export" data-what="both">${ico('export')}Both, as two files</button></div>` : ''}</span>
+        <button data-act="export" data-what="both">${ico('export')}Both, as two files</button>
+        <button data-act="exportinserts">${ico('insert')}Wheel inserts, set of 4</button></div>` : ''}</span>
     </div>`;
 }
 const layoutName = (d) => ({ inline: 'Inline', sidewinder: 'Sidewinder', anglewinder: 'Anglewinder' })[d.drivetrain.layout];
@@ -431,7 +443,7 @@ function weight(part) {
 }
 
 function renderMenus() {
-  $('#menus').innerHTML = MENUS.map(([id, name, icon], i) => `${i === 1 || i === 5 || i === 6 ? '<span class="vline"></span>' : ''}<button class="tbtn ${state.menu === id ? 'on' : ''}" data-act="menu" data-menu="${id}">${ico(icon)}${name}</button>`).join('') +
+  $('#menus').innerHTML = MENUS.map(([id, name, icon], i) => `${i === 1 || i === 5 || i === 6 || i === 7 ? '<span class="vline"></span>' : ''}<button class="tbtn ${state.menu === id ? 'on' : ''}" data-act="menu" data-menu="${id}">${ico(icon)}${name}</button>`).join('') +
     `<div class="end"><button class="tbtn" data-act="importstl">${ico('import')}Import STL</button><span class="vline"></span><button class="tbtn" data-act="library" data-kind="pod">${ico('library')}Library</button></div>`;
   const menu = MENUS.find((m) => m[0] === state.menu);
   $('#sub').innerHTML = menu
@@ -443,7 +455,175 @@ function renderMenus() {
 
 // ------------------------------------------------------------ panels
 
+
+// ------------------------------------------------------------ wheel inserts
+// The Inserts menu has a workspace of its own: the insert's face in the view, its section in the inset,
+// its layers in the list on the right, and the insert alone in 3D.
+const insMode = () => state.menu === 'inserts';
+// Which insert the tools edit: the front's own, or the rear's (shared while both are the same).
+const insKey = () => (state.tool === 'insertFront' && !state.design.inserts.same ? 'front' : 'rear');
+const insCur = () => state.design.inserts[insKey()];
+const IP = (key) => `inserts.${insKey()}.${key}`;
+const PRESET_NAMES = Object.keys(INSERT_PRESETS);
+
+let insToken = 0, insTimer = 0;
+function rebuildInsert(delay = 40) {
+  if (!insMode()) return;
+  clearTimeout(insTimer);
+  insTimer = setTimeout(async () => {
+    const token = ++insToken, ins = insCur(), key = JSON.stringify([ins, state.design.printer.nozzle, state.design.car.axleD]);
+    if (state.insBuilt?.key !== key) {
+      try {
+        const data = await call('insert', { insert: ins, nozzle: state.design.printer.nozzle, axleD: state.design.car.axleD });
+        if (token !== insToken) return;
+        state.insBuilt = { key, data };
+      } catch (e) {
+        if (token !== insToken) return;
+        state.insBuilt = { key, error: e.message };
+      }
+    }
+    syncViewport();
+    renderStatus();
+    renderSteps();
+  }, delay);
+}
+
+// The face of an insert as SVG: its base, then each layer through a mask (white: its area, black: what it keeps).
+// `id` keeps the masks of several drawings on one page apart.
+function insertFace(ins, id = 'f', o = {}) {
+  const b = ins.base, R = b.od / 2, defs = [], out = [], box = R + 30;
+  out.push(`<circle class="ins-base" r="${R}"/>`);
+  if (b.dish > 0) {
+    defs.push(`<radialGradient id="${id}dish"><stop offset="0" stop-color="#000" stop-opacity=".32"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>`);
+    out.push(`<circle r="${Math.max(0.1, R - b.lip)}" fill="url(#${id}dish)"/>`);
+  }
+  if (b.lip > 0 && b.lipH > 0) out.push(`<path class="ins-raise" fill-rule="evenodd" d="${ringPath([insCircle(0, 0, R), insCircle(0, 0, Math.max(0.05, R - b.lip))])}"/>`);
+  ins.layers.forEach((L, i) => {
+    const s = layerShape(L, R);
+    if (!s.add.length) return;
+    defs.push(`<mask id="${id}m${i}" maskUnits="userSpaceOnUse" x="${-box}" y="${-box}" width="${2 * box}" height="${2 * box}"><path fill="#fff" d="${ringPath(s.add)}"/>${s.sub.length ? `<path fill="#000" d="${ringPath(s.sub)}"/>` : ''}</mask>`);
+    out.push(`<rect class="ins-${L.mode}" mask="url(#${id}m${i})" x="${-box}" y="${-box}" width="${2 * box}" height="${2 * box}"/>`);
+    if (o.sel === i) out.push(`<path class="ins-selline" d="${ringPath(s.add)}${s.sub.length ? ringPath(s.sub) : ''}"/>`);
+  });
+  if (b.hole > 0) out.push(`<circle class="ins-cut" r="${b.hole / 2}"/>`);
+  return { defs: defs.join(''), body: out.join('') };
+}
+function insertSVG() {
+  const ins = insCur(), b = ins.base, R = b.od / 2, L = ins.layers[state.insSel], v = state.insView;
+  const span = v.wheel ? b.wheelD / 2 + 4.6 : R + 2.2;
+  const svg = $('#topview');
+  svg.setAttribute('viewBox', `${-span * 1.25} ${-span} ${span * 2.5} ${span * 2}`);
+  const f = insertFace(ins, 'v', { sel: state.insSel });
+  const out = [];
+  if (v.wheel) out.push(`<circle class="ins-tyre" r="${b.wheelD / 2 + 2.4}"/><circle class="ins-alu" r="${b.wheelD / 2}"/><circle class="ins-pocket" r="${b.pocketD / 2}"/>`);
+  out.push(f.body);
+  // One segment: the wedge the selected layer is drawn in, the rest dimmed.
+  const n = L ? (L.type === 'spokes' && L.crossed ? 2 : 1) * (L.count || 0) : 0;
+  if (v.wedge && n > 0 && L.type !== 'ring') {
+    const a0 = -Math.PI / 2 - Math.PI / n, a1 = a0 + (2 * Math.PI) / n, r = R + 0.7, p = (a) => `${round(r * Math.cos(a), 3)} ${round(r * Math.sin(a), 3)}`;
+    out.push(`<path class="ins-dimout" fill-rule="evenodd" d="M${-span * 2} ${-span * 2}H${span * 2}V${span * 2}H${-span * 2}ZM0 0L${p(a0)}A${r} ${r} 0 0 1 ${p(a1)}Z"/><path class="ins-wedge" d="M0 0L${p(a0)}A${r} ${r} 0 0 1 ${p(a1)}Z"/>`);
+  }
+  // A drawn layer: the points of the copy that points up, each with a handle.
+  if (L?.type === 'draw') {
+    const hs = span * 0.011;
+    out.push(`<path class="ins-pen" d="M${L.points.map((q) => q.join(' ')).join('L')}Z"/>`);
+    L.points.forEach((q, i) => out.push(`<rect class="hd ${i === state.insPt ? 'on' : ''}" data-drag="ipt" data-i="${i}" x="${q[0] - hs}" y="${q[1] - hs}" width="${2 * hs}" height="${2 * hs}"/>`));
+  }
+  const y = (v.wheel ? b.wheelD / 2 + 2.4 : R) + 0.9, t = span * 0.045;
+  out.push(`<path class="ins-dim" d="M${-R} ${y}H${R}M${-R} ${y - 0.3}v.6M${R} ${y - 0.3}v.6"/><text class="ins-dimt" style="font-size:${t}px" x="0" y="${y + t * 1.15}">Ø${f2(b.od)}</text>`);
+  svg.innerHTML = `<defs>${f.defs}</defs>${out.join('')}`;
+  insertSection();
+}
+// The wheel cut through its middle: the pocket, the insert in it (face out, to the left), and the axle.
+function insertSection() {
+  const host = $('#insec');
+  if (!host) return;
+  const ins = insCur(), b = ins.base, R = b.od / 2, P = b.pocketD / 2, pd = b.pocketDepth, wr = b.wheelD / 2, W = Math.max(6, pd + 4.5);
+  const back = b.form === 'cup' ? b.skirt : 0, t = b.thick, raise = Math.max(b.lip > 0 ? b.lipH : 0, 0, ...ins.layers.filter((l) => l.mode === 'raise').map((l) => l.h));
+  const face = pd - back - t; // where the face lies, measured in from the wheel's outer face (0)
+  let s = `<rect class="ins-tyre" x="0" y="${-wr - 2.2}" width="${W}" height="2.2"/><rect class="ins-tyre" x="0" y="${wr}" width="${W}" height="2.2"/>`;
+  s += `<path class="ins-alu" d="M0 ${-wr}H${W}V${wr}H0V${P}H${pd}V${-P}H0Z"/><rect class="ins-cut" x="${pd}" y="${-d2(state.design.car.axleD)}" width="${W - pd + 0.01}" height="${2 * d2(state.design.car.axleD)}"/>`;
+  // The insert: face, lip, dish, skirt and centre hole.
+  const lip = b.lip > 0 ? b.lip : 0, top = face, dish = Math.min(b.dish, t - 0.4);
+  let path = `M${top + t} ${-R}H${top - (lip ? b.lipH : 0)}V${-R + lip}H${top}`;
+  path += dish > 0.01 ? `Q${top + 2 * dish} 0 ${top} ${R - lip}` : `V${R - lip}`;
+  path += `H${top - (lip ? b.lipH : 0)}V${R}H${top + t}Z`;
+  s += `<path class="ins-part" d="${path}"/>`;
+  if (back) s += `<path class="ins-part" d="M${top + t} ${-R}h${back}v${b.wall}h${-back}ZM${top + t} ${R}h${back}v${-b.wall}h${-back}Z"/>`;
+  if (b.hole > 0) s += `<rect class="ins-cut" x="${top - 0.5}" y="${-b.hole / 2}" width="${t + 0.52}" height="${b.hole}"/>`;
+  const where = top - raise < -0.01 ? `stands ${f2(raise - top)} out of the wheel` : `${f2(top - raise)} below the wheel's face`;
+  host.innerHTML = `<div class="top"><span class="eyebrow">Section</span><span class="muted">${b.form === 'cup' ? 'cup with skirt' : 'flat disc'}</span></div><svg viewBox="${-1} ${-wr - 2.6} ${W + 2} ${2 * wr + 5.2}">${s}</svg>
+    <div class="muted ins-sec">Wheel Ø${f2(b.wheelD)} · pocket Ø${f2(b.pocketD)} × ${f2(pd)}<br>Face out to the left: ${where}</div>`;
+}
+const d2 = (v) => v / 2;
+function insertLights() {
+  const c = state.insBuilt, notes = c?.data?.notes ?? [], bad = notes.filter((n) => !n.ok && !n.soft).length, soft = notes.filter((n) => !n.ok && n.soft).length;
+  if (c?.error) return `<span><i class="dot bad"></i>${esc(c.error)}</span>`;
+  const shown = notes.filter((n) => !n.ok).slice(0, 2);
+  return (shown.length ? shown : notes.slice(0, 1)).map((n) => `<span><i class="dot ${n.ok ? 'ok' : n.soft ? 'w' : 'bad'}"></i>${esc(n.title)}</span>`).join('') +
+    `<span><i class="dot ${bad ? 'bad' : soft ? 'w' : 'ok'}"></i>${c?.data ? (bad ? `${bad} problem${bad > 1 ? 's' : ''}` : `${c.data.pieces === 1 ? 'One piece' : ''} · ${(c.data.volume / 1000 * MATERIALS[state.design.printer.material].density).toFixed(2)} g`) : 'Building…'}</span>`;
+}
+const layerLine = (L) => L.type === 'spokes' ? `${L.count}${L.split ? ' split' : ''}${L.crossed ? ' crossed' : ''}${L.curve ? ', bent ' + L.curve + '°' : ''}`
+  : L.type === 'holes' ? `${L.count} ${L.shape}${L.count === 1 ? '' : 's'} at r ${f2(L.at)}`
+  : L.type === 'ring' ? `at r ${f2(L.r)}, ${f2(L.w)} wide`
+  : L.type === 'bolts' ? `${L.count} stud${L.count === 1 ? '' : 's'} · ${L.nut === 'none' ? 'no nut' : L.nut === 'hex' ? 'hex nut' : 'centre lock'}`
+  : `${L.count} × your shape · ${L.points.length} points`;
+function insertSteps() {
+  const ins = insCur(), d = state.design;
+  $('#tabs').innerHTML = `<button class="on">Layers · ${ins.layers.length}</button><button data-act="tool" data-tool="${state.tool === 'insertFront' ? 'insertRear' : 'insertFront'}">${state.tool === 'insertFront' ? 'Rear' : 'Front'} insert${d.inserts.same ? ' (same)' : ''}</button>`;
+  $('#steps').innerHTML = ins.layers.map((L, i) => `
+    <div class="sp ${i === state.insSel ? 'cur' : ''}" data-act="inssel" data-i="${i}">
+      <span class="n">${i + 1}</span><span class="t">${LAYER_NAMES[L.type]} · ${MODE_NAMES[L.mode].toLowerCase()}<small>${esc(layerLine(L))}</small></span><span></span>
+      <button data-act="insdel" data-i="${i}" title="Remove this layer">${ico('trash')}</button>
+    </div>`).join('') || `<div class="note">No layers: a plain disc. Add one in the panel, or start from a pattern.</div>`;
+}
+const PANEL_INSERT = (d) => {
+  const ins = insCur(), b = ins.base, front = state.tool === 'insertFront', L = ins.layers[state.insSel], i = state.insSel, LP = (k) => IP(`layers.${i}.${k}`);
+  const fit = round(b.pocketD - 2 * b.clear, 3);
+  let h = head('Inserts', front ? 'Front insert' : 'Rear insert', 'A disc that presses into the pocket in the face of an aluminium wheel. Set the wheel first: the insert\'s size follows it.');
+  if (front) h += chk('Same insert front and rear', 'inserts.same') + (d.inserts.same ? '<div class="note">The front wheels use the rear insert: changes here change both. Untick to give the front its own.</div>' : '');
+  h += `<label class="f">The wheel</label><div class="g2">${num('Wheel diameter', IP('base.wheelD'), 'mm', { min: 4 })}${num('Pocket diameter', IP('base.pocketD'), 'mm', { min: 2, tag: ' ' + srcTag(false) })}${num('Pocket depth', IP('base.pocketDepth'), 'mm', { min: 0.2, tag: ' ' + srcTag(false) })}${num('Fit clearance', IP('base.clear'), 'mm')}</div>
+    ${Math.abs(fit - b.od) > 0.011 ? `<div class="note warn">For this pocket the insert should be Ø${f2(fit)}; it is Ø${f2(b.od)}. <button class="btn sm ghost" data-act="insfit">Make it Ø${f2(fit)}</button></div>` : `<div class="note ok">Ø${f2(b.od)}: the pocket less ${f2(b.clear)} mm all round. Measure your wheel's pocket, and print the calibration ring to tune the fit.</div>`}
+    <label class="f">The insert</label>` + tiles(IP('base.form'), [
+      ['disc', 'Flat disc', '<circle cx="17" cy="12" r="9"/><circle cx="17" cy="12" r="2"/>'],
+      ['cup', 'Cup with skirt', '<path d="M6 7h22M6 7v10h22V7"/><path d="M10 17v4M24 17v4"/>'],
+    ], 3) + `<div class="g2">${num('Diameter', IP('base.od'), 'mm', { min: 2 })}${num('Thickness', IP('base.thick'), 'mm', { min: 0.3 })}${num('Dish (hollow face)', IP('base.dish'), 'mm', { min: 0 })}${num('Centre hole (0: none)', IP('base.hole'), 'mm', { min: 0 })}${num('Rim lip width', IP('base.lip'), 'mm', { min: 0 })}${num('Rim lip height', IP('base.lipH'), 'mm', { min: 0 })}${b.form === 'cup' ? num('Skirt length', IP('base.skirt'), 'mm', { min: 0.3 }) + num('Skirt wall', IP('base.wall'), 'mm', { min: 0.3 }) : ''}</div>
+    <label class="f">Start from a pattern <span class="muted">(replaces the layers; the wheel and the size stay)</span></label>
+    <div class="ins-presets">${PRESET_NAMES.map((n, k) => { const p = { base: b, ...presetFor(n, b) }, fc = insertFace(p, 'p' + k), r = b.od / 2 + 0.3; return `<button class="ins-pre" data-act="inspreset" data-p="${esc(n)}"><svg viewBox="${-r} ${-r} ${2 * r} ${2 * r}"><defs>${fc.defs}</defs>${fc.body}</svg>${esc(n)}</button>`; }).join('')}</div>
+    <label class="f">Add a layer</label><div class="ins-add">${LAYER_TYPES.map((t) => `<button class="btn sm ghost" data-act="insadd" data-t="${t}">${ico('plus')}${LAYER_NAMES[t]}</button>`).join('')}</div>`;
+  if (L) {
+    h += `<div class="head" style="margin-top:6px"><span class="eyebrow">Layer ${i + 1}</span><div class="cond">${LAYER_NAMES[L.type]}</div></div>
+      <div class="seg wide">${MODES.map((m) => segBtn(LP('mode'), m, MODE_NAMES[m])).join('')}</div>`;
+    const depth = L.mode !== 'cut' ? num(L.mode === 'raise' ? 'Height' : 'Depth', LP('h'), 'mm', { min: 0.05 }) : '';
+    if (L.type === 'spokes') h += `<div class="g2">${num('Spokes', LP('count'), '', { min: 1, max: 48, int: true })}${num('Bend', LP('curve'), '°', { min: -120, max: 120 })}${num('From (hub radius)', LP('hub'))}${num('To (rim radius)', LP('rim'))}${num('Width at the hub', LP('wHub'), 'mm', { min: 0.05 })}${num('Width at the rim', LP('wRim'), 'mm', { min: 0.05 })}${num('Split gap (0: single)', LP('split'), 'mm', { min: 0 })}${depth}</div>${chk('Crossed: a second set bent the other way, for a mesh', LP('crossed'))}
+      <div class="note">The spokes are what stays; the gaps between them are ${L.mode === 'cut' ? 'cut through' : L.mode === 'recess' ? 'sunk in' : 'raised'}.</div>`;
+    if (L.type === 'holes') h += `<div class="seg wide">${[['round', 'Round'], ['slot', 'Slot'], ['window', 'Window']].map(([v, t]) => segBtn(LP('shape'), v, t)).join('')}</div><div class="g2">${num('Holes', LP('count'), '', { min: 1, max: 48, int: true })}${num('At radius', LP('at'))}${num('Size', LP('size'), 'mm', { min: 0.1 })}${L.shape !== 'round' ? num('Length', LP('len'), 'mm', { min: 0.1 }) : ''}${depth}</div>`;
+    if (L.type === 'ring') h += `<div class="g2">${num('Radius', LP('r'))}${num('Width', LP('w'), 'mm', { min: 0.05 })}${depth}</div>`;
+    if (L.type === 'bolts') h += `<div class="g2">${num('Studs (0: none)', LP('count'), '', { min: 0, max: 24, int: true })}${num('On a circle of radius', LP('pcd'))}${num('Stud size', LP('d'), 'mm', { min: 0.05 })}${depth}</div><div class="seg wide">${[['none', 'No nut'], ['hex', 'Hex nut'], ['lock', 'Centre lock']].map(([v, t]) => segBtn(LP('nut'), v, t)).join('')}</div>${L.nut !== 'none' ? `<div class="g2">${num('Nut size', LP('nutD'), 'mm', { min: 0.2 })}</div>` : ''}`;
+    if (L.type === 'draw') h += `<div class="g2">${num('Copies round the insert', LP('count'), '', { min: 1, max: 48, int: true })}${depth}</div>
+      <div class="note">Drag the points of the shape in the view; it is copied round the insert. <b>One segment</b> (above the view) shows the wedge it should stay in. Or import an SVG: its first shape is fitted into the segment.</div>
+      <div class="row">${state.insPt != null ? `<span class="muted">Point ${state.insPt + 1}</span>` : ''}<button class="btn sm ghost" data-act="insptadd">${ico('plus')}Add a point</button><button class="btn sm ghost" data-act="insptdel" ${L.points.length > 3 ? '' : 'disabled'}>${ico('trash')}Remove point</button><button class="btn sm ghost" data-act="inssvg">${ico('import')}Import SVG…</button></div>`;
+    h += `<div class="row"><button class="btn sm ghost" data-act="insmove" data-v="-1" ${i > 0 ? '' : 'disabled'}>Move up</button><button class="btn sm ghost" data-act="insmove" data-v="1" ${i < ins.layers.length - 1 ? '' : 'disabled'}>Move down</button><button class="btn sm ghost" data-act="insdel" data-i="${i}">${ico('trash')}Remove</button></div>
+      <div class="note">Layers are made in order, top of the list first: a layer further down works on what the ones before it left.</div>`;
+  }
+  h += `<label class="f">Print</label>${chk('Print face down (only for a flat face)', IP('faceDown'))}
+    <div class="note">${directional(ins) ? 'This pattern bends one way, so the set has two of it and two mirrored, one for each side of the car.' : 'The set is two rear and two front inserts on one plate.'} Small details print best with a 0.25 mm nozzle, or on a resin printer.</div>
+    <div class="row"><button class="btn primary" data-act="exportinserts">${ico('export')}Export the set of 4</button><button class="btn sm ghost" data-act="tool" data-tool="insertRing">${ico('coupon')}Calibration ring</button><button class="btn sm ghost" data-act="library" data-kind="insert">${ico('library')}Library</button></div>`;
+  return h;
+};
+const PANEL_RING = (d) => {
+  const b = d.inserts.rear.base, steps = [-0.1, -0.05, 0, 0.05, 0.1, 0.15];
+  return head('Inserts', 'Calibration ring', 'Six plain discs the size of the rear insert, from 0.10 mm under to 0.15 mm over, numbered 1 to 6. Press each into your wheel: the one that goes in firmly and stays is the size to print.') +
+    `<div class="kv">${steps.map((s, i) => [`Disc ${i + 1}`, `Ø${f2(b.od + s)}`]).map(([k, v]) => `<span>${k}</span><b>${v}</b>`).join('')}</div>
+    <button class="btn primary" data-act="exportring">${ico('export')}Export the calibration ring</button>
+    <label class="f">Which one fitted?</label><div class="seg wide">${steps.map((s, i) => `<button data-act="insring" data-v="${s}">${i + 1}</button>`).join('')}</div>
+    <div class="note">Picking one sets the rear insert to that size, and the clearance to match its pocket${d.inserts.same ? '' : ' (do the front on its own if its wheels differ)'}.</div>`;
+};
+
 const PANELS = {
+  insertRear: PANEL_INSERT,
+  insertFront: PANEL_INSERT,
+  insertRing: PANEL_RING,
   wheels(d) {
     const h = heights(d);
     return head('Car', 'Wheels and axles', 'The bought parts the chassis is built around. They show as the blue preview.') + `
@@ -955,6 +1135,7 @@ function describe(f, d) {
   }
 }
 function renderSteps() {
+  if (insMode()) return insertSteps();
   const d = state.design;
   $('#tabs').innerHTML = ['chassis', 'pod'].map((t) => `<button class="${state.tab === t ? 'on' : ''}" data-act="tab" data-tab="${t}">${t === 'chassis' ? 'Chassis' : 'Pod'} · ${d[t].features.length}</button>`).join('');
   $('#steps').innerHTML = d[state.tab].features.map((f, i) => `
@@ -979,7 +1160,8 @@ function renderStatus() {
     <span class="sb end">v${VERSION}</span>
     <span class="sf-footer-brand"><img class="wm-dark" src="${markDark}" alt="SlotForge"><img class="wm-light" src="${markLight}" alt="SlotForge"></span>`;
   const notes = state.built?.notes ?? [];
-  $('#lights').innerHTML = state.error
+  if (insMode()) $('#lights').innerHTML = insertLights();
+  else $('#lights').innerHTML = state.error
     ? `<span><i class="dot bad"></i>Cannot be built</span>`
     : notes.slice(-2).map((n) => `<span><i class="dot ${n.ok ? 'ok' : 'bad'}"></i>${esc(n.title)}</span>`).join('') + `<span><i class="dot ${bad ? 'w' : 'ok'}"></i>${bad ? `${bad} note${bad > 1 ? 's' : ''}` : 'Ready'}</span>`;
   const err = $('#err');
@@ -998,6 +1180,7 @@ function rotRect(cx, cy, w, h, angle, cls) {
 }
 
 function topSVG() {
+  if (insMode()) return insertSVG();
   const d = state.design, c = d.chassis, s = summary(d), built = state.built?.top, tool = state.tool;
   const outline = find(c, 'outline').params, pts = outline.points;
   const fixed = !!c.imported, podIn = d.pod.imported;
@@ -1157,11 +1340,22 @@ function renderView() {
   $('.grid', view).hidden = !top;
   if (top) topSVG();
   else viewport.resize();
+  $('#insec').hidden = !(insMode() && top);
+  viewport.mode(insMode() ? 'insert' : 'car');
+  if (insMode()) return insViewbar(top);
   viewport.show({ chassis: state.focus !== 'pod', pod: state.focus !== 'chassis', parts: state.show.parts, track: state.show.track, body: state.show.body, solid: state.show.solid });
   const placedBody = bodyPlaced();
   if (viewport.bodyKey !== placedBody.key) {
     viewport.bodyKey = placedBody.key;
     viewport.setBody(placedBody.placed);
+  }
+  function insViewbar(top) {
+    const v = state.insView;
+    $('#viewbar').innerHTML = `
+    <div class="seg"><button class="${top ? 'on' : ''}" data-act="view" data-view="top">Face</button><button class="${top ? '' : 'on'}" data-act="view" data-view="3d">${ico('cube')}3D</button></div>
+    ${top ? `<div class="seg"><button class="${v.wedge ? '' : 'on'}" data-act="insview" data-k="wedge" data-v="">Whole face</button><button class="${v.wedge ? 'on' : ''}" data-act="insview" data-k="wedge" data-v="1">One segment</button></div>
+    <div class="seg"><button class="${v.wheel ? 'on' : ''}" data-act="insview" data-k="wheel" data-v="1">In the wheel</button><button class="${v.wheel ? '' : 'on'}" data-act="insview" data-k="wheel" data-v="">Insert alone</button></div>` : ''}
+    <span class="gap"></span>`;
   }
   $('#viewbar').innerHTML = `
     <div class="seg"><button class="${top ? 'on' : ''}" data-act="view" data-view="top">Top</button><button class="${top ? '' : 'on'}" data-act="view" data-view="3d">${ico('cube')}3D</button></div>
@@ -1180,11 +1374,17 @@ function measuredText() {
   return `${len(Math.hypot(b[0] - a[0], b[1] - a[1]), f2)} ${lenUnit()} · along ${len(Math.abs(b[0] - a[0]), f2)} · across ${len(Math.abs(b[1] - a[1]), f2)}`;
 }
 function syncViewport() {
+  viewport.setInsert(state.insBuilt?.data?.mesh ?? null);
   if (!state.built) return;
   viewport.set({ chassis: state.built.chassis, pod: state.built.pod, parts: partsLayout(state.design), target: state.design.car.wheelbase / 2 });
 }
 
 function render() {
+  if (insMode()) {
+    const n = insCur().layers.length;
+    state.insSel = Math.max(0, Math.min(state.insSel, n - 1));
+    if (state.insBuilt?.key !== JSON.stringify([insCur(), state.design.printer.nozzle, state.design.car.axleD])) rebuildInsert(0);
+  }
   renderTop();
   renderMenus();
   renderPanel();
@@ -1204,6 +1404,99 @@ function setTool(tool) {
 }
 
 const ACTIONS = {
+  inssel(el) { state.insSel = +el.dataset.i; state.insPt = null; render(); },
+  insview(el) { state.insView[el.dataset.k] = !!el.dataset.v; renderView(); },
+  insadd(el) {
+    const ins = insCur();
+    ins.layers.push(newLayer(el.dataset.t, ins.base.od / 2));
+    state.insSel = ins.layers.length - 1;
+    state.insPt = null;
+    commit();
+  },
+  insdel(el) {
+    const ins = insCur(), i = +el.dataset.i;
+    ins.layers.splice(i, 1);
+    state.insSel = Math.max(0, Math.min(state.insSel - (i < state.insSel ? 1 : 0), ins.layers.length - 1));
+    state.insPt = null;
+    commit();
+  },
+  insmove(el) {
+    const ins = insCur(), i = state.insSel, j = i + +el.dataset.v;
+    if (j < 0 || j >= ins.layers.length) return;
+    [ins.layers[i], ins.layers[j]] = [ins.layers[j], ins.layers[i]];
+    state.insSel = j;
+    commit();
+  },
+  inspreset(el) {
+    const ins = insCur(), p = presetFor(el.dataset.p, ins.base);
+    Object.assign(ins, { base: p.base, layers: p.layers });
+    state.insSel = 0;
+    state.insPt = null;
+    commit();
+  },
+  insfit() {
+    const b = insCur().base;
+    b.od = round(b.pocketD - 2 * b.clear, 3);
+    commit();
+  },
+  insring(el) {
+    for (const key of state.design.inserts.same ? ['rear'] : ['rear']) {
+      const b = state.design.inserts[key].base;
+      b.od = round(b.od + +el.dataset.v, 3);
+      b.clear = round((b.pocketD - b.od) / 2, 3);
+    }
+    toast(`The rear insert is now Ø${f2(state.design.inserts.rear.base.od)}.`);
+    commit();
+  },
+  insptadd() {
+    const L = insCur().layers[state.insSel];
+    if (L?.type !== 'draw') return;
+    // A new point halfway along the side after the chosen point.
+    const i = state.insPt ?? L.points.length - 1, a = L.points[i], b = L.points[(i + 1) % L.points.length];
+    L.points.splice(i + 1, 0, [round((a[0] + b[0]) / 2, 3), round((a[1] + b[1]) / 2, 3)]);
+    state.insPt = i + 1;
+    commit();
+  },
+  insptdel() {
+    const L = insCur().layers[state.insSel];
+    if (L?.type !== 'draw' || L.points.length <= 3) return;
+    L.points.splice(state.insPt ?? L.points.length - 1, 1);
+    state.insPt = null;
+    commit();
+  },
+  inssvg() {
+    const input = Object.assign(document.createElement('input'), { type: 'file', accept: '.svg,image/svg+xml' });
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        const pts = svgOutline(await file.text());
+        const L = insCur().layers[state.insSel];
+        if (L?.type !== 'draw') return;
+        L.points = fitToSegment(pts, insCur().base.od / 2, L.count);
+        state.insPt = null;
+        commit();
+        toast(`Imported the shape from ${file.name}: ${L.points.length} points.`);
+      } catch (e) {
+        toast(e.message, true);
+      }
+    };
+    input.click();
+  },
+  exportinserts() {
+    state.pop = null;
+    renderTop();
+    call('insertSet', state.design).then((set) => {
+      download(encodeSTL(layFlat(set.mesh), 'SlotForge Frame wheel inserts'), `${fileBase()} wheel inserts.stl`, 'model/stl');
+      toast(`Exported the wheel inserts: ${set.pieces} pieces on one plate.`);
+    }, (e) => toast(e.message, true));
+  },
+  exportring() {
+    call('insertRing', { insert: state.design.inserts.rear }).then((ring) => {
+      download(encodeSTL(layFlat(ring.mesh), 'SlotForge Frame insert calibration ring'), `${fileBase()} insert calibration ring.stl`, 'model/stl');
+      toast('Exported the calibration ring: six discs, numbered 1 to 6.');
+    }, (e) => toast(e.message, true));
+  },
   menu(el) {
     const menu = MENUS.find((m) => m[0] === el.dataset.menu);
     setTool(menu[3][0][0]);
@@ -1444,6 +1737,7 @@ function afterChange(path) {
     if (Math.abs(need) > Math.abs(base.sideways || 0)) base.sideways = need;
   }
   if (path.endsWith('.guide')) { const f = find(d.chassis, 'guide'); f.params.hole = guideOf(d, f.params.guide)?.hole ?? f.params.hole; }
+  if (path === 'inserts.same' && !d.inserts.same) d.inserts.front = cleanInsert(JSON.parse(JSON.stringify(d.inserts.rear)), d.scale);
   // The rear of the car moves with the rear axle.
   if (path === 'car.wheelbase') moveRear(d, JSON.parse(lastSnap).car.wheelbase, d.car.wheelbase);
 }
@@ -1486,6 +1780,28 @@ async function openFile(input) {
   }
 }
 
+// The first shape in an SVG file, as points: its path is sampled by the browser, curves and all.
+function svgOutline(text) {
+  const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+  const el = doc.querySelector('path, polygon, polyline, rect, circle, ellipse');
+  if (!el) throw Error('This SVG has no shape the app can use. Draw one closed path.');
+  const ns = 'http://www.w3.org/2000/svg', host = document.createElementNS(ns, 'svg');
+  host.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden';
+  const shape = document.importNode(el, true);
+  shape.removeAttribute('transform');
+  host.append(shape);
+  document.body.append(host);
+  try {
+    const total = shape.getTotalLength();
+    if (!(total > 0)) throw Error('The shape in this SVG has no length.');
+    const n = Math.min(120, Math.max(12, Math.round(total / 2))), pts = [];
+    for (let i = 0; i < n; i++) { const p = shape.getPointAtLength((i / n) * total); pts.push([p.x, p.y]); }
+    return pts;
+  } finally {
+    host.remove();
+  }
+}
+
 // Dragging handles in the top view.
 function startDrag(e, el) {
   const svg = $('#topview'), d = state.design, kind = el.dataset.drag, i = +el.dataset.i;
@@ -1494,11 +1810,16 @@ function startDrag(e, el) {
     return [round(p.x, 1), round(p.y, 1)];
   };
   if (kind === 'point') { state.selPoint = i; renderPanel(); }
+  if (kind === 'ipt') { state.insPt = i; renderPanel(); }
   let moved = false;
   const move = (ev) => {
     const [x, y] = at(ev);
     moved = true;
-    if (kind === 'point') {
+    if (kind === 'ipt') {
+      const p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(svg.getScreenCTM().inverse());
+      const L = insCur().layers[state.insSel];
+      if (L?.type === 'draw') L.points[i] = [round(p.x, 2), round(p.y, 2)];
+    } else if (kind === 'point') {
       const pts = find(d.chassis, 'outline').params.points, last = i === 0 || i === pts.length - 1;
       pts[i] = [x, last ? 0 : Math.max(0, y)];
     } else if (kind === 'guide') Object.assign(find(d.chassis, 'guide').params, { along: x, side: Math.abs(y) < 0.6 ? 0 : y });
@@ -1611,7 +1932,7 @@ applyThemeState(state.theme);
 // The tab's icon, from the picture built into the page (a link in index.html would leave a loose file).
 document.head.append(Object.assign(document.createElement('link'), { rel: 'icon', href: iconUrl }));
 skeleton();
-dialogs = createDialogs({ state, call, commit, toast, download, useMesh });
+dialogs = createDialogs({ state, call, commit, toast, download, useMesh, insertKey: insKey });
 globalThis.UpdateUI?.start({ settings: updatesHolder, say: (message, bad) => toast(message, !!bad), appName: 'Frame', keeps: 'your designs, library and settings stay where they are' });
 wire();
 render();

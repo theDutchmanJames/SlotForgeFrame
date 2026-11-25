@@ -8,7 +8,7 @@ export const LIB_FORMAT = 'slotforge-frame-library';
 export const LIB_VERSION = 1;
 import { COMPONENT_KINDS } from './components.js';
 
-export const PART_KINDS = ['chassis', 'pod'];
+export const PART_KINDS = ['chassis', 'pod', 'insert'];
 export const KINDS = [...PART_KINDS, ...COMPONENT_KINDS];
 const MAX_ITEMS = 500, MAX_VERTS = 3_000_000, MAX_TEXT = 80;
 
@@ -84,7 +84,7 @@ export function cleanItem(raw, cleanData) {
     id: newItemId(),
     kind: raw.kind,
     // A component's name lives with its values.
-    name: part ? text(raw.name, raw.kind === 'pod' ? 'Pod' : 'Chassis') : data.name,
+    name: part ? text(raw.name, { pod: 'Pod', chassis: 'Chassis', insert: 'Wheel insert' }[raw.kind]) : data.name,
     scale: raw.scale === '1/24' ? '1/24' : '1/32',
     source: data.imported ? 'imported' : 'made',
     note: text(raw.note, ''),
