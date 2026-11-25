@@ -985,10 +985,15 @@ const PANELS = {
       const same = (k) => b?.confirmed !== false && Math.abs((b?.[k] ?? -1) - p[k]) < 0.011;
       return chk('Flanged: the flange rests against the upright', P(f, 'flange')) + (p.flange ? `
       <div class="g2">${num('Flange diameter', P(f, 'flangeD'), 'mm', { min: 1, tag: ' ' + srcTag(same('flangeD')) })}${num('Flange thickness', P(f, 'flangeT'), 'mm', { min: 0.1, tag: ' ' + srcTag(same('flangeT')) })}</div>
-      ${sel('Flange on the', P(f, 'flangeAt'), { out: 'Wheel side (takes the side load)', in: 'Motor side' })}
+      ${sel('Flange on the', P(f, 'flangeAt'), { out: 'Wheel side (takes the side load)', in: 'Motor side', both: 'Both sides (two flanges, the upright between them)' })}
       ${chk('Sink the flange into the upright', P(f, 'flangeRecess'))}
+      ${p.flangeAt === 'both' ? '<div class="note">With <b>two flanges</b> the upright is held between them: make it as thick as the gap between the flanges. A snap-in holder lets the bearing go in from above.</div>' : ''}
       <div class="note">${p.flangeRecess ? `The flange sits in a recess ${f2(p.flangeT)} mm deep and Ø${f2(p.flangeD)} wide, flush with the face; the holder grows round it when it is bigger than the seat.` : `The flange stands ${f2(p.flangeT)} mm out of the face${p.flangeAt === 'out' ? ', so the gear moves out by as much' : ', towards the motor'}.`} The body goes in the seat as before.</div>` : '');
     };
+    // An eccentric bushing, and a shoulder for a bearing without a flange.
+    const moreRows = (f, p) => `<div class="g2">${num('Eccentric offset (0: none)', P(f, 'ecc'), 'mm', { min: 0, max: 2 })}</div>
+      ${p.ecc > 0 ? chk('A mark on each upright to set the bushing against', P(f, 'eccMark')) + `<div class="note">An <b>eccentric bushing</b> turns in its seat to set the axle ${f2(p.ecc)} mm higher or lower. Turn both the same way (their marks mirror each other), then glue them.</div>` : ''}
+      ${chk('A shoulder on the motor side (for a bearing without a flange)', P(f, 'shoulder'))}`;
     const ball = p.form === 'sphere';
     const spreadRow = p.tube
       ? kv([['Spread, outside (set by the tube)', f2(uprightSpread(d))]])
@@ -1007,7 +1012,7 @@ const PANELS = {
         ['clamp', 'Clamp', '<path d="M8 21V11a9 9 0 0 1 18 0v10M5 21h24"/><circle cx="17" cy="11" r="4"/><path d="M17 2v5"/>'],
       ], 3) + `
       <div class="g2">${num(p.tube ? 'Seat for the tube ends' : 'Seat diameter', P(f, 'seat'), 'mm', { min: 2, tag: ' ' + srcTag(b?.confirmed !== false && Math.abs((b?.seat ?? 0) - p.seat) < 0.011) })}${num('Wall around seat', P(f, 'wall'), 'mm', { min: 0.8 })}${num('Upright thickness', P(f, 'thick'), 'mm', { min: 1 })}</div>
-      ${p.tube ? '' : flangeRows(f, p, b)}
+      ${p.tube ? '' : flangeRows(f, p, b) + moreRows(f, p)}
       <div class="note ${p.holder === 'closed' ? 'ok' : 'warn'}">${p.holder === 'closed' ? '<b>Closed holders</b> are the strongest. Ream to fit and add a drop of glue.' : p.holder === 'snap' ? '<b>Snap-in holders</b> are only advised for PETG or nylon; they tend to crack in PLA.' : '<b>Clamp holders</b> are split at the top so they can be pinched or glued shut.'}</div>`) + `
       ${chk('One axle tube through both uprights', P(f, 'tube'))}
       ${p.tube ? `<div class="g2">${num('Tube length', P(f, 'tubeLen'), 'mm', { min: 8, tag: ' ' + srcTag(false) })}${num('Tube diameter', P(f, 'tubeD'), 'mm', { min: 0.5, tag: ' ' + srcTag(false) })}</div>

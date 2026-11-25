@@ -692,15 +692,15 @@ export const checks = [
     await app.tool('pod', 'drivetrain');
     await page.click('#panel [data-act=library][data-kind=motor]');
     await page.waitForSelector('#dialog .plist .prow');
-    assert.equal(await rows(), 5, 'five built-in motors');
+    assert.equal(await rows(), 7, 'seven built-in motors');
     assert.match(await page.locator('#dialog .detail').innerText(), /built in/i);
     assert.equal(await page.locator('#dialog [data-d=delete]').isDisabled(), true, 'a built-in entry cannot be deleted');
     assert.equal(await page.locator('#dialog [data-d=cfield]').count(), 0, 'or edited');
     // Duplicate the long can and change the copy.
     await page.locator('#dialog .plist .prow', { hasText: 'Long can' }).click();
     await page.click('#dialog [data-d=dup]');
-    await page.waitForFunction(() => document.querySelectorAll('#dialog .plist .prow').length === 6);
-    assert.match(await page.locator('#dialog .plist .prow.cur').innerText(), /Long can \(FK-180\) \(copy\)[\s\S]*Yours[\s\S]*Unconfirmed/);
+    await page.waitForFunction(() => document.querySelectorAll('#dialog .plist .prow').length === 8);
+    assert.match(await page.locator('#dialog .plist .prow.cur').innerText(), /Long can \(FK-180[^)]*\) \(copy\)[\s\S]*Yours[\s\S]*Unconfirmed/);
     await page.locator('#dialog [data-d=cname]').fill('Club long can');
     await page.locator('#dialog [data-d=cname]').press('Tab');
     await page.waitForFunction(() => /Club long can/.test(document.querySelector('#dialog .plist .prow.cur')?.textContent ?? ''));
@@ -749,10 +749,10 @@ export const checks = [
     await page.click('#menus [data-act=library]');
     await page.click('#dialog [data-d=kind][data-kind=motor]');
     await page.waitForSelector('#dialog .plist .prow');
-    assert.equal(await rows(), 5, 'their motor list is still only the built-in ones');
+    assert.equal(await rows(), 7, 'their motor list is still only the built-in ones');
     // Opening the motor's own file adds it to the list.
     await page.setInputFiles('input[type=file][accept=".framelib,.json"]', await app.tempFile(motorFile.name, motorFile.bytes));
-    await page.waitForFunction(() => document.querySelectorAll('#dialog .plist .prow').length === 6);
+    await page.waitForFunction(() => document.querySelectorAll('#dialog .plist .prow').length === 8);
     await page.click('#dialog [data-d=close]');
   }],
 

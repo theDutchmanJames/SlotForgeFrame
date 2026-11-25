@@ -2,7 +2,7 @@
 // Runs in the worker (engine.worker.js) and in Node tests.
 // All booleans are done by Manifold, as in SlotForge Foundry.
 
-import { find, on, heights, motorOf, gearOf, motorPlace, podLayout, uprightSpread, uprightInner, seatSize, holderSize, flanged, flangeProud, gearSide, asRight, podShift, unshifted, podRide, kickActive, activeKicks, profileOf, bearingOf, couponHoles } from '../model.js';
+import { find, on, heights, motorOf, gearOf, motorPlace, podLayout, uprightSpread, uprightInner, seatSize, holderSize, flanged, flangeProud, flangeSides, gearSide, asRight, podShift, unshifted, podRide, kickActive, activeKicks, profileOf, bearingOf, couponHoles } from '../model.js';
 import { createAnalyser } from './mesh-measure.js';
 import { layerShape, directional, insertOf, insertChecks, ringSizes } from '../inserts.js';
 import { wingSide, legYs, pinsOf, wingChecks, deckZ } from '../wings.js';
@@ -794,18 +794,35 @@ export function createEngine(wasm) {
         if (p.thick < p.ballW + 0.4) notes.push({ ok: false, title: 'The uprights are too thin for the ball', text: `A ball ${p.ballW} mm wide needs uprights at least ${(p.ballW + 0.4).toFixed(1)} mm thick, so that a lip is left on both sides of it.` });
         if (p.opening >= p.ballD - 0.2) notes.push({ ok: false, title: 'The ball can fall out of its socket', text: `The opening (Ø${p.opening}) has to be smaller than the ball (Ø${p.ballD}): about 0.5 mm is usual.` });
         if (p.opening < d.car.axleD + 0.3) notes.push({ ok: false, title: 'The opening is too small for the axle', text: `The axle (Ø${d.car.axleD}) needs room to tilt with the ball: make the opening at least Ø${(d.car.axleD + 0.3).toFixed(2)}.` });
+      } else if (p.shoulder && !p.tube) {
+        // A shoulder: the seat goes in from the wheel side only as deep as the bearing, and a smaller hole
+        // goes on through, so a bearing without a flange cannot slide in towards the motor.
+        const wide = bearingOf(d, p.bearing)?.width ?? p.thick - 0.6, deep = Math.min(wide, p.thick - 0.6), stop = Math.max(between / 2 + 0.6, sr - 0.5);
+        for (const s of [1, -1]) cut.push(cylY(wb, zc, s > 0 ? yo - deep : -yo - 1, s > 0 ? yo + 1 : -yo + deep, sr));
+        cut.push(cylY(wb, zc, -yo - 1, yo + 1, stop));
+        if (p.thick - wide < 0.6 - 1e-9) notes.push({ ok: false, title: 'No room for a shoulder', text: 'The bearing is as wide as the upright, so there is nothing left behind it to stop it. Thicken the uprights, or turn the shoulder off.' });
       } else cut.push(cylY(wb, zc, -yo - 1, yo + 1, sr));
+      // An eccentric bushing: a small groove up the wheel side of each upright, above the seat, to set its mark against.
+      if (!ball && p.ecc > 0 && p.eccMark)
+        for (const s of [1, -1]) cut.push(box(wb - 0.25, s > 0 ? yo - 0.3 : -yo - 1, zc + sr + 0.3, wb + 0.25, s > 0 ? yo + 1 : -yo + 0.3, zt + 1));
       if (flanged(p)) {
         // A flanged bearing: its flange rests against the wheel side or the motor side of each upright,
         // in a recess as deep as the flange, or standing out of the face.
-        const fr = holeR(p.flangeD, bfix), t = p.flangeT, inSide = p.flangeAt === 'in';
-        for (const s of [1, -1]) {
-          if (p.flangeRecess) {
-            const [a, b] = inSide ? [yi - 0.01, yi + t] : [yo - t, yo + 1];
-            cut.push(cylY(wb, zc, Math.min(s * a, s * b), Math.max(s * a, s * b), fr));
-          } else if (inSide && K(rect(wb - fr, s > 0 ? yi - t : -yi, wb + fr, s > 0 ? yi : -yi + t).intersect(motorWin)).area() > 0.05)
-            notes.push({ ok: false, title: 'The flange touches the motor', text: 'The flange stands out of the upright towards the motor. Sink it into the upright, put it on the wheel side, or move the motor.' });
+        const fr = holeR(p.flangeD, bfix), t = p.flangeT;
+        for (const at of flangeSides(p)) {
+          const inSide = at === 'in';
+          for (const s of [1, -1]) {
+            if (p.flangeRecess) {
+              const [a, b] = inSide ? [yi - 0.01, yi + t] : [yo - t, yo + 1];
+              cut.push(cylY(wb, zc, Math.min(s * a, s * b), Math.max(s * a, s * b), fr));
+            } else if (inSide && K(rect(wb - fr, s > 0 ? yi - t : -yi, wb + fr, s > 0 ? yi : -yi + t).intersect(motorWin)).area() > 0.05)
+              notes.push({ ok: false, title: 'The flange touches the motor', text: 'The flange stands out of the upright towards the motor. Sink it into the upright, put it on the wheel side, or move the motor.' });
+          }
         }
+        // Two flanges hold the upright between them: it must not be thicker than the bearing between its flanges.
+        const between2 = bearingOf(d, p.bearing)?.width;
+        if (p.flangeAt === 'both' && !p.flangeRecess && between2 && p.thick > between2 + 0.05)
+          notes.push({ ok: false, title: 'The upright is thicker than the gap between the flanges', text: `This bearing holds an upright of ${between2} mm between its flanges; the uprights are ${p.thick} mm. Make them ${between2} mm, or use a snap-in holder.` });
         if (p.flangeD < p.seat + 0.4) notes.push({ ok: false, title: 'The flange is no bigger than the seat', text: `A flange of Ø${p.flangeD} cannot rest against the upright round a seat of Ø${p.seat}: it would slip through. Measure the flange, or turn the flange off.` });
         if (p.flangeRecess && p.thick - t < 1) notes.push({ ok: false, title: 'The upright is too thin for the flange recess', text: `With a ${t} mm recess, ${(p.thick - t).toFixed(1)} mm of the upright is left to hold the seat: at least 1 mm is needed. Thicken the uprights, or let the flange stand out of the face.` });
         if (zc - p.flangeD / 2 < z0 + base.thickness) notes.push({ ok: false, title: 'The flange reaches into the pod floor', text: 'The axle sits too low for a flange this big. Raise the axle in the pod (Pod › Base plate), or use a smaller flange.' });

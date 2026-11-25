@@ -179,7 +179,10 @@ export function newDesign(scale = '1/32') {
     // motor side of each upright (flangeAt), sunk into a recess or standing proud of the face (flangeRecess).
     feature('uprights', { bearing: p.bearing, seat: BEARINGS[p.bearing].seat, holder: 'closed', spread: big ? 36 : 29, wall: 2.0, thick: 3.0, brace: true, buttress: true, lube: false,
       form: 'straight', ballD: 3.8, ballW: 2.0, opening: 3.2, slits: 4, slitW: 0.6, tube: false, tubeLen: 29, tubeD: 3.0,
-      flange: false, flangeD: 6.0, flangeT: 0.6, flangeAt: 'out', flangeRecess: true }),
+      flange: false, flangeD: 6.0, flangeT: 0.6, flangeAt: 'out', flangeRecess: true,
+      // ecc: an eccentric bushing's offset (it turns in its seat to set the axle's height), with a mark on the
+      // upright to set it against. shoulder: the seat only as deep as the bearing, for one without a flange.
+      ecc: 0, eccMark: true, shoulder: false }),
     // float: play for a pod that hangs on loosened screws: its screw holes are that much larger.
     feature('lugs', { patternX: 63.2, patternY: 20, rearBehindAxle: 6.6, lugD: 4.6, lugT: 2.0, hole: 2.3, float: 0 }),
   ];
@@ -294,7 +297,9 @@ export const uprightInner = (yo, p) => yo - Math.min(p.thick, yo - 0.5);
 // A flange counts on a straight seat of its own (an axle tube's ends sit in the seats instead).
 export const flanged = (p) => p.flange === true && p.form !== 'sphere' && !p.tube;
 // How far a flange stands out of an upright's face on one side ('out': the wheel side, 'in': the motor side).
-export const flangeProud = (p, at) => (flanged(p) && !p.flangeRecess && p.flangeAt === at ? p.flangeT : 0);
+export const flangeProud = (p, at) => (flanged(p) && !p.flangeRecess && (p.flangeAt === at || p.flangeAt === 'both') ? p.flangeT : 0);
+// The faces of an upright a flange rests against: 'out' (the wheel side), 'in' (the motor side), or both.
+export const flangeSides = (p) => (p.flangeAt === 'both' ? ['out', 'in'] : [p.flangeAt]);
 // The size the holder is built round: the seat or the ball, or a sunk flange when that is bigger.
 export const holderSize = (p) => (flanged(p) && p.flangeRecess ? Math.max(seatSize(p), p.flangeD) : seatSize(p));
 // Puts a bearing to work in the uprights: its seat, and its flange when it has one.
@@ -303,6 +308,10 @@ export function useBearing(p, b) {
   p.seat = b.seat;
   p.flange = b.flangeD > 0 && b.flangeT > 0;
   if (p.flange) Object.assign(p, { flangeD: b.flangeD, flangeT: b.flangeT });
+  // Two flanges hold the upright between them; a sunk flange cannot do that.
+  if (p.flange && b.flanges === 2) Object.assign(p, { flangeAt: 'both', flangeRecess: false });
+  else if (p.flangeAt === 'both') p.flangeAt = 'out';
+  p.ecc = b.ecc ?? 0;
 }
 export const tubeSpread = (p) => round(p.form === 'sphere' ? p.tubeLen - p.ballW + p.thick : p.tubeLen, 3);
 // The spread the motor asks for (a sidewinder's can lies between the holders).
@@ -547,8 +556,8 @@ export function partsLayout(d) {
     if (p.tube) out.bushes.push({ x: wb, y: o, z, d: p.tubeD, w: 2 * yc });
     for (const s of [1, -1]) out.bushes.push(ball ? { x: wb, y: o + s * yc, z, d: p.ballD, w: p.ballW } : p.tube ? { x: wb, y: o + s * yc, z, d: p.seat, w: p.thick } : { x: wb, y: o + s * yc, z, d: p.seat, w: Math.min(p.thick, b?.width ?? p.thick) });
     // A flange against one face of each upright: in a recess in the face, or standing out of it.
-    if (flanged(p)) {
-      const face = p.flangeAt === 'in' ? uprightInner(yo, p) : yo, into = p.flangeAt === 'in' ? 1 : -1, t = p.flangeT;
+    if (flanged(p)) for (const at of flangeSides(p)) {
+      const face = at === 'in' ? uprightInner(yo, p) : yo, into = at === 'in' ? 1 : -1, t = p.flangeT;
       const mid = face + (p.flangeRecess ? into : -into) * t / 2;
       for (const s of [1, -1]) out.bushes.push({ x: wb, y: o + s * mid, z, d: p.flangeD, w: t, flange: true });
     }
@@ -766,14 +775,14 @@ export function decodeProject(text) {
 const LIMIT = 600;
 const CHOICES = {
   style: ['closed', 'frame', 'lattice'], struts: ['none', 'axle', 'fan'], shape: ['round', 'bar'],
-  holder: ['closed', 'snap', 'clamp'], form: ['straight', 'sphere'], flangeAt: ['out', 'in'], side: ['top', 'under'], zone: ['full', 'centre', 'sides'],
+  holder: ['closed', 'snap', 'clamp'], form: ['straight', 'sphere'], flangeAt: ['out', 'in', 'both'], side: ['top', 'under'], zone: ['full', 'centre', 'sides'],
 };
 // Ranges for values where the general ±2000 limit is too loose.
 const RANGE = {
   thickness: [0.4, 20], round: [0, 50], railWidth: [0.2, 20], outerRail: [0.2, 20], pad: [0, 20], latticeCell: [3, 100],
   strakes: [0, 40], strakeT: [0.2, 10], angle: [0, 80], windows: [0, 20], bar: [0.2, 20], lean: [-45, 60],
   hole: [0.3, 20], bossD: [1, 40], bossH: [0, 40], padD: [1, 40], grub: [0, 10], recessD: [0, 40], recessDepth: [0, 20],
-  wall: [0.2, 20], thick: [0.2, 20], seat: [1, 20], ballD: [1.5, 12], ballW: [0.5, 10], opening: [0.5, 12], slits: [0, 8], slitW: [0.2, 2], tubeLen: [8, 80], tubeD: [0.5, 12], flangeD: [1, 30], flangeT: [0.1, 5], spread: [4, 200], lugD: [1, 30], lugT: [0.4, 20], clear: [0, 5],
+  wall: [0.2, 20], thick: [0.2, 20], seat: [1, 20], ballD: [1.5, 12], ballW: [0.5, 10], opening: [0.5, 12], slits: [0, 8], slitW: [0.2, 2], tubeLen: [8, 80], tubeD: [0.5, 12], flangeD: [1, 30], flangeT: [0.1, 5], ecc: [0, 2], spread: [4, 200], lugD: [1, 30], lugT: [0.4, 20], clear: [0, 5],
   root: [0, 5], deep: [0.2, 20], floor: [0, 5], mass: [0, 200], reach: [0, 20], rise: [0, 30], sink: [0, 20], d: [1, 40], travel: [0, 6], float: [0, 2], sideways: [-15, 15], rest: [0, 10], drop: [-10, 10], gap: [0, 10], holeFix: [-0.5, 1], zoneHalf: [0.5, 200], bevelTop: [0, 1.5], bevelBottom: [0, 1.5], tabs: [1, 8], depth: [1, 20], neck: [1, 30], head: [1, 30], play: [0, 1], patternX: [5, 300], patternY: [2, 200], h0: [0, 60], h1: [0, 60], height: [0, 80], width: [0.2, 300], offset: [-20, 40],
 };
 const numIn = (v, def, key) => {

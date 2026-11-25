@@ -14,7 +14,7 @@ export const MOTORS = {
   fk130: { name: 'Short can, FK-130 type', length: 25.1, width: 20.4, height: 15.4, bossD: 6.15, bossL: 1.6, endD: 6.15, endL: 1.6, shaftD: 2.0, shaftOut: 9.6, pitch: 12.4, screwTilt: 0, confirmed: true },
   fk130p: { name: 'Short can, FK-130 with plastic endbell (FK-130RD, FC-140)', length: 25.0, width: 20.4, height: 15.4, bossD: 6.15, bossL: 1.6, endD: 10.0, endL: 3.0, shaftD: 2.0, shaftOut: 9.6, pitch: 12.4, screwTilt: 0, confirmed: false },
   ff130: { name: 'Short can, long shaft (FF-130SH)', length: 25.1, width: 20.4, height: 15.4, bossD: 6.15, bossL: 1.6, endD: 6.15, endL: 2.1, shaftD: 2.0, shaftOut: 11.55, pitch: 12.4, screwTilt: 0, confirmed: true },
-  fk180: { name: 'Long can (FK-180 · Boxer, NSR King, Sloting Plus Speed, Scaleauto Sprinter)', length: 32.1, width: 20.4, height: 15.4, bossD: 6.15, bossL: 1.6, endD: 6.15, endL: 2.1, shaftD: 2.0, shaftOut: 8.55, pitch: 12.4, screwTilt: 0, confirmed: true },
+  fk180: { name: 'Long can (FK-180 · Slot.it Boxer, NSR King, Scaleauto Sprinter)', length: 32.1, width: 20.4, height: 15.4, bossD: 6.15, bossL: 1.6, endD: 6.15, endL: 2.1, shaftD: 2.0, shaftOut: 8.55, pitch: 12.4, screwTilt: 0, confirmed: true },
   ff050: { name: 'Slimline (FF-050)', length: 26.9, width: 15.5, height: 12.0, bossD: 4.7, bossL: 1.4, endD: 4.7, endL: 1.9, shaftD: 1.5, shaftOut: 11.0, pitch: 10.0, screwTilt: 30, confirmed: true },
   ff030: { name: 'Short slimline (FF-030)', length: 18.6, width: 15.5, height: 12.0, bossD: 4.7, bossL: 1.5, endD: 5.0, endL: 0.7, shaftD: 1.5, shaftOut: 7.0, pitch: 10.0, screwTilt: 30, confirmed: true },
 };
@@ -46,11 +46,20 @@ export const GEARS = {
   ],
 };
 
+// Bearings and bushings for the axles. `flanges`: 1, or 2 for one with a flange on each side of the upright.
+// `ecc`: an eccentric bushing's offset, how far its bore sits off its centre (it turns to set the axle's height).
+// The flanged ball bearings are NSK's catalogue sizes; Sloting Plus gives the holes its parts need (parts-data.md).
+const bearing = (b) => ({ flanges: 1, ecc: 0, ...b });
 export const BEARINGS = {
-  ball: { name: 'Ball bearing 3/32" · seat Ø4.75', seat: 4.75, width: 2.4, flangeD: 0, flangeT: 0, confirmed: true },
-  bushing: { name: 'Flanged bronze bushing · seat Ø4.9', seat: 4.9, width: 2.5, flangeD: 6.0, flangeT: 0.6, confirmed: false },
-  universal: { name: 'Sloting Plus universal bushing · seat Ø4.8', seat: 4.8, width: 2.5, flangeD: 0, flangeT: 0, confirmed: true },
-  ball3: { name: 'Ball bearing 3 mm axle · seat Ø6', seat: 6.0, width: 2.5, flangeD: 0, flangeT: 0, confirmed: true },
+  ball: bearing({ name: 'Ball bearing 3/32" · seat Ø4.75', seat: 4.75, width: 2.4, flangeD: 0, flangeT: 0, confirmed: true }),
+  fr133zz: bearing({ name: 'Flanged ball bearing 3/32", shielded (NSK FR133ZZ, R133-2Z) · seat Ø4.76', seat: 4.76, width: 2.38, flangeD: 5.94, flangeT: 0.79, confirmed: true }),
+  fr133: bearing({ name: 'Flanged ball bearing 3/32", open (NSK FR133) · seat Ø4.76', seat: 4.76, width: 1.59, flangeD: 5.94, flangeT: 0.46, confirmed: true }),
+  bushing: bearing({ name: 'Flanged bronze bushing 3/32" × 3/16" (Oilite) · seat Ø4.76', seat: 4.76, width: 2.5, flangeD: 6.0, flangeT: 0.6, confirmed: false }),
+  universal: bearing({ name: 'Sloting Plus universal bushing · seat Ø4.8', seat: 4.8, width: 2.5, flangeD: 0, flangeT: 0, confirmed: true }),
+  ecc03: bearing({ name: 'Eccentric bushing 3/32", 0.3 mm (Sloting Plus SP051200) · seat Ø4.8', seat: 4.8, width: 2.5, flangeD: 0, flangeT: 0, ecc: 0.3, confirmed: false }),
+  ecc06: bearing({ name: 'Eccentric bushing 3/32", 0.6 mm (Sloting Plus SP051201) · seat Ø4.8', seat: 4.8, width: 2.5, flangeD: 0, flangeT: 0, ecc: 0.6, confirmed: false }),
+  ball3: bearing({ name: 'Ball bearing 3 mm axle · seat Ø6', seat: 6.0, width: 2.5, flangeD: 0, flangeT: 0, confirmed: true }),
+  mf63: bearing({ name: 'Flanged ball bearing 3 mm (NSK MF63ZZ) · seat Ø6', seat: 6.0, width: 2.5, flangeD: 7.2, flangeT: 0.6, confirmed: true }),
 };
 
 export const GUIDES = {
@@ -174,9 +183,10 @@ export const KINDS = {
   },
   bearing: {
     one: 'Bearing', many: 'Bearings', group: 'Components', inDesign: true,
-    fields: [['seat', 'Seat diameter', [1, 20], 'mm'], ['width', 'Width', [0.5, 10], 'mm'], ['flangeD', 'Flange diameter (0 for none)', [0, 30], 'mm'], ['flangeT', 'Flange thickness', [0, 5], 'mm']],
-    fresh: { name: 'My bearing', seat: 4.75, width: 2.4, flangeD: 0, flangeT: 0, confirmed: false },
-    line: (c) => `seat Ø${c.seat}${c.flangeD > 0 ? ` · flange Ø${c.flangeD} × ${c.flangeT}` : ''}`,
+    fields: [['seat', 'Seat diameter', [1, 20], 'mm'], ['width', 'Width (between the flanges, with two)', [0.5, 10], 'mm'], ['flangeD', 'Flange diameter (0 for none)', [0, 30], 'mm'], ['flangeT', 'Flange thickness', [0, 5], 'mm'],
+      ['flanges', 'Flanges (1, or 2: one each side)', [1, 2], '', true], ['ecc', 'Eccentric offset (0 for none)', [0, 2], 'mm']],
+    fresh: { name: 'My bearing', seat: 4.75, width: 2.4, flangeD: 0, flangeT: 0, flanges: 1, ecc: 0, confirmed: false },
+    line: (c) => `seat Ø${c.seat}${c.flangeD > 0 ? ` · ${c.flanges === 2 ? 'two flanges' : 'flange'} Ø${c.flangeD} × ${c.flangeT}` : ''}${c.ecc > 0 ? ` · eccentric ${c.ecc}` : ''}`,
   },
   guide: {
     one: 'Guide', many: 'Guides', group: 'Components', inDesign: true,
