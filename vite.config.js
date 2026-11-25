@@ -24,6 +24,8 @@ export default defineConfig({
   plugins: [browserKernel(), viteSingleFile({ removeViteModuleLoader: true })],
   optimizeDeps: { include: ['manifold-3d'] },
   worker: { format: 'iife', plugins: () => [browserKernel()] },
-  build: { target: 'es2022', chunkSizeWarningLimit: 12000 },
+  // The build writes one file. It leaves the rest of dist alone: dist/desktop holds the packaged downloads,
+  // and a file in use there would stop the build.
+  build: { target: 'es2022', chunkSizeWarningLimit: 12000, emptyOutDir: false },
   server: { port: 5191, strictPort: true },
 });
