@@ -63,7 +63,7 @@ Frame works along eight menus, roughly in the order you build a car: **Car, Outl
 - **1/32 and 1/24:** start a new chassis in either scale, with matching starting values.
 - **Wheels and axles:** wheelbase, ground clearance, axle diameter, and tyre diameter, width and track for the front and the rear.
 - **Rules:** the widest car, the longest guide lead and the least clearance your club allows. The final check compares the design with them.
-- **Car presets and rule sets** come from the library, and you can add your own.
+- **Car presets and rule sets** come from the library, and you can add your own. A car preset sets the wheelbase, and the tyres and the track where its maker publishes them (Policar, BRM, Carrera Digital 124 and more); length, width and weight are there to compare with.
 
 ### Draw the outline
 

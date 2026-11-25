@@ -87,8 +87,12 @@ export const RULESETS = {
   bscra24: { name: 'BSCRA 1/24', maxWidth: 83, guideLeadMax: 130, minClearance: 0.5, confirmed: true },
 };
 
-// Wheelbases of well-known cars, to start a chassis from. Designer's and retailer's figures (parts-data.md).
-export const CARS = {
+// Wheelbases of well-known cars, to start a chassis from, and their other sizes where the maker publishes
+// them: length, width, track (tyre centre to tyre centre), tyres (diameter × width) and weight. 0: not known.
+// Designer's, retailer's and makers' figures (parts-data.md).
+export const CAR_SIZES = ['length', 'width', 'trackF', 'trackR', 'tyreFD', 'tyreFW', 'tyreRD', 'tyreRW', 'weight'];
+const sized = (cars) => Object.fromEntries(Object.entries(cars).map(([id, c]) => [id, { ...Object.fromEntries(CAR_SIZES.map((k) => [k, 0])), ...c }]));
+export const CARS = sized({
   'sx-mini': { name: 'Scalextric Mini', scale: '1/32', wheelbase: 63, confirmed: false },
   'sx-capri': { name: 'Scalextric Capri / Escort Mexico', scale: '1/32', wheelbase: 75, confirmed: false },
   'sx-f40': { name: 'Scalextric Ferrari F40', scale: '1/32', wheelbase: 76, confirmed: false },
@@ -105,14 +109,43 @@ export const CARS = {
   'nc-cobra': { name: 'Ninco Cobra', scale: '1/32', wheelbase: 71.5, confirmed: false },
   'nc-mclaren': { name: 'Ninco McLaren F1 / Mercedes', scale: '1/32', wheelbase: 84, confirmed: false },
   'gt-mp412c': { name: 'McLaren MP4-12C (example chassis)', scale: '1/32', wheelbase: 83.4, confirmed: false },
-  'brm-simca': { name: 'BRM Simca 1000', scale: '1/24', wheelbase: 93, confirmed: false },
-  'brm-escort': { name: 'BRM Ford Escort Mk1', scale: '1/24', wheelbase: 100, confirmed: false },
-  'brm-2002': { name: 'BRM BMW 2002ti', scale: '1/24', wheelbase: 104, confirmed: false },
-  'brm-camaro': { name: 'BRM Camaro Z28', scale: '1/24', wheelbase: 114, confirmed: false },
-  'brm-917': { name: 'BRM Porsche 917K', scale: '1/24', wheelbase: 90, confirmed: false },
-  'brm-f1gtr': { name: 'BRM McLaren F1 GTR', scale: '1/24', wheelbase: 115, confirmed: false },
+  // Policar's own product pages (wheelbase, length, width, weight).
+  'pc-312b2': { name: 'Policar Ferrari 312 B2', scale: '1/32', wheelbase: 86, length: 126, width: 61, weight: 48, confirmed: false },
+  'pc-lotus72': { name: 'Policar Lotus 72', scale: '1/32', wheelbase: 85.4, length: 126, weight: 48, confirmed: false },
+  'pc-brmp160': { name: 'Policar BRM P160 / P153', scale: '1/32', wheelbase: 86, length: 124.5, width: 61.5, weight: 50, confirmed: false },
+  'pc-330p4': { name: 'Policar Ferrari 330 P4 / 412P', scale: '1/32', wheelbase: 93.8, length: 132, width: 60.5, weight: 58.5, confirmed: false },
+  'pc-f40': { name: 'Policar Ferrari F40', scale: '1/32', wheelbase: 95.7, length: 135, width: 63, weight: 79, confirmed: false },
+  'pc-gt86': { name: 'Policar Toyota GT86', scale: '1/32', wheelbase: 88, length: 133, width: 55.5, weight: 80, confirmed: false },
+  'pc-wrx': { name: 'Policar Subaru WRX STI', scale: '1/32', wheelbase: 92, length: 142, width: 57, weight: 85.5, confirmed: false },
+  // BRM and TTS spec sheets as a retailer quotes them (wheelbase, length, width, tyres, weight).
+  'brm-simca': { name: 'BRM Simca 1000', scale: '1/24', wheelbase: 93, length: 155, width: 73, tyreFD: 22.5, tyreFW: 10, tyreRD: 23.5, tyreRW: 11.3, weight: 137, confirmed: false },
+  'brm-kadett': { name: 'BRM Opel Kadett', scale: '1/24', wheelbase: 99, length: 165, width: 73, tyreFD: 22.5, tyreFW: 10, tyreRD: 23.5, tyreRW: 11.3, weight: 132, confirmed: false },
+  'brm-gta': { name: 'BRM Alfa Romeo GTA 1300 Junior', scale: '1/24', wheelbase: 99, length: 168, width: 71, tyreFD: 22.5, tyreFW: 10, tyreRD: 23.5, tyreRW: 11.3, weight: 126, confirmed: false },
+  'brm-escort': { name: 'BRM Ford Escort Mk1', scale: '1/24', wheelbase: 100, length: 164, width: 75, tyreFD: 22.5, tyreFW: 9.5, tyreRD: 22.5, tyreRW: 11, weight: 136, confirmed: false },
+  'brm-scirocco': { name: 'BRM VW Scirocco', scale: '1/24', wheelbase: 100, length: 160, width: 73, tyreFD: 23.5, tyreFW: 11, tyreRD: 23.5, tyreRW: 12.5, weight: 130, confirmed: false },
+  'brm-capri': { name: 'BRM Ford Capri RS 2600', scale: '1/24', wheelbase: 103, length: 177, width: 74, tyreFD: 23.5, tyreFW: 11, tyreRD: 23.5, tyreRW: 12, weight: 138, confirmed: false },
+  'brm-2002': { name: 'BRM BMW 2002ti', scale: '1/24', wheelbase: 104, length: 175, width: 73, tyreFD: 22.5, tyreFW: 10, tyreRD: 23.5, tyreRW: 11.3, weight: 139, confirmed: false },
+  'brm-240z': { name: 'BRM Datsun 240Z', scale: '1/24', wheelbase: 93, length: 173, width: 71, tyreFD: 22.5, tyreFW: 11, tyreRD: 23, tyreRW: 12.5, weight: 130, confirmed: false },
+  'brm-911rsr': { name: 'BRM Porsche 911 RSR 1973 / 911S', scale: '1/24', wheelbase: 94, length: 173, width: 77, tyreFD: 22.5, tyreFW: 11, tyreRD: 23.5, tyreRW: 12, weight: 130, confirmed: false },
+  'brm-mini': { name: 'BRM Mini Cooper', scale: '1/24', wheelbase: 84, length: 125, width: 68, tyreFD: 21, tyreFW: 10, tyreRD: 21, tyreRW: 10, weight: 115, confirmed: false },
+  'brm-camaro': { name: 'BRM Camaro Z28', scale: '1/24', wheelbase: 114, length: 200, width: 82, tyreFD: 26, tyreFW: 10, tyreRD: 27, tyreRW: 12, weight: 200, confirmed: false },
+  'brm-mustang': { name: 'BRM Ford Mustang 1969/70', scale: '1/24', wheelbase: 114, length: 200, width: 72, tyreFD: 26, tyreFW: 10, tyreRD: 27, tyreRW: 12, weight: 200, confirmed: false },
+  'brm-917': { name: 'BRM Porsche 917K', scale: '1/24', wheelbase: 90, length: 175, width: 87, tyreFD: 24.5, tyreFW: 12.5, tyreRD: 26.5, tyreRW: 17, weight: 172, confirmed: false },
+  'brm-512m': { name: 'BRM Ferrari 512M', scale: '1/24', wheelbase: 97, length: 172, width: 86.5, tyreFD: 25, tyreFW: 12.6, tyreRD: 27, tyreRW: 16.5, weight: 182, confirmed: false },
+  'brm-gt40': { name: 'BRM Ford GT40 MkII', scale: '1/24', wheelbase: 100, length: 175, width: 75.5, tyreFD: 24.5, tyreFW: 12.5, tyreRD: 26.5, tyreRW: 17, weight: 168, confirmed: false },
+  'brm-911gt1': { name: 'BRM Porsche 911 GT1', scale: '1/24', wheelbase: 103, length: 195, width: 86, tyreFD: 26, tyreFW: 12, tyreRD: 28, tyreRW: 15, weight: 195, confirmed: false },
+  'brm-f1gtr': { name: 'BRM McLaren F1 GTR', scale: '1/24', wheelbase: 115, length: 195, width: 86, tyreFD: 26, tyreFW: 12, tyreRD: 27, tyreRW: 14, weight: 195, confirmed: false },
+  'tts-t33': { name: 'TTS Alfa Romeo T33/3', scale: '1/24', wheelbase: 93, length: 157, width: 78, tyreFD: 22.5, tyreFW: 11.5, tyreRD: 25.5, tyreRW: 15.5, weight: 143, confirmed: false },
+  // Carrera Digital 124: the technical data in the test reports on Carrera's own site (wheelbase, length, track, weight).
+  'cr24-capri': { name: 'Carrera D124 Ford Capri Zakspeed Turbo', scale: '1/24', wheelbase: 106, length: 210, trackF: 75.5, trackR: 81, weight: 230, confirmed: false },
+  'cr24-911rsr': { name: 'Carrera D124 Porsche 911 RSR (991)', scale: '1/24', wheelbase: 105.5, length: 202, trackF: 83, trackR: 83, weight: 250, confirmed: false },
+  'cr24-c63': { name: 'Carrera D124 Mercedes-AMG C 63 DTM', scale: '1/24', wheelbase: 115, length: 210, trackF: 80, trackR: 81, weight: 240, confirmed: false },
+  'cr24-rs5': { name: 'Carrera D124 Audi RS5 DTM', scale: '1/24', wheelbase: 115, length: 213, trackF: 80, trackR: 80, weight: 243, confirmed: false },
+  'cr24-cheetah': { name: 'Carrera D124 Bill Thomas Cheetah', scale: '1/24', wheelbase: 95, length: 157, trackF: 70, trackR: 82, weight: 210, confirmed: false },
+  // Scaleauto, as a retailer quotes it.
+  'sc-huracan': { name: 'Scaleauto Lamborghini Huracán GT3', scale: '1/24', wheelbase: 110, length: 186, width: 86, tyreFD: 25.5, tyreFW: 8, tyreRD: 27.5, tyreRW: 13, confirmed: false },
   'sc-lmp': { name: 'Scaleauto 1/24 LMP', scale: '1/24', wheelbase: 124, confirmed: true },
-};
+});
 
 // ------------------------------------------------------------ what each kind holds
 // field: [key, label, [lowest, highest], unit, whole number?]
@@ -163,9 +196,12 @@ export const KINDS = {
   car: {
     one: 'Car preset', many: 'Car presets', group: 'Setup',
     choices: { scale: { '1/32': '1/32', '1/24': '1/24' } },
-    fields: [['wheelbase', 'Wheelbase', [20, 300], 'mm']],
-    fresh: { name: 'My car', scale: '1/32', wheelbase: 80, confirmed: false },
-    line: (c) => `${c.scale} · wheelbase ${c.wheelbase}`,
+    fields: [['wheelbase', 'Wheelbase', [20, 300], 'mm'], ['length', 'Length (0: not known)', [0, 600], 'mm'], ['width', 'Width (0: not known)', [0, 300], 'mm'],
+      ['trackF', 'Front track, tyre centres', [0, 300], 'mm'], ['trackR', 'Rear track, tyre centres', [0, 300], 'mm'],
+      ['tyreFD', 'Front tyre diameter', [0, 100], 'mm'], ['tyreFW', 'Front tyre width', [0, 60], 'mm'], ['tyreRD', 'Rear tyre diameter', [0, 100], 'mm'], ['tyreRW', 'Rear tyre width', [0, 60], 'mm'],
+      ['weight', 'Weight (0: not known)', [0, 1000], 'g']],
+    fresh: { name: 'My car', scale: '1/32', wheelbase: 80, length: 0, width: 0, trackF: 0, trackR: 0, tyreFD: 0, tyreFW: 0, tyreRD: 0, tyreRW: 0, weight: 0, confirmed: false },
+    line: (c) => [`${c.scale} · wheelbase ${c.wheelbase}`, c.length ? `length ${c.length}` : '', c.width ? `width ${c.width}` : '', c.tyreRD ? `rear tyres ${c.tyreRD} × ${c.tyreRW}` : '', c.weight ? `${c.weight} g` : ''].filter(Boolean).join(' · '),
   },
 };
 export const COMPONENT_KINDS = Object.keys(KINDS);

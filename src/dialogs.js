@@ -107,7 +107,7 @@ export function createDialogs(ctx) {
         ? `<div class="plist tall">${shown.map((x) => `<div class="prow ${x.id === dlg.sel ? 'cur' : ''}" data-d="sel" data-id="${esc(x.id)}"><span>${esc(x.data.name)}<small>${esc(k.line(x.data))}</small></span>${x.builtin ? '<span class="pill">Built in</span>' : '<span class="pill ok">Yours</span>'}${k.noConfirm || x.data.confirmed ? '' : '<span class="pill un">Unconfirmed</span>'}</div>`).join('')}</div>`
         : `<div class="cards">${shown.map((x) => `<div class="card2 ${x.id === dlg.sel ? 'on' : ''}" data-d="sel" data-id="${esc(x.id)}"><div class="thumb">${thumb(x)}</div><b>${esc(x.name)}</b><small>${x.source === 'imported' ? 'Imported STL' : 'Made here'} · ${esc(x.scale)}</small></div>`).join('')}</div>`;
     const detail = !cur ? '<div class="muted">Nothing chosen.</div>'
-      : comp ? componentDetail(cur) + (dlg.kind === 'car' && cur.data.scale !== design.scale ? `<div class="note warn">This car is ${esc(cur.data.scale)}; the design is ${esc(design.scale)}. Only the wheelbase is taken over.</div>` : '')
+      : comp ? componentDetail(cur) + (dlg.kind === 'car' && cur.data.scale !== design.scale ? `<div class="note warn">This car is ${esc(cur.data.scale)}; the design is ${esc(design.scale)}. Only the wheelbase is taken over.</div>` : dlg.kind === 'car' ? '<div class="note">Using this car sets the wheelbase, and the tyres and the track where they are known. Length, width and weight are there to compare with.</div>' : '')
       : `<div><span class="eyebrow">${KIND_NAME[cur.kind]}</span>
             <input class="name" data-d="rename" value="${esc(cur.name)}" aria-label="Name" spellcheck="false" style="font: italic 700 20px/1.1 var(--font-title); text-transform: uppercase; width: 100%; background: none; border: 0; border-bottom: 1px dashed var(--line); color: var(--ink); padding: 2px 0"></div>
           <div class="kv">${details(cur)}</div>
@@ -220,6 +220,12 @@ export function createDialogs(ctx) {
       const from = d.car.wheelbase;
       d.car.wheelbase = c.wheelbase;
       moveRear(d, from, c.wheelbase);
+      // The tyres and the track too, where the car's maker publishes them (and the car is the design's scale).
+      if (c.scale === d.scale) {
+        const end = (w, D, W, track) => { if (D > 0) w.tyreD = D; if (W > 0) w.tyreW = W; if (track > 0) w.inOut = round(track / 2, 2); };
+        end(d.car.front, c.tyreFD, c.tyreFW, c.trackF);
+        end(d.car.rear, c.tyreRD, c.tyreRW, c.trackR);
+      }
     }
     close();
     ctx.commit();

@@ -782,6 +782,28 @@ export const checks = [
     await page.click('[data-act=undo]');
     await app.idle();
     assert.equal((await app.design()).car.wheelbase, 83.4);
+    // A car of another scale gives only its wheelbase; the tyres and the track stay as they were.
+    const tyres = (await app.design()).car.rear;
+    await use('car', 'Carrera D124 Ford Capri');
+    assert.deepEqual((await app.design()).car.rear, tyres);
+    await page.click('[data-act=undo]');
+    await app.idle();
+    // In a design of its own scale, a car brings the tyres and the track its maker publishes.
+    app.answer(true);
+    await page.click('[data-act=pop][data-pop=new]');
+    await page.click('[data-act=new][data-scale="1/24"]');
+    await app.idle();
+    await use('car', 'BRM Porsche 917K');
+    const big = (await app.design()).car;
+    assert.deepEqual([big.wheelbase, big.front.tyreD, big.front.tyreW, big.rear.tyreD, big.rear.tyreW], [90, 24.5, 12.5, 26.5, 17]);
+    await use('car', 'Carrera D124 Ford Capri');
+    assert.deepEqual([(await app.design()).car.front.inOut, (await app.design()).car.rear.inOut], [37.75, 40.5], 'half the track each side');
+    app.answer(true);
+    await page.click('[data-act=pop][data-pop=new]');
+    await page.click('[data-act=new][data-scale="1/32"]');
+    await app.idle();
+    await use('rules', 'BSCRA 1/32 F1');
+    await use('printer', 'PLA+');
     // A guide and a bearing from the built-in lists set their sizes.
     await use('guide', 'Carrera 1/32');
     assert.equal((await app.feature('guide')).params.hole, 4);

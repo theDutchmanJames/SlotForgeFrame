@@ -15,6 +15,16 @@ wasm.setup();
 const engine = createEngine(wasm);
 const noIds = (o) => JSON.parse(JSON.stringify(o, (k, v) => (k === 'id' ? undefined : v)));
 
+test('a car preset carries the sizes its maker publishes, and 0 for what it does not', () => {
+  const brm = builtins('car').find((c) => c.id === 'brm-917'), carrera = builtins('car').find((c) => c.id === 'cr24-capri');
+  assert.deepEqual([brm.wheelbase, brm.length, brm.tyreRD, brm.tyreRW, brm.weight], [90, 175, 26.5, 17, 172]);
+  assert.equal(brm.trackR, 0, 'BRM publishes no track');
+  assert.deepEqual([carrera.trackF, carrera.trackR], [75.5, 81]);
+  // Your own car keeps them too, and an old one without them gets 0.
+  assert.equal(cleanComponent('car', { name: 'Mine', wheelbase: 90, length: 150, tyreRD: 21 }).tyreRD, 21);
+  assert.equal(cleanComponent('car', { name: 'Old', wheelbase: 90 }).length, 0);
+});
+
 test('every built-in entry is a valid component of its kind', () => {
   for (const kind of COMPONENT_KINDS) {
     const list = builtins(kind);

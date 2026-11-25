@@ -213,6 +213,13 @@ Wheel fixing: M2 grub on 3/32" axles (M2.5 on Scaleauto and Sloting Plus); M3 gr
 
 **Wheelbase presets, 1/24 (BRM, retailer figures):** Simca 93 · Kadett 99 · Escort Mk1 100 · Alfa GTA 99 · BMW 2002 104 · Capri 103 · Scirocco 100 · 240Z 93 · Camaro 114 · 917K 90 · 512M 97 · GT40 100 · McLaren F1 115 · 911 GT1 103. Some rows look copied between listings. [R][?]
 
+**Car sizes from the makers (November 2026).** Only figures a maker publishes, or that a page quotes from a maker's spec sheet. All are kept unconfirmed in the app.
+- **Policar (1/32), own product pages** (policar.it): wheelbase, length, width, height, weight, motor, gearing, rim sizes; tyres as part codes only, no track. Ferrari 312 B2 86 (126 long, 61 wide, 48 g) · Lotus 72 85.4 (126, 48 g; its width reads 78.6, left out as implausible) · BRM P160/P153 86 (124.5, 61.5, 50 g) · Ferrari 330 P4/412P 93.8 (132, 60.5, 58.5 g) · Ferrari F40 95.7 (135, 63, 79 g) · Toyota GT86 88 (133, 55.5, 80 g) · Subaru WRX STI 92 (142, 57, 85.5 g). The page icons are named larghezza/spessore; reading them as length/width is ours. Older Policar pages (2017–2019) have no spec block. [R]
+- **BRM and TTS (1/24), spec sheets as quoted by Atomic Slot Cars** (atomicslotcars.com.au): wheelbase, length, width, height, hub width, tyres (outer diameter × width), rims, weight, motor, gearing. Added: Kadett, Alfa GTA, Scirocco, Capri RS 2600, 240Z, 911 RSR/911S, Mini Cooper, Mustang 69/70, 512M, GT40 MkII, 911 GT1, TTS Alfa T33/3, and sizes for Simca, Escort, 2002, Camaro, 917K, McLaren F1 GTR. Left out: BRM202, BRM203 and BRM217, whose figures are copies of other models. Hub width is not track, so it is not used. [R]
+- **Carrera Digital 124, technical data in test reports on carrera-toys.com** (written by club members): wheelbase, length, front and rear track, weight. Capri Zakspeed Turbo 106 · Porsche 911 RSR (991) 105.5 · Mercedes-AMG C 63 DTM 115 · Audi RS5 DTM 115 · Bill Thomas Cheetah 95. [R]
+- **Scaleauto (1/24), as quoted by Atomic Slot Cars:** only the Huracán GT3 (110, 186 long, 86 wide, tyres 25.5 × 8 / 27.5 × 13). Nearly every other Scaleauto page says 115 mm, and the Home Series pages contradict it on the same page (96–112), so they are left out. [R][?]
+- **No car dimensions published** by Slot.it, NSR, Scalextric (rounded cm only), Carrera 1/32, Thunderslot, Avant Slot or Black Arrow; Revoslot's site could not be read. A retailer's "technical sheet" for Slot.it cars (slotcar-union.com) does not say it comes from Slot.it, so it is not used.
+
 ## 11. Not reached
 
 - Electric Dreams, Pendle, LEB Hobbies, Overdrive and the HRW forum refused automated reading or were not reached.
