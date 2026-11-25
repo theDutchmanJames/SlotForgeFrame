@@ -105,9 +105,9 @@ Frame works along eight menus, roughly in the order you build a car: **Car, Outl
 ### Wheel inserts
 
 - **Inserts for aluminium wheels:** a disc, or a cup with a skirt, that presses into the pocket in the face of an insert wheel. Set the wheel's diameter and its pocket, and the insert's size follows, with a fit clearance you choose.
-- **Patterns from layers:** spokes (straight, bent, split, or crossed into a mesh), holes (round, slot or window), rings, bolts with a hex or centre-lock nut, and shapes you draw yourself or import as SVG. Each layer repeats round the centre by itself and is cut through, sunk into the face or raised from it. A dish, a rim lip and a centre hole complete the face.
+- **Patterns from layers:** spokes (straight, bent, split, or crossed into a mesh), holes (round, slot or window), rings, bolts with a hex or centre-lock nut, and shapes you draw yourself or import as SVG. Each layer repeats round the centre by itself and is cut through, sunk into the face or raised from it. The face sits flush with the outer ring, or as deep below it as you set, with a dish and a centre hole if you want them.
 - **Start from a pattern:** 5-spoke, split 10, mesh, 8-hole, turbine, slots, windows and dish, all of them only layers you can change.
-- **Front and rear:** the same insert all round, or one of each. The set of four prints on one plate; a pattern that bends one way is mirrored for the other side of the car.
+- **Front and rear:** the same insert all round, or one of each. The set of four prints on one plate, face up or face down (a cup always face down, so that its face is not printed in the air; Frame checks that the face is flat); a pattern that bends one way is mirrored for the other side of the car.
 - **Fit and checks:** a calibration ring of seven numbered discs, round a middle size you set and a step you choose, finds the size that presses in firmly. Frame warns about spokes thinner than the nozzle, holes that run into each other, a pattern that cuts the insert into loose pieces, and an insert that stands out of its pocket.
 
 ### Bought and shared parts

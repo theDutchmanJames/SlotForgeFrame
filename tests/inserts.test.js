@@ -78,10 +78,36 @@ test('a pattern that cannot print, or cannot fit, says so', () => {
   assert.ok(bad(loose.notes).includes('The insert falls apart'));
 });
 
+test('the face is flush with the outer ring, or sunk below it as deep as you set', () => {
+  const base = newDesign().inserts.rear.base, R = base.od / 2, spokes = newLayer('spokes', R);
+  assert.equal(base.sink, 0, 'flush to start with');
+  const flush = build({ base, layers: [spokes] });
+  assert.ok(Math.abs(flush.size[2] - base.thick) < 1e-6, 'nothing stands above the face');
+  // Sunk 0.4 mm: the outer ring keeps the full thickness, the face and its spokes lose 0.4 mm.
+  const sunk = build({ base: { ...base, sink: 0.4, lip: 0.5 }, layers: [spokes] });
+  assert.ok(Math.abs(sunk.size[2] - base.thick) < 1e-6, 'the ring stands as tall as before');
+  assert.ok(flush.volume - sunk.volume > 0.4 * 0.5 * Math.PI * (R - 0.5) ** 2 * 0.3, 'material came off the face');
+  const titles = (ins) => insertChecks(ins).filter((n) => !n.ok).map((n) => n.title);
+  assert.ok(titles({ base: { ...base, sink: 1 }, layers: [] }).includes('The face sits too deep'));
+  // A raised layer below the ring's top does not stand out of the pocket.
+  assert.ok(!titles({ base: { ...base, sink: 0.4 }, layers: [{ ...newLayer('ring', R), r: 2, h: 0.3 }] }).includes('The insert stands out of the pocket'));
+});
+
+test('face down needs a flat face, and a cup asks to be printed face down', () => {
+  const base = newDesign().inserts.rear.base, R = base.od / 2;
+  const titles = (ins) => insertChecks(ins).filter((n) => !n.ok).map((n) => n.title);
+  const FLAT = 'The face is not flat for printing face down';
+  assert.ok(!titles({ base, layers: [newLayer('spokes', R)], faceDown: true }).includes(FLAT), 'cut spokes in a flush face are flat');
+  assert.ok(titles({ base: { ...base, sink: 0.3 }, layers: [], faceDown: true }).includes(FLAT), 'a sunk face is not');
+  assert.ok(titles({ base, layers: [newLayer('bolts', R)], faceDown: true }).includes(FLAT), 'raised studs are not');
+  assert.ok(titles({ base: { ...base, form: 'cup' }, layers: [], faceDown: false }).includes('A cup prints best face down'));
+  assert.ok(!titles({ base: { ...base, form: 'cup' }, layers: [], faceDown: true }).includes('A cup prints best face down'));
+});
+
 test('a cup has a skirt behind the face, and a drawn layer is copied round', () => {
   const base = { ...newDesign().inserts.rear.base, form: 'cup', skirt: 1, wall: 0.6 };
   const out = build({ base, layers: [] });
-  assert.ok(Math.abs(out.size[2] - (base.thick + 1 + base.lipH)) < 1e-6, 'skirt, face and lip');
+  assert.ok(Math.abs(out.size[2] - (base.thick + 1)) < 1e-6, 'skirt and face, the face flush with the ring');
   const draw = newLayer('draw', base.od / 2), shape = layerShape(draw, base.od / 2);
   assert.equal(shape.add.length, draw.count);
   assert.ok(build({ base, layers: [draw] }).volume < out.volume);

@@ -907,6 +907,11 @@ export const checks = [
     assert.equal((await insert()).rear.layers.length, 3);
     assert.equal(await page.locator('#steps .sp').count(), 3);
     assert.equal(await app.state(() => window.slotforgeFrame.state.insBuilt.data.pieces), 1, 'the mesh insert is one piece');
+    // A cup turns printing face down on, a flat disc off again.
+    await page.click('#panel [data-act=tile][data-path="inserts.rear.base.form"][data-v=cup]');
+    assert.equal((await insert()).rear.faceDown, true);
+    await page.click('#panel [data-act=tile][data-path="inserts.rear.base.form"][data-v=disc]');
+    assert.equal((await insert()).rear.faceDown, false);
     // A layer is added and changed; only the insert is built again, not the car.
     await app.state(() => { window.builtBefore = window.slotforgeFrame.state.built; });
     await page.click('#panel [data-act=insadd][data-t=holes]');

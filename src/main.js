@@ -497,7 +497,8 @@ function insertFace(ins, id = 'f', o = {}) {
     defs.push(`<radialGradient id="${id}dish"><stop offset="0" stop-color="#000" stop-opacity=".32"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>`);
     out.push(`<circle r="${Math.max(0.1, R - b.lip)}" fill="url(#${id}dish)"/>`);
   }
-  if (b.lip > 0 && b.lipH > 0) out.push(`<path class="ins-raise" fill-rule="evenodd" d="${ringPath([insCircle(0, 0, R), insCircle(0, 0, Math.max(0.05, R - b.lip))])}"/>`);
+  // A face sunk below the outer ring: the ring stands above it.
+  if (b.sink > 0 && b.lip > 0) out.push(`<path class="ins-raise" fill-rule="evenodd" d="${ringPath([insCircle(0, 0, R), insCircle(0, 0, Math.max(0.05, R - b.lip))])}"/>`);
   ins.layers.forEach((L, i) => {
     const s = layerShape(L, R);
     if (!s.add.length) return;
@@ -539,15 +540,16 @@ function insertSection() {
   const host = $('#insec');
   if (!host) return;
   const ins = insCur(), b = ins.base, R = b.od / 2, P = b.pocketD / 2, pd = b.pocketDepth, wr = b.wheelD / 2, W = Math.max(6, pd + 4.5);
-  const back = b.form === 'cup' ? b.skirt : 0, t = b.thick, raise = Math.max(b.lip > 0 ? b.lipH : 0, 0, ...ins.layers.filter((l) => l.mode === 'raise').map((l) => l.h));
-  const face = pd - back - t; // where the face lies, measured in from the wheel's outer face (0)
+  const back = b.form === 'cup' ? b.skirt : 0, t = b.thick, sink = Math.min(Math.max(0, b.sink), t - 0.4);
+  const raise = Math.max(0, ...ins.layers.filter((l) => l.mode === 'raise').map((l) => l.h - sink));
+  const face = pd - back - t; // where the outer ring's top lies, measured in from the wheel's outer face (0)
   let s = `<rect class="ins-tyre" x="0" y="${-wr - 2.2}" width="${W}" height="2.2"/><rect class="ins-tyre" x="0" y="${wr}" width="${W}" height="2.2"/>`;
   s += `<path class="ins-alu" d="M0 ${-wr}H${W}V${wr}H0V${P}H${pd}V${-P}H0Z"/><rect class="ins-cut" x="${pd}" y="${-d2(state.design.car.axleD)}" width="${W - pd + 0.01}" height="${2 * d2(state.design.car.axleD)}"/>`;
-  // The insert: face, lip, dish, skirt and centre hole.
-  const lip = b.lip > 0 ? b.lip : 0, top = face, dish = Math.min(b.dish, t - 0.4);
-  let path = `M${top + t} ${-R}H${top - (lip ? b.lipH : 0)}V${-R + lip}H${top}`;
-  path += dish > 0.01 ? `Q${top + 2 * dish} 0 ${top} ${R - lip}` : `V${R - lip}`;
-  path += `H${top - (lip ? b.lipH : 0)}V${R}H${top + t}Z`;
+  // The insert: the outer ring, the face (sunk or flush), the dish, the skirt and the centre hole.
+  const lip = sink > 0 ? Math.max(0, b.lip) : 0, top = face, f = top + sink, dish = Math.min(b.dish, t - sink - 0.4);
+  let path = `M${top + t} ${-R}H${top}V${-R + lip}H${f}`;
+  path += dish > 0.01 ? `Q${f + 2 * dish} 0 ${f} ${R - lip}` : `V${R - lip}`;
+  path += `H${top}V${R}H${top + t}Z`;
   s += `<path class="ins-part" d="${path}"/>`;
   if (back) s += `<path class="ins-part" d="M${top + t} ${-R}h${back}v${b.wall}h${-back}ZM${top + t} ${R}h${back}v${-b.wall}h${-back}Z"/>`;
   if (b.hole > 0) s += `<rect class="ins-cut" x="${top - 0.5}" y="${-b.hole / 2}" width="${t + 0.52}" height="${b.hole}"/>`;
@@ -587,7 +589,7 @@ const PANEL_INSERT = (d) => {
     <label class="f">The insert</label>` + tiles(IP('base.form'), [
       ['disc', 'Flat disc', '<circle cx="17" cy="12" r="9"/><circle cx="17" cy="12" r="2"/>'],
       ['cup', 'Cup with skirt', '<path d="M6 7h22M6 7v10h22V7"/><path d="M10 17v4M24 17v4"/>'],
-    ], 3) + `<div class="g2">${num('Diameter', IP('base.od'), 'mm', { min: 2 })}${num('Thickness', IP('base.thick'), 'mm', { min: 0.3 })}${num('Dish (hollow face)', IP('base.dish'), 'mm', { min: 0 })}${num('Centre hole (0: none)', IP('base.hole'), 'mm', { min: 0 })}${num('Rim lip width', IP('base.lip'), 'mm', { min: 0 })}${num('Rim lip height', IP('base.lipH'), 'mm', { min: 0 })}${b.form === 'cup' ? num('Skirt length', IP('base.skirt'), 'mm', { min: 0.3 }) + num('Skirt wall', IP('base.wall'), 'mm', { min: 0.3 }) : ''}</div>
+    ], 3) + `<div class="g2">${num('Diameter', IP('base.od'), 'mm', { min: 2 })}${num('Thickness', IP('base.thick'), 'mm', { min: 0.3 })}${num('Dish (hollow face)', IP('base.dish'), 'mm', { min: 0 })}${num('Centre hole (0: none)', IP('base.hole'), 'mm', { min: 0 })}${num('Face depth (0: flush)', IP('base.sink'), 'mm', { min: 0 })}${b.sink > 0 ? num('Outer ring width', IP('base.lip'), 'mm', { min: 0 }) : ''}${b.form === 'cup' ? num('Skirt length', IP('base.skirt'), 'mm', { min: 0.3 }) + num('Skirt wall', IP('base.wall'), 'mm', { min: 0.3 }) : ''}</div>
     <label class="f">Start from a pattern <span class="muted">(replaces the layers; the wheel and the size stay)</span></label>
     <div class="ins-presets">${PRESET_NAMES.map((n, k) => { const p = { base: b, ...presetFor(n, b) }, fc = insertFace(p, 'p' + k), r = b.od / 2 + 0.3; return `<button class="ins-pre" data-act="inspreset" data-p="${esc(n)}"><svg viewBox="${-r} ${-r} ${2 * r} ${2 * r}"><defs>${fc.defs}</defs>${fc.body}</svg>${esc(n)}</button>`; }).join('')}</div>
     <label class="f">Add a layer</label><div class="ins-add">${LAYER_TYPES.map((t) => `<button class="btn sm ghost" data-act="insadd" data-t="${t}">${ico('plus')}${LAYER_NAMES[t]}</button>`).join('')}</div>`;
@@ -606,7 +608,7 @@ const PANEL_INSERT = (d) => {
     h += `<div class="row"><button class="btn sm ghost" data-act="insmove" data-v="-1" ${i > 0 ? '' : 'disabled'}>Move up</button><button class="btn sm ghost" data-act="insmove" data-v="1" ${i < ins.layers.length - 1 ? '' : 'disabled'}>Move down</button><button class="btn sm ghost" data-act="insdel" data-i="${i}">${ico('trash')}Remove</button></div>
       <div class="note">Layers are made in order, top of the list first: a layer further down works on what the ones before it left.</div>`;
   }
-  h += `<label class="f">Print</label>${chk('Print face down (only for a flat face)', IP('faceDown'))}
+  h += `<label class="f">Print</label>${chk('Print face down (the face needs to be flat)', IP('faceDown'))}
     <div class="note">${directional(ins) ? 'This pattern bends one way, so the set has two of it and two mirrored, one for each side of the car.' : 'The set is two rear and two front inserts on one plate.'} Small details print best with a 0.25 mm nozzle, or on a resin printer.</div>
     <div class="row"><button class="btn primary" data-act="exportinserts">${ico('export')}Export the set of 4</button><button class="btn sm ghost" data-act="tool" data-tool="insertRing">${ico('coupon')}Calibration ring</button><button class="btn sm ghost" data-act="library" data-kind="insert">${ico('library')}Library</button></div>`;
   return h;
@@ -1744,6 +1746,9 @@ function afterChange(path) {
   }
   if (path.endsWith('.guide')) { const f = find(d.chassis, 'guide'); f.params.hole = guideOf(d, f.params.guide)?.hole ?? f.params.hole; }
   // The front starts as a copy of the rear, unless it already has a design of its own (it is not the fresh one).
+  // A cup prints face down (face up, its face would be printed in the air over the skirt); a disc face up.
+  const form = /^inserts\.(rear|front)\.base\.form$/.exec(path);
+  if (form) d.inserts[form[1]].faceDown = d.inserts[form[1]].base.form === 'cup';
   if (path === 'inserts.same' && !d.inserts.same && JSON.stringify(d.inserts.front) === JSON.stringify(newInserts(d.scale).front))
     d.inserts.front = cleanInsert(JSON.parse(JSON.stringify(d.inserts.rear)), d.scale);
   // The rear of the car moves with the rear axle.

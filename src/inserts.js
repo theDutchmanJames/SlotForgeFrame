@@ -15,7 +15,7 @@ const WHEELS = {
 };
 export function newBase(scale = '1/32') {
   const w = WHEELS[scale] ?? WHEELS['1/32'], clear = 0.1;
-  return { form: 'disc', ...w, clear, od: round(w.pocketD - 2 * clear), thick: round(Math.max(0.6, w.pocketDepth - 0.4)), dish: 0, lip: 0.5, lipH: 0.2, hole: 2.6, skirt: 1.5, wall: 0.6 };
+  return { form: 'disc', ...w, clear, od: round(w.pocketD - 2 * clear), thick: round(Math.max(0.6, w.pocketDepth - 0.4)), dish: 0, lip: 0.5, sink: 0, hole: 2.6, skirt: 1.5, wall: 0.6 };
 }
 // A fresh layer of each type, sized for an insert of radius R.
 export function newLayer(type, R = 5.9) {
@@ -60,7 +60,7 @@ export function presetFor(name, base) {
     for (const key of LEN) if (key in l) out[key] = round(l[key] * k);
     return out;
   });
-  const b = { ...base, dish: 0, lip: 0.5, lipH: 0.2, ...p.base };
+  const b = { ...base, dish: 0, lip: 0.5, ...p.base };
   if ('lip' in p.base) b.lip = round(p.base.lip * k);
   return { base: b, layers };
 }
@@ -81,7 +81,7 @@ export function newInserts(scale = '1/32') {
 export const insertOf = (d, which) => (which === 'front' && !d.inserts.same ? d.inserts.front : d.inserts.rear);
 
 // ------------------------------------------------------------ checking what a file brings
-const BASE_RANGE = { wheelD: [4, 60], pocketD: [2, 50], pocketDepth: [0.2, 10], clear: [-0.5, 1], od: [2, 50], thick: [0.3, 10], dish: [0, 5], lip: [0, 10], lipH: [0, 3], hole: [0, 20], skirt: [0.3, 15], wall: [0.3, 10] };
+const BASE_RANGE = { wheelD: [4, 60], pocketD: [2, 50], pocketDepth: [0.2, 10], clear: [-0.5, 1], od: [2, 50], thick: [0.3, 10], dish: [0, 5], lip: [0, 10], sink: [0, 10], hole: [0, 20], skirt: [0.3, 15], wall: [0.3, 10] };
 const LAYER_RANGE = { h: [0.05, 5], count: [0, 48], hub: [0, 30], rim: [0.2, 30], wHub: [0.05, 20], wRim: [0.05, 20], curve: [-120, 120], split: [0, 10], at: [0, 30], size: [0.1, 20], len: [0.1, 30], r: [0.1, 30], w: [0.05, 20], pcd: [0, 30], d: [0.05, 10], nutD: [0.2, 30] };
 const CHOICE = { mode: MODES, shape: ['round', 'slot', 'window'], nut: ['none', 'hex', 'lock'], form: ['disc', 'cup'] };
 const WHOLE = new Set(['count']);
@@ -212,12 +212,19 @@ export function insertChecks(ins, ctx = {}) {
   if (Math.abs(fit - b.od) > 0.011) add(false, 'The insert does not match the pocket', `With a Ø${b.pocketD} pocket and ${b.clear} mm clearance the insert should be Ø${fit}; it is Ø${b.od}.`, true);
   else add(true, `Fits a Ø${b.pocketD} pocket`, `Ø${b.od}, with ${b.clear} mm all round.`);
   if (b.od >= b.wheelD - 0.6) add(false, 'The insert is as big as the wheel', `A Ø${b.wheelD} wheel cannot have a pocket for a Ø${b.od} insert: leave at least 0.3 mm of wheel round it.`);
-  // The tallest thing on the face: the lip, or the highest raised layer (on top of the lip where it reaches it).
-  const lipH = b.lip > 0 ? b.lipH : 0, onLip = (l) => lipH > 0 && outerOf(l) > R - b.lip;
-  const tall = b.thick + (b.form === 'cup' ? b.skirt : 0) + Math.max(lipH, ...ins.layers.filter((l) => l.mode === 'raise').map((l) => l.h + (onLip(l) ? lipH : 0)));
+  // The face lies `sink` below the outer ring. A raised layer rises from the face, or from the ring where it reaches it.
+  const sink = Math.max(0, b.sink), onRing = (l) => sink > 0 && outerOf(l) > R - b.lip;
+  const above = Math.max(0, ...ins.layers.filter((l) => l.mode === 'raise').map((l) => (onRing(l) ? l.h : l.h - sink)));
+  const tall = b.thick + (b.form === 'cup' ? b.skirt : 0) + above;
   if (tall > b.pocketDepth + 0.01) add(false, 'The insert stands out of the pocket', `It is ${tall.toFixed(2)} mm deep; the pocket is ${b.pocketDepth} mm. That is fine if it is meant to.`, true);
   if (b.hole > 0 && b.hole < axleD + 0.2) add(false, 'The centre hole is smaller than the axle', `The axle (Ø${axleD}) has to pass, with room: make the hole at least Ø${(axleD + 0.2).toFixed(2)}, or 0 for a closed face.`);
-  if (b.dish > b.thick - 0.4 + 1e-6) add(false, 'The dish is too deep', `Leave at least 0.4 mm under the dish: at most ${(b.thick - 0.4).toFixed(2)} mm with this thickness.`);
+  if (sink > b.thick - 0.4 + 1e-6) add(false, 'The face sits too deep', `Leave at least 0.4 mm of face: at most ${(b.thick - 0.4).toFixed(2)} mm deep with this thickness.`);
+  if (b.dish > b.thick - sink - 0.4 + 1e-6) add(false, 'The dish is too deep', `Leave at least 0.4 mm under the dish: at most ${Math.max(0, b.thick - sink - 0.4).toFixed(2)} mm with this thickness and face depth.`);
+  // Face down, the face lies on the bed: it has to be flat, flush with the outer ring and with nothing raised.
+  if (ins.faceDown && (sink > 0 || above > 0 || ins.layers.some((l) => l.mode === 'raise')))
+    add(false, 'The face is not flat for printing face down', 'Face down, the face lies on the bed. Set the face depth to 0 and sink or cut the layers instead of raising them, or print it face up.');
+  else if (ins.faceDown && b.dish > 0) add(false, 'A dished face does not lie flat', 'Face down, only the outer ring touches the bed and the dish prints in the air. It may print, but a flat face prints cleaner.', true);
+  if (b.form === 'cup' && !ins.faceDown) add(false, 'A cup prints best face down', 'Face up, the face is printed in the air over the skirt. Turn on "Print face down" in the panel.', true);
   if (b.form === 'cup' && b.wall > R - b.hole / 2 - 0.3) add(false, 'The skirt fills the insert', 'Make the skirt wall thinner, or the centre hole smaller.');
   ins.layers.forEach((L, i) => {
     const name = `Layer ${i + 1} (${LAYER_NAMES[L.type].toLowerCase()})`;

@@ -1165,12 +1165,14 @@ export function createEngine(wasm) {
     const rings = (list) => u2(list.map((r) => poly(r.map(([x, y]) => [x, -y]))));
     let solid = cylZ(0, 0, back, top, R);
     if (b.form === 'cup') solid = u3([solid, K(cylZ(0, 0, 0, back + 0.01, R).subtract(cylZ(0, 0, -1, back + 1, Math.max(0.1, R - b.wall))))]);
-    if (b.lip > 0 && b.lipH > 0) solid = u3([solid, K(cylZ(0, 0, top - 0.01, top + b.lipH, R).subtract(cylZ(0, 0, top - 1, top + b.lipH + 1, Math.max(0.05, R - b.lip))))]);
-    // The dish: a shallow spherical hollow inside the lip.
-    const dish = Math.min(b.dish, b.thick - 0.4);
+    // The face: flush with the outer ring, or sunk `sink` below it inside the ring.
+    const sink = Math.min(Math.max(0, b.sink), b.thick - 0.4), face = top - sink;
+    if (sink > 0.001) solid = K(solid.subtract(cylZ(0, 0, face, top + 1, Math.max(0.05, R - b.lip))));
+    // The dish: a shallow spherical hollow in the face, inside the outer ring.
+    const dish = Math.min(b.dish, b.thick - sink - 0.4);
     if (dish > 0.01) {
       const a = Math.max(0.1, R - b.lip), Rs = (a * a + dish * dish) / (2 * dish);
-      solid = K(solid.subtract(K(K(Manifold.sphere(Rs, 192)).translate([0, 0, top - dish + Rs]))));
+      solid = K(solid.subtract(K(K(Manifold.sphere(Rs, 192)).translate([0, 0, face - dish + Rs]))));
     }
     // The layers, in order: each is cut through, sunk into the face or raised from it, following its shape.
     const H = top + 10;
