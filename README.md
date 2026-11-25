@@ -112,10 +112,10 @@ Frame works along eight menus, roughly in the order you build a car: **Car, Outl
 
 ### Rear wings
 
-- **A wing for the body:** span, chord, an upside-down wing profile with its thickness and camber, the angle, a Gurney flap and an optional second element, as on the real cars. Six to start from, for 1/32 or 1/24: GT3 swan neck, GT3 on posts, LMP, DTM with two elements, Group C and a classic flat wing.
+- **A wing for the body:** span, chord, an upside-down wing profile with its thickness and camber, the angle, a Gurney flap and an optional second element, as on the real cars. Give it a flat underside or a flat top, and it prints lying flat. Six to start from, for 1/32 or 1/24: GT3 swan neck, GT3 on posts, LMP, DTM with two elements, Group C and a classic flat wing.
 - **Endplates:** GT3, square, rounded or a tall LMP shape, sized round the wing, or your own: start from one of them and drag its points, or import an SVG.
-- **Legs and mounting:** swan necks from above or posts from below, one or two, as far apart and as tall as you set. Each leg ends in pins that go through the body: melted over from inside into a small head (with a collar that sets the height), or glued, with a flat foot. The body's wall and slope are taken into account.
-- **Print:** in one piece, as a kit with the legs apart, or all apart with the endplates flat and pockets that the wing fits into. A drilling template puts the holes in the body where the pins go.
+- **Legs and mounting:** swan necks from above or posts from below, one or two, as far apart and as tall as you set. Each leg ends in pins that go through the body: melted over from inside into a small head (with a collar that sets the height), or glued on a flat foot, with or without short pins to locate it. The body's wall and slope are taken into account.
+- **Print:** in one piece, as a kit with the legs apart, or all apart with the endplates flat and pockets that the wing fits into (a wing with a flat side lies flat on it). A drilling template puts the holes in the body where the pins go.
 - **Checks:** a wing, a trailing edge, legs, endplates or pins too thin to print, legs that miss the wing or stand outside it, endplates that reach into the body, and a wing wider than your rules allow. The weight is shown.
 
 ### Bought and shared parts

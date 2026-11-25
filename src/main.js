@@ -17,7 +17,7 @@ import {
   newDesign, find, on, round, summary, heights, checks, partsLayout, podLayout, motorOf, gearOf, proposeCross, unconfirmed, uprightSpread, useBearing, meshCentre, activeKicks, profileOf, pinionOut, motorAngle, gearAngle, traceWheels, traceArches, applyOutline, centreMounts, podShift, podSideways, podRide, rideClearance, balance,
   encodeProject, decodeProject, createHistory, MATERIALS, FEATURE_NAMES, MULTI, newShape, shapesOf, gearsFor, bearingOf, guideOf, choicesFor, moveRear, couponHoles,
 } from './model.js';
-import { WING_PRESETS, ENDPLATES, wingPreset, wingSide, legYs, pinsOf, deckZ, cleanWing } from './wings.js';
+import { WING_PRESETS, ENDPLATES, FLAT_SIDES, wingPreset, wingSide, legYs, pinsOf, deckZ, cleanWing } from './wings.js';
 import { newInserts, ringSizes, RING_COUNT, PRESETS as INSERT_PRESETS, LAYER_TYPES, LAYER_NAMES, MODES, MODE_NAMES, presetFor, newLayer, layerShape, circle as insCircle, directional, fitToSegment, cleanInsert } from './inserts.js';
 // ?inline: the pictures are built into the page, which is the only file the desktop app ships.
 import iconUrl from './assets/slotforge-frame.svg?inline';
@@ -693,8 +693,9 @@ function wingRearSVG(w, dx = 0) {
   const legTop = w.legs === 'swan' ? sd.leg.top : sd.leg.att[1];
   for (const y of legYs(w)) {
     out.push(`<rect class="wg-leg" x="${y - w.legW / 2 + dx}" y="${-legTop}" width="${w.legW}" height="${legTop - fz}"/>`);
-    out.push(`<rect class="wg-pin" x="${y - w.pinD / 2 + dx}" y="${-fz}" width="${w.pinD}" height="${w.fix === 'melt' ? w.wall + w.pinD : Math.max(0.3, w.wall * 0.7)}"/>`);
-    if (w.fix === 'melt') out.push(`<ellipse class="wg-stake" cx="${y + dx}" cy="${-fz + w.wall + w.pinD * 0.3}" rx="${w.pinD * 0.95}" ry="${w.pinD * 0.38}"/>`);
+    if (w.pins > 0) out.push(`<rect class="wg-pin" x="${y - w.pinD / 2 + dx}" y="${-fz}" width="${w.pinD}" height="${w.fix === 'melt' ? w.wall + w.pinD : Math.max(0.3, w.wall * 0.7)}"/>`);
+    if (w.fix === 'glue') { const h = w.legW / 2 + 0.5; out.push(`<rect class="wg-glue" x="${y - h + dx}" y="${-fz - 0.4}" width="${2 * h}" height="0.4"/>`); }
+    if (w.fix === 'melt' && w.pins > 0) out.push(`<ellipse class="wg-stake" cx="${y + dx}" cy="${-fz + w.wall + w.pinD * 0.3}" rx="${w.pinD * 0.95}" ry="${w.pinD * 0.38}"/>`);
   }
   return { body: out.join(''), x0: -W + dx, x1: W + dx, z0: fz - w.wall - w.pinD - 1, z1: Math.max(p1, legTop) + 1, sd, half, p1 };
 }
@@ -747,6 +748,7 @@ const PANEL_WING = (d) => {
     `<label class="f">Start from a wing <span class="muted">(${esc(d.scale)})</span></label>
     <div class="ins-presets wg-presets">${Object.keys(WING_PRESETS).map((n) => { const p = wingPreset(n, d.scale), s = wingSideSVG(p, 0, { bare: true }); return `<button class="ins-pre" data-act="wingpreset" data-p="${esc(n)}"><svg viewBox="${s.x0} ${-s.z1} ${s.x1 - s.x0} ${s.z1 - s.z0}">${s.body}</svg>${esc(n)}</button>`; }).join('')}</div>
     <label class="f">The wing</label><div class="g2">${num('Span (between the endplates)', W('span'), 'mm', { min: 5 })}${num('Chord (front to back)', W('chord'), 'mm', { min: 1 })}${num('Thickness', W('thick'), '% chord', { min: 2, max: 30 })}${num('Camber', W('camber'), '% chord', { min: 0, max: 15 })}${num('Angle', W('angle'), '°', { min: -10, max: 45 })}${num('Gurney flap (0: none)', W('gurney'), 'mm', { min: 0 })}${num('Thinnest edge', W('edge'), 'mm', { min: 0.1 })}</div>
+    <label class="f">Flat side <span class="muted">(to print the wing lying flat)</span></label><div class="seg wide">${Object.entries(FLAT_SIDES).map(([v, t]) => segBtn(W('flat'), v, t)).join('')}</div>
     ${chk('A second element behind it (a flap)', W('element2'))}
     ${w.element2 ? `<div class="g2">${num('Flap chord', W('chord2'), 'mm', { min: 0.5 })}${num('Flap angle', W('angle2'), '°', { min: -10, max: 70 })}${num('Gap to the wing', W('gap'), 'mm', { min: 0 })}</div>` : ''}
     <div class="note">The section is a wing profile turned upside down, as on the real cars. At this scale it does nothing for grip: the angle and the flaps are there for the look. The thinnest edge keeps the trailing edge thick enough to print.</div>`;
@@ -768,9 +770,9 @@ const PANEL_WING_LEGS = (d) => {
     tiles(W('legs'), [['swan', 'Swan neck', '<path d="M6 8h16M22 8c4 0 4 2 4 5v8M6 8v3"/>'], ['posts', 'Posts below', '<path d="M5 7h24M12 7v14M22 7v14"/>']], 3) +
     `<div class="g2">${num('Legs', W('count'), '', { min: 1, max: 2, int: true })}${w.count === 2 ? num('Apart, centre to centre', W('spacing'), 'mm', { min: 0 }) : ''}${num('Height above the body', W('height'), 'mm', { min: 0.5 })}${num('Leg width (from behind)', W('legW'), 'mm', { min: 0.2 })}${num('Leg depth (from the side)', W('legD'), 'mm', { min: 0.5 })}${w.legs === 'posts' ? num('Lean', W('lean'), '°', { min: -45, max: 45 }) : ''}${num('Holds the wing at', W('attach'), '% chord', { min: 5, max: 95 })}</div>
     <label class="f">Fixed to the body</label>` + tiles(W('fix'), [['melt', 'Pins, melted inside', '<path d="M17 3v12M11 21c2-4 10-4 12 0"/>'], ['glue', 'Glued', '<path d="M8 15h18M12 15v-6h10v6"/><circle cx="17" cy="20" r="1.5"/>']], 3) +
-    `<div class="g2">${num('Pin diameter', W('pinD'), 'mm', { min: 0.3 })}${num('Pins per leg', W('pins'), '', { min: 1, max: 2, int: true })}${num('Body wall', W('wall'), 'mm', { min: 0.1, tag: ' ' + srcTag(false) })}${num('Body slope', W('deck'), '°', { min: -30, max: 30 })}</div>
+    `<div class="g2">${num('Pin diameter', W('pinD'), 'mm', { min: 0.3 })}${num('Pins per leg (0: none)', W('pins'), '', { min: 0, max: 2, int: true })}${num('Body wall', W('wall'), 'mm', { min: 0.1, tag: ' ' + srcTag(false) })}${num('Body slope', W('deck'), '°', { min: -30, max: 30 })}</div>
     ${w.fix === 'melt' ? chk('A collar on the body, so the wing always stands at the same height', W('collar')) + `<div class="note">Each pin is as long as the wall and its own diameter (${f2(w.wall + w.pinD)} mm). Push the pins through, then melt the ends over from inside with a soldering iron: each becomes a small head that holds.</div>`
-      : `<div class="note">Short pins only locate the wing; a flat foot under each leg takes the glue. Thin CA glue on a printed or hard plastic body, a canopy glue on Lexan.</div>`}
+      : `<div class="note">${w.pins ? 'Short pins locate the wing; a' : 'No pins: a'} flat foot under each leg takes the glue. Thin CA glue on a printed or hard plastic body, a canopy glue on Lexan.</div>`}
     <div class="note">Measure the body's wall where the wing goes: a hard plastic body is about 1 mm, Lexan much less. The slope is how steeply the body falls away towards the tail there.</div>`;
 };
 const PANEL_WING_PRINT = (d) => {
@@ -779,7 +781,7 @@ const PANEL_WING_PRINT = (d) => {
     tiles(W('printAs'), [['one', 'One piece', '<path d="M5 8h24M10 8v10M24 8v10M5 5v6M29 5v6"/>'], ['kit', 'Kit: legs apart', '<path d="M5 8h24M5 5v6M29 5v6M10 13v8M24 13v8"/>'], ['parts', 'All apart', '<path d="M9 8h16M4 5v6M30 5v6M11 14v8M23 14v8"/>']], 3) +
     `<div class="note">${{ one: 'In one piece the wing prints upside down, the top of the wing towards the bed and the legs pointing up. It is the strongest; the space under the wing needs supports.',
       kit: 'As a kit the legs print lying on their side, which makes them strong, and the wing has a socket for each. Glue them in.',
-      parts: 'All apart, the wing, both endplates and the legs print on their own. The endplates lie flat with a pocket the wing\'s end fits into, so their faces come out clean. Glue it together; you can paint the parts first.' }[w.printAs]}</div>
+      parts: `All apart, the wing, both endplates and the legs print on their own. The endplates lie flat with a pocket the wing's end fits into, so their faces come out clean. ${w.flat === 'none' ? 'The wing is curved all round, so it prints upside down on its edges: give it a flat side (Wing › Flat side) to print it lying flat.' : `The wing lies on its flat ${w.flat === 'under' ? 'underside' : 'top'}.`} Glue it together; you can paint the parts first.` }[w.printAs]}</div>
     ${c ? kv([['Weight', `${((c.volume / 1000) * MATERIALS[d.printer.material].density).toFixed(2)} g in ${MATERIALS[d.printer.material].name}`], ['Over the endplates', `${f1(w.span + 2 * w.plateT)} mm`]]) : ''}
     <div class="row"><button class="btn primary" data-act="exportwing">${ico('export')}Export the wing</button><button class="btn sm ghost" data-act="exportwingtemplate">${ico('ruler')}Drilling template</button><button class="btn sm ghost" data-act="library" data-kind="wing">${ico('library')}Library</button></div>
     <div class="note">The <b>drilling template</b> is a thin strip with a hole for every pin and a notch on the car's centre line. Lay it on the body, notch to the front, and drill through.</div>`;
@@ -1585,7 +1587,7 @@ function setTool(tool) {
 
 const ACTIONS = {
   wingpreset(el) {
-    const d = state.design, keep = { wall: d.wing.wall, deck: d.wing.deck, fix: d.wing.fix, printAs: d.wing.printAs };
+    const d = state.design, keep = { wall: d.wing.wall, deck: d.wing.deck, fix: d.wing.fix, pins: d.wing.pins, printAs: d.wing.printAs, flat: d.wing.flat };
     // A new wing keeps what belongs to the body and the printing: its wall, its slope, the fixing and how it prints.
     d.wing = { ...wingPreset(el.dataset.p, d.scale), ...keep, plateOwn: d.wing.plateOwn };
     if (d.wing.plate === 'own' && !d.wing.plateOwn) d.wing.plate = 'gt3';
@@ -1987,6 +1989,7 @@ function afterChange(path) {
   // A cup prints face down (face up, its face would be printed in the air over the skirt); a disc face up.
   const form = /^inserts\.(rear|front)\.base\.form$/.exec(path);
   if (form) d.inserts[form[1]].faceDown = d.inserts[form[1]].base.form === 'cup';
+  if (path === 'wing.fix') d.wing.pins = d.wing.fix === 'glue' ? 0 : Math.max(1, d.wing.pins);
   if (path === 'inserts.same' && !d.inserts.same && JSON.stringify(d.inserts.front) === JSON.stringify(newInserts(d.scale).front))
     d.inserts.front = cleanInsert(JSON.parse(JSON.stringify(d.inserts.rear)), d.scale);
   // The rear of the car moves with the rear axle.

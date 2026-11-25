@@ -54,6 +54,37 @@ test('pins go through the wall: as long as the wall and their diameter to melt, 
   assert.ok(Math.abs(Math.min(...z) - (melt[0].z - melt[0].below)) < 0.05);
 });
 
+test('a glued wing can stand on flat feet with no pins at all', () => {
+  const w = { ...newWing(), fix: 'glue', pins: 0 }, out = engine.wing({ wing: w, nozzle: 0.4 });
+  assert.equal(pinsOf(w).length, 0);
+  assert.deepEqual(bad(out.notes), []);
+  // Nothing reaches below the body's surface: the feet are flat on it.
+  let low = Infinity;
+  for (let i = 2; i < out.mesh.positions.length; i += 3) low = Math.min(low, out.mesh.positions[i]);
+  assert.ok(low > deckZ(w, wingSide(w).leg.foot[0] + w.legD) - 0.05);
+  assert.ok(titles({ ...w, fix: 'melt' }).includes('Melted fixing needs pins'));
+  assert.ok(engine.wingTemplate({ wing: w }).mesh.positions.length > 100, 'the template marks the feet instead');
+});
+
+test('a flat side lets the wing print lying flat when it is all apart', () => {
+  for (const flat of ['under', 'top']) {
+    const w = { ...wingPreset('DTM two element'), flat, printAs: 'parts', gurney: flat === 'top' ? 0 : 0.4 };
+    const sd = wingSide(w);
+    // The flat side is straight: in the wing's own frame, all its points lie on the chord line.
+    const a = (w.angle * Math.PI) / 180, frame = sd.main.pts.map(([x, z]) => -x * Math.sin(a) + (z - w.height) * Math.cos(a));
+    assert.ok(frame.filter((v) => Math.abs(v) < 1e-6).length >= 30, `${flat}: many points on the chord line`);
+    assert.equal(engine.wing({ wing: w, nozzle: 0.4 }).pieces, 1, `${flat}: still one wing on the car`);
+    const p = engine.wingPrint({ wing: w });
+    assert.equal(p.pieces, 6, `${flat}: wing, flap, two endplates and two legs`);
+    // Laid flat: a large share of the print's lowest corners lie on the bed.
+    const pos = p.mesh.positions;
+    let onBed = 0;
+    for (let i = 2; i < pos.length; i += 3) if (Math.abs(pos[i]) < 1e-3) onBed++;
+    assert.ok(onBed > 80, `${flat}: ${onBed} corners on the bed`);
+  }
+  assert.ok(titles({ ...newWing(), flat: 'top', printAs: 'parts' }).includes('The Gurney flap stands on the flat top'));
+});
+
 test('a wing that cannot work, or cannot print, says so', () => {
   const w = newWing();
   assert.ok(titles({ ...w, spacing: 60 }).includes('The legs stand outside the wing'));

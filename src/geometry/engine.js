@@ -1316,8 +1316,28 @@ export function createEngine(wasm) {
       // Sockets: the legs, 0.1 mm larger all round, cut out of the wing where they meet it.
       const { blade, plates } = wingParts(w), sd = wingSide(w), grown = K(side2(sd.leg.outline).offset(0.1, 'Miter'));
       const sockets = u3(legYs(w).map((y) => across(grown, y - w.legW / 2 - 0.1, w.legW + 0.2)));
-      const wingOnly = flip(K((w.printAs === 'parts' ? blade : top).subtract(sockets)));
-      const bb = wingOnly.boundingBox(), parts = [wingOnly];
+      let wingOnly, parts;
+      if (w.printAs === 'parts' && w.flat !== 'none') {
+        // All apart with a flat side: each element is turned level and laid on its flat side (the Gurney flap
+        // goes with the last element), so that it prints flat on the bed.
+        const half = w.span / 2, tip = w.plateT / 2;
+        const el = (pts) => across(side2(pts), -half - tip, w.span + 2 * tip);
+        const gur = sd.gurney ? el(sd.gurney) : null;
+        const elems = [[u3([el(sd.main.pts), ...(gur && !sd.flap ? [gur] : [])]), w.angle], ...(sd.flap ? [[u3([el(sd.flap.pts), ...(gur ? [gur] : [])]), w.angle2]] : [])];
+        let y = 0;
+        parts = elems.map(([solid, angle]) => {
+          let s = K(K(solid.subtract(sockets)).rotate([0, angle, 0]));
+          if (w.flat === 'top') s = K(s.rotate([180, 0, 0]));
+          const b = s.boundingBox(), out = K(s.translate([-b.min[0], y - b.min[1], -b.min[2]]));
+          y += b.max[1] - b.min[1] + 3;
+          return out;
+        });
+        wingOnly = u3(parts);
+      } else {
+        wingOnly = flip(K((w.printAs === 'parts' ? blade : top).subtract(sockets)));
+        parts = [wingOnly];
+      }
+      const bb = wingOnly.boundingBox();
       // All apart: each endplate lies flat, with a pocket the wing's end fits into (0.1 mm larger all round).
       if (w.printAs === 'parts') {
         const ends = [side2(sd.main.pts), ...(sd.flap ? [side2(sd.flap.pts)] : []), ...(sd.gurney ? [side2(sd.gurney)] : [])];
@@ -1344,9 +1364,10 @@ export function createEngine(wasm) {
     bin = [];
     try {
       const w = args.wing, sd = wingSide(w), pins = pinsOf(w, sd), ys = legYs(w), t = 0.8;
-      const xs = pins.map((p) => p.x), x0 = Math.min(...xs) - 4, x1 = Math.max(...xs) + 4, y0 = Math.min(...ys) - 5, y1 = Math.max(...ys) + 5;
+      // With no pins (glued), the template marks where each leg's foot goes instead: one small hole each.
+      const xs = pins.length ? pins.map((p) => p.x) : [sd.leg.foot[0]], x0 = Math.min(...xs) - 4, x1 = Math.max(...xs) + 4, y0 = Math.min(...ys) - 5, y1 = Math.max(...ys) + 5;
       const cut = [];
-      for (const y of ys) for (const x of xs) cut.push(cylZ(x, y, -1, t + 1, (w.pinD + 0.15) / 2));
+      for (const y of ys) for (const x of xs) cut.push(cylZ(x, y, -1, t + 1, pins.length ? (w.pinD + 0.15) / 2 : 0.4));
       const notch = K(K(poly([[0, -0.8], [1.4, 0], [0, 0.8]]).extrude(t + 2)).translate([x0 - 0.01, 0, -1]));
       const strip = K(box(x0, y0, 0, x1, y1, t).subtract(u3([...cut, notch])));
       return { mesh: meshOf(strip), size: [x1 - x0, y1 - y0] };
