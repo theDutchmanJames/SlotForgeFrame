@@ -2,7 +2,7 @@
 import { library } from './library.js';
 import { cleanItem, encodeShare, decodeShare, packMesh, unpackMesh, thumbOf, newItemId } from './library-core.js';
 import { readSTL, orient, guessOrientation, UPS } from './geometry/stl-read.js';
-import { pickMounts } from './geometry/analyse.js';
+import { pickMounts } from './geometry/mesh-measure.js';
 import { cleanInsert, LAYER_NAMES } from './inserts.js';
 import { cleanPart, round, motorOf, gearOf, find, adopt, moveRear, meshCentre, useBearing, FEATURE_NAMES } from './model.js';
 import { KINDS as COMPONENTS, COMPONENT_KINDS, builtins } from './components.js';

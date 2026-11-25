@@ -5,7 +5,7 @@ import Module from 'manifold-3d';
 import { createEngine } from '../src/geometry/engine.js';
 import { encodeSTL } from '../src/geometry/stl.js';
 import { readSTL, orient } from '../src/geometry/stl-read.js';
-import { pickMounts } from '../src/geometry/analyse.js';
+import { pickMounts } from '../src/geometry/mesh-measure.js';
 import {
   newDesign, newShape, MULTI, GEARS, find, checks, cleanDesign, createHistory, partsLayout, motorPlace, pinionOut, motorAngle, gearOf, gearSide, uprightSpread, meshCentre, kickActive, podLayout,
 } from '../src/model.js';

@@ -4,7 +4,7 @@ import Module from 'manifold-3d';
 import { createEngine } from '../src/geometry/engine.js';
 import { encodeSTL } from '../src/geometry/stl.js';
 import { readSTL, orient, guessOrientation, boundsOf, weld } from '../src/geometry/stl-read.js';
-import { pickMounts } from '../src/geometry/analyse.js';
+import { pickMounts } from '../src/geometry/mesh-measure.js';
 import { cleanItem, encodeShare, decodeShare, packMesh, unpackMesh, thumbOf, cleanThumb } from '../src/library-core.js';
 import { newDesign, newShape, cleanPart, cleanDesign, decodeProject, encodeProject, find, podLayout, checks } from '../src/model.js';
 

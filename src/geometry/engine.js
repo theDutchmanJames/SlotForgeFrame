@@ -3,7 +3,7 @@
 // All booleans are done by Manifold, as in SlotForge Foundry.
 
 import { find, on, heights, motorOf, gearOf, motorPlace, podLayout, uprightSpread, uprightInner, seatSize, holderSize, flanged, flangeProud, gearSide, asRight, podShift, unshifted, podRide, kickActive, activeKicks, profileOf, bearingOf, couponHoles } from '../model.js';
-import { createAnalyser } from './analyse.js';
+import { createAnalyser } from './mesh-measure.js';
 import { layerShape, directional, insertOf, insertChecks, ringSizes } from '../inserts.js';
 
 // The areas a kick-up lifts, seen from above: [x0, y0, x1, y1] each. `far` is how far 'everything' reaches.
