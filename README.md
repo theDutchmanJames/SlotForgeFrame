@@ -8,7 +8,7 @@
 
 **Built from the ground up: a printable chassis and motor pod for your slotcar.**
 
-SlotForge Frame designs a 3D-printable slotcar chassis around the parts you race with: your wheels, guide, motor, gears and bearings. Draw the outline, or trace it from the body. Choose a closed plate or a light rail frame, shape a raised rear with strakes, and place the guide holder, the front axle brackets and the body mounts wherever you want them.
+SlotForge Frame designs a 3D-printable slotcar chassis around the parts you race with: your wheels, guide, motor, gears and bearings. Draw the outline, or trace it from the body. Choose a closed plate or a light rail frame, shape a raised rear with strakes, and place the guide holder, the front axle brackets, the body mounts, magnets and wire guides wherever you want them.
 
 The motor pod is designed with it, for inline, sidewinder and anglewinder motors, with bearing holders that are sized for your printer. A live preview shows the axles, wheels, motor and gears in place, and a final check goes through what matters before you print.
 
@@ -39,7 +39,7 @@ Visit each app's repository for its features, downloads and getting-started guid
 
 | Draw the outline | From body | Rail frame |
 | :---: | :---: | :---: |
-| [![The outline tool: one side of the chassis as points in the top view](docs/screenshots/outline.png)](docs/screenshots/outline.png) | [![An outline traced from a body, drawn in at the four wheels](docs/screenshots/from-body.png)](docs/screenshots/from-body.png) | [![The Fill tool with a rail frame, cross rails and pads](docs/screenshots/rail-frame.png)](docs/screenshots/rail-frame.png) |
+| [![The outline tool: one side of the chassis as points in the top view](docs/screenshots/outline.png)](docs/screenshots/outline.png) | [![An outline traced from a body, open at the four wheel arches](docs/screenshots/from-body.png)](docs/screenshots/from-body.png) | [![The Fill tool with a rail frame, cross rails and pads](docs/screenshots/rail-frame.png)](docs/screenshots/rail-frame.png) |
 | You shape one side; the other side mirrors it. | Trace the body from Anvil: sides, bumpers and wheel arches. | A closed plate, a rail frame or a lattice. |
 
 | Drivetrain | Final check | Calibration coupon |
@@ -67,55 +67,59 @@ Frame works along eight menus, roughly in the order you build a car: **Car, Outl
 
 ### Draw the outline
 
-- **Draw:** shape one side as points in the top view; the other side mirrors it. Drag the points or type them in. Round the corners and bevel the top or bottom edge.
-- **From body:** load the body you made in SlotForge Anvil and trace its underside. The outline follows the sides and both bumpers at a gap you choose, and is drawn in at the wheel arches so the tyres run free. The result is an outline you go on shaping by hand.
+- **Draw:** shape one side as points in the top view; the other side mirrors it. Drag the points or type them in. Mark a point as curved and the outline bends past it; round the corners and bevel the top or bottom edge.
+- **From body:** load the body you made in SlotForge Anvil and trace it. The chassis goes inside the body, a gap from its walls, sills and bumpers, or under it, with the body standing on the plate and the plate reaching out by an amount you set. The trace follows the body's lower edge, not a bumper or exhaust that sticks out, and leaves the wheel arches open. The result is an outline you go on shaping by hand.
 - **Plate thickness** and every other size in millimetres.
 
 ### Shape it
 
 - **Kick-up:** tilt the rear upward behind a fold line, over the full width, only the centre or only the sides, with strakes underneath like a diffuser. A front kick-up does the same at the nose.
 - **Side profile:** let the plate follow a height line along the car, for a stepped or rising floor.
-- **Ribs and strakes, edge walls, tunnels, upright panels, levels and pockets:** stiffen the plate and shape it, each placed and sized freely and mirrored if you want.
+- **Ribs and strakes, edge walls, tunnels, upright panels, levels and pockets:** stiffen the plate and shape it, each placed and sized freely and mirrored if you want. Ribs and walls can have a rounded root where they meet the plate.
 - **Split part:** print a long chassis as two parts that key into each other.
 
 ### Fill: closed, rail frame or lattice
 
 - **Closed:** a full plate.
-- **Rail frame:** an outer rail with cross rails and lengthwise rails, pads under every feature, and a spine if you want one. Frame proposes where the cross rails go; move, add or remove them.
+- **Rail frame:** an outer rail with cross rails and lengthwise rails, pads under every feature, a spine, struts in the nose, a rail under the front axle and a closed plate behind the rear wheels. Frame proposes where the cross rails go; move, add or remove them. The chassis always runs all the way round the motor pod.
 - **Lattice:** an open mesh with the cell size you set.
-- **Rails and windows:** draw extra rails of your own, or cut windows out of a closed plate.
+- **Rails, windows and cut-outs:** draw extra rails of your own, cut windows out of a closed plate, or cut any closed shape through the plate or sink it in.
 
 ### Guide, front axle and mounts
 
 - **Guide holder:** for the common guides, or your own sizes, anywhere ahead of the front axle.
-- **Front axle brackets:** their spread, height and wall, with an axle slot that fits your printer.
-- **Body mounts:** as many spots as you need, shared with SlotForge Anvil.
+- **Front axle brackets:** their spread, height and wall, with an axle slot that fits your printer. Give the axle travel up and down, grub screws from below and above, or a stub axle for each wheel.
+- **Body mounts and supports:** as many mount spots as you need, shared with SlotForge Anvil, and tabs that reach out from the edge of the plate for the body to rest on.
+- **Magnet and ballast holders, wire guides and a chip mount:** walled pockets for magnets or weights, posts that hold the lead wires, and a tray for a digital chip, each where you put it.
 - **Pod mounts and pod opening:** the default four-screw pattern is 63.2 × 20 mm; change it, or let it follow an imported pod.
 
 ### The motor pod
 
-- **Inline, sidewinder and anglewinder,** for short-can, long-can and slim-can motors. The anglewinder's angle to the rear axle is yours to set, and the app says when it differs from what the gears are cut for.
-- **Gears:** pick a crown or spur gear set; the motor is placed so that the gears mesh.
+- **Inline, sidewinder and anglewinder,** for short-can, long-can and slim-can motors, driving the right or the left rear wheel. The anglewinder's angle to the rear axle is yours to set, and the app says when it differs from what the gears are cut for. A motor that drives from its endbell can be turned end for end.
+- **Gears:** pick a crown or spur gear set; the motor is placed so that the gears mesh. A gear set says how its gear is built (disc, boss and which way it points), and the chassis is cut free for it.
+- **In its opening or on top:** the pod drops into its opening, or sits on top of the chassis rails as on the makers' chassis, with the motor and axle dropped through its floor. Move it sideways, and give it float on its screws.
 - **Bearing holders:** closed, snap-in or clamp, with a buttress on the motor side, a brace between them and room to oil the bearing.
 - **Motor seat, base plate and mount lugs,** each with its own sizes.
 - **Live preview:** axles, wheels, tyres, motor, pinion and gear are drawn in place in the top view and in 3D.
 
 ### Bought and shared parts
 
-- **Import an STL** of a pod or a chassis you bought or downloaded. Frame measures it, finds its screw holes, and fits the chassis round an imported pod.
+- **Import an STL** of a pod or a chassis you bought or downloaded. Frame measures it, finds its screw holes, and fits the chassis round an imported pod. An imported chassis can be made editable: its shape becomes your outline.
 - **Library:** every chassis and pod you make or import, kept in one file on your computer, with motors, gear sets, bearings, guides, printers, rule sets and car presets beside them. Add components of your own.
 - **Share:** export a part, or the whole library, as a `.framelib` file for other SlotForge Frame users, and open theirs.
 
 ### Work with SlotForge Anvil
 
 - **Export for Anvil:** an `.anvilchassis` file with the chassis, the pod and the body-mount spots. Anvil shows them inside the body and builds the posts on those spots.
-- **Body from Anvil:** load the body's STL. It shows as a ghost over the chassis, and Frame says whether the chassis and the wheels stay inside it.
+- **Body from Anvil:** load the body's STL and turn it the right way up. It shows over the chassis as a ghost or solid. Frame finds its wheel arches and fits the wheelbase and the axles to them, says whether the chassis and the wheels stay inside it, and checks in 3D that nothing of the chassis runs into the body.
 
 ### Check, then print
 
 - **Printer and material:** nozzle, minimum wall and the fixes for holes that print undersize.
 - **Calibration coupon:** a small test piece with every hole size your design uses. Print it once per printer and material, try your parts in it, and tell the app which holes fitted.
 - **Final check:** one list of what matters before printing (one solid piece, tyres clear of the chassis, the pod in its opening, gear mesh, wall thickness, your rules), each row leading to the tool that fixes it. Sizes that no maker publishes are marked **unconfirmed**, so you know what to measure.
+- **Weight and balance:** the weight of the printed parts with the weights you add, and where the centre of gravity lies.
+- **Millimetres or inches,** and a measuring tool in the top view.
 - **Export STL:** the chassis and the pod, laid flat for printing, and split parts as their own files.
 - **Projects:** your design is kept on this computer and opens again next time. **Save** writes a `.frame` file with everything in it, imported parts included.
 

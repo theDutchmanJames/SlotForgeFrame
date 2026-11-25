@@ -1205,6 +1205,8 @@ const ACTIONS = {
       if (state.design !== design) return; // another design was opened meanwhile
       applyOutline(design, out.points);
       // Under the body, the body stands on the plate; inside it, the body stays where it was put.
+      // A body that stood on the plate comes back down over the chassis when it is traced inside again.
+      if (!under && design.body.onPlate) design.body.lift = rideClearance(design);
       design.body.onPlate = under;
       // A body that stands on the plate needs it flat: a kicked-up nose or tail would rise into the body.
       const kicks = under ? ['kickup', 'kickfront'].map((type) => find(design.chassis, type)).filter((f) => on(f)) : [];

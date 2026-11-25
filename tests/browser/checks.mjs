@@ -526,6 +526,17 @@ export const checks = [
     const panel = await page.locator('#panel').innerText();
     assert.match(panel, /The body stands on the chassis/);
     assert.doesNotMatch(panel, /The chassis sticks out of the body/);
+    // Traced inside the body again, the body comes back down over the chassis.
+    await app.tool('outline', 'trace');
+    await page.locator('#panel [data-path="ui.trace.mode"]').selectOption('inside');
+    await page.evaluate(() => document.querySelectorAll('#toasts .toast').forEach((t) => t.remove()));
+    await page.click('#panel [data-act=tracebody]');
+    await page.waitForFunction(() => [...document.querySelectorAll('#toasts .toast')].some((t) => /Outline traced from the body/.test(t.textContent)));
+    await app.idle();
+    assert.equal((await app.design()).body.onPlate, false);
+    assert.equal((await app.design()).body.lift, 2, 'the body is level with the underside of the chassis again');
+    await page.keyboard.press('Control+z');
+    await app.idle();
     await page.keyboard.press('Control+z');
     await app.idle();
     assert.equal((await app.design()).body.lift, 2, 'undo puts the body back as well');
