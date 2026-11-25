@@ -27,5 +27,7 @@ export default defineConfig({
   // The build writes one file. It leaves the rest of dist alone: dist/desktop holds the packaged downloads,
   // and a file in use there would stop the build.
   build: { target: 'es2022', chunkSizeWarningLimit: 12000, emptyOutDir: false },
-  server: { port: 5191, strictPort: true },
+  // The dev server leaves dist alone: packaging writes thousands of files there (some locked while it runs),
+  // and watching them reloaded the page halfway, so that it could not load.
+  server: { port: 5191, strictPort: true, watch: { ignored: ['**/dist/**'] } },
 });
