@@ -42,10 +42,11 @@ button { font: inherit; color: inherit; }
    underneath it set to the wordmark's width (as in Foundry, Circuit and Telemetry). */
 .brand { display: flex; align-items: center; gap: 10px; flex: none; }
 .brand .brand-icon { width: 42px; height: 42px; flex: none; display: block; }
-.brand-copy { display: grid; grid-template-columns: 112px; align-content: center; gap: 4px; height: 42px; }
-.brand-wordmark { display: block; position: relative; width: 100%; aspect-ratio: 407.56 / 87.12; }
+/* The Frame wordmark is 445.66 x 87.01: 122px wide gives it the same letter height as Anvil's and Foundry's. */
+.brand-copy { display: grid; grid-template-columns: 122px; align-content: center; gap: 4px; height: 42px; }
+.brand-wordmark { display: block; position: relative; width: 100%; aspect-ratio: 445.66 / 87.01; }
 .brand-wordmark img { position: absolute; inset: 0; width: 100%; height: auto; }
-.brand-copy small { font-size: 8px; line-height: 10px; font-weight: 500; white-space: nowrap; color: var(--muted); text-align: justify; text-align-last: justify; letter-spacing: 1px; }
+.brand-copy small { font-size: 8px; line-height: 10px; font-weight: 500; white-space: nowrap; color: var(--muted); text-align: justify; text-align-last: justify; letter-spacing: .45px; }
 @media (max-width: 1180px) { .brand-copy small { display: none; } }
 /* The SlotForge App Collection mark, 120 px wide as in the other apps. */
 .sf-footer-brand { display: flex; align-items: center; flex: 0 0 120px; width: 120px; padding: 0 11px; box-sizing: content-box; }
@@ -221,9 +222,6 @@ select.num { font: 500 12.5px var(--font-ui); color: var(--ink); }
   --c-dim: var(--muted);
 }
 :root[data-tone='light'] { --c-part: #1f6fd6; }
-.brand-name { font: italic 700 27px/1 var(--font-title); text-transform: uppercase; letter-spacing: .02em; color: var(--ink); }
-.brand-name b { color: var(--accent-text); font-weight: 700; }
-.brand-copy.text { grid-template-columns: auto; gap: 3px; }
 .tools .end { margin-left: auto; display: flex; gap: 4px; align-items: center; }
 .pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--line); font-size: 11.5px; color: var(--muted); background: var(--panel); }
 .pill.un { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); color: var(--warn-text); }

@@ -19,6 +19,8 @@ import {
 } from './model.js';
 // ?inline: the pictures are built into the page, which is the only file the desktop app ships.
 import iconUrl from './assets/slotforge-frame.svg?inline';
+import wordmarkDark from './assets/frame-dark.svg?inline';
+import wordmarkLight from './assets/frame-light.svg?inline';
 import markDark from './assets/slotforge-dark.svg?inline';
 import markLight from './assets/slotforge-light.svg?inline';
 // Kept last: the built page must not begin with this file's wrapper function, which the
@@ -393,7 +395,7 @@ function renderTop() {
   $('#top').innerHTML = `
     <div class="brand" aria-label="SlotForge Frame">
       <img class="brand-icon" src="${iconUrl}" alt="">
-      <div class="brand-copy text"><span class="brand-name">Frame</span><small>BUILT FROM THE GROUND UP</small></div>
+      <span class="brand-copy"><span class="brand-wordmark"><img class="wm-dark" src="${wordmarkDark}" width="446" height="87" alt=""><img class="wm-light" src="${wordmarkLight}" width="446" height="87" alt=""></span><small>BUILT FROM THE GROUND UP</small></span>
     </div>
     <span class="vline"></span>
     <div class="who">
