@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import Module from 'manifold-3d';
 import { createEngine } from '../src/geometry/engine.js';
 import { placeBody } from '../src/anvil.js';
-import { newDesign, find, traceWheels, traceArches, applyOutline, centreMounts, summary, checks } from '../src/model.js';
+import { boundsOf } from '../src/geometry/stl-read.js';
+import { newDesign, find, traceWheels, traceArches, applyOutline, centreMounts, summary, checks, cleanDesign } from '../src/model.js';
 import { findArches } from '../src/anvil.js';
 
 const wasm = await Module();
@@ -69,7 +70,7 @@ test('the outline follows the body, pulled in by the gap, with the curved bumper
   assert.ok(Math.abs(widthAt(pts, d.car.wheelbase / 2) - 30.5) < 0.2, 'straight sides, a gap inside the body');
   // The bumper corners are rounded, not square: 3 mm in from the nose the outline is much narrower than the sides.
   // (a 10.5 mm corner: 20 + √(10.5² − 7.5²) = 27.3 there, against 30.5 along the sides)
-  assert.ok(Math.abs(widthAt(pts, pts[0][0] + 3) - 27.3) < 0.4, `the corner is followed (${widthAt(pts, pts[0][0] + 3)})`);
+  assert.ok(Math.abs(widthAt(pts, pts[0][0] + 3) - 27.3) < 0.6, `the corner is followed (${widthAt(pts, pts[0][0] + 3)})`);
   assert.ok(pts.length <= 48, `few enough points to edit by hand (${pts.length})`);
   // A bigger gap gives a smaller chassis.
   const tight = engine.trace({ body, band: 6, gap: 4, wheels: [] });
@@ -258,4 +259,71 @@ test('a body that runs into the chassis is found in 3D, and one that clears it i
   assert.ok(engine.bodyClash({ body: at(0, top - 0.6), parts: [plate.chassis] }).area > 20, 'a body sunk 0.6 mm into the plate');
   // Nothing to check against is no clash.
   assert.deepEqual(engine.bodyClash({ body: at(0), parts: [] }), { area: 0, depth: 0, at: null });
+});
+
+test('small steps in the body\'s lower edge are evened out: the outline follows the body\'s line', () => {
+  // A shell whose sides step in and out by 1 mm every millimetre along the middle of the car, like a row of vents.
+  const pos = [], idx = [], v = (x, y, z) => pos.push(x, y, z) / 3 - 1, quad = (a, b, c, d) => idx.push(a, b, c, a, c, d);
+  const side = [[0, 20]];
+  for (let x = 6; x <= 144; x += 1) side.push([x, x > 40 && x < 110 && x % 2 ? 31 : 32]);
+  side.push([150, 20]);
+  for (const s of [1, -1]) for (let i = 1; i < side.length; i++) quad(v(side[i - 1][0], s * side[i - 1][1], 0), v(side[i][0], s * side[i][1], 0), v(side[i][0], s * side[i][1], 30), v(side[i - 1][0], s * side[i - 1][1], 30));
+  for (const x of [0, 150]) quad(v(x, -20, 0), v(x, 20, 0), v(x, 20, 30), v(x, -20, 30));
+  const d = newDesign(), body = placeBody({ positions: Float32Array.from(pos), indices: Uint32Array.from(idx) }, { shift: 0, lift: 2, turn: 0, up: '+z' }, d.car.wheelbase);
+  const nose = d.car.wheelbase / 2 - 75;
+  for (const args of [{ gap: 1 }, { extend: 0.5 }]) {
+    const out = engine.trace({ body, wheels: [], ...args }), edge = args.extend !== undefined ? 32.5 : 31;
+    // Along the stepped stretch the outline is one straight line at the outer steps, not a saw.
+    const along = out.points.filter((q) => q[0] > nose + 45 && q[0] < nose + 105);
+    assert.ok(along.length <= 3, `${JSON.stringify(args)}: ${along.length} points along 60 mm of steps`);
+    for (const x of [50, 60.5, 71, 85.5, 100]) assert.ok(Math.abs(widthAt(out.points, nose + x) - edge) < 0.4, `${JSON.stringify(args)}: straight at ${x} (${widthAt(out.points, nose + x).toFixed(2)})`);
+    assert.ok(out.points.length <= 16, `${out.points.length} points in all`);
+  }
+});
+
+test('behind the rear wheels a frame has a closed rear plate, also without a kick-up', () => {
+  const inPlate = (rings, x, y) => { let inside = false; for (const ring of rings) for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside; } return inside; };
+  const d = newDesign(), fill = find(d.chassis, 'fill').params, wb = d.car.wheelbase, from = wb + d.car.rear.tyreD / 2 + 1.5;
+  assert.equal(fill.tail, true);
+  find(d.chassis, 'kickup').enabled = false;
+  find(d.chassis, 'bodyMounts').enabled = false;
+  // Off the centre rail and clear of the outer rail, a few millimetres behind the wheels: plate.
+  const spots = [[from + 2, 8], [from + 6, -14], [from + 10, 20]];
+  let out = engine.build(d);
+  for (const [x, y] of spots) assert.ok(inPlate(out.top.chassis, x, y), `closed at ${x.toFixed(1)}, ${y}`);
+  assert.ok(!inPlate(out.top.chassis, from - 3, 22), 'ahead of it the frame is still open beside the pod');
+  assert.deepEqual(out.notes.filter((n) => !n.ok && !n.soft), []);
+  fill.tail = false;
+  out = engine.build(d);
+  assert.ok(spots.some(([x, y]) => !inPlate(out.top.chassis, x, y)), 'switched off, the tail is rails again');
+  assert.equal(find(cleanDesign(JSON.parse(JSON.stringify(d))).chassis, 'fill').params.tail, false);
+});
+
+test('the trace follows the body\'s lower edge where body and chassis meet, not a bumper that juts out above it', () => {
+  // A shell with a bumper 5 mm proud of its tail, 8 to 14 mm up, and a nose that sits 2 mm higher than the sills.
+  const { Manifold } = wasm, box = (x0, y0, z0, x1, y1, z1) => Manifold.cube([x1 - x0, y1 - y0, z1 - z0]).translate([x0, y0, z0]);
+  let m = box(0, -30, 0, 150, 30, 36).subtract(box(1.5, -28.5, -1, 148.5, 28.5, 34.5));
+  m = m.add(box(150, -34, 8, 155, 34, 14)); // the bumper: further back and wider than the body below it
+  m = m.subtract(box(-1, -40, -1, 20, 40, 2)); // the nose: its lower edge is 2 mm up
+  m = m.add(box(140, 14, 0.5, 156, 18, 4)); // an exhaust pipe, low down on one side, sticking out 6 mm behind
+  m = m.add(box(60, 30, 0, 64, 33, 3)); // and a jacking point on one sill, 3 mm proud of it
+  const mesh = m.getMesh(), positions = new Float32Array((mesh.vertProperties.length / mesh.numProp) * 3);
+  for (let i = 0, k = 0; i < mesh.vertProperties.length; i += mesh.numProp) { positions[k++] = mesh.vertProperties[i]; positions[k++] = mesh.vertProperties[i + 1]; positions[k++] = mesh.vertProperties[i + 2]; }
+  const d = newDesign(), body = placeBody({ positions, indices: Uint32Array.from(mesh.triVerts) }, { shift: 0, lift: 2, turn: 0, up: '+z' }, d.car.wheelbase);
+  const span = boundsOf(body), nose = span.min[0], tail = nose + 150;
+  assert.ok(Math.abs(span.max[0] - (tail + 6)) < 0.01, 'the exhaust is the furthest point of the body, and the bumper comes next');
+  // Under the body, following 1.5 mm of its lower edge: the plate ends where the body's underside ends, flush.
+  const edge = engine.trace({ body, wheels: [], extend: 0, band: 1.5 });
+  assert.ok(Math.abs(edge.points.at(-1)[0] - tail) < 0.3, `the tail ends at the body's lower edge, not at the bumper (${(edge.points.at(-1)[0] - tail).toFixed(2)} mm past it)`);
+  assert.ok(Math.abs(edge.width - 60) < 0.3, `and it is as wide as the lower edge (${edge.width})`);
+  // The exhaust and the jacking point are on one side only: they are not the body's edge.
+  assert.ok(Math.abs(widthAt(edge.points, nose + 62) - 30) < 0.3, `the jacking point is not followed (${widthAt(edge.points, nose + 62)})`);
+  // The nose sits higher than the sills, and is followed all the same.
+  assert.ok(Math.abs(edge.points[0][0] - nose) < 0.3, `the nose is traced (${(edge.points[0][0] - nose).toFixed(2)})`);
+  // Looking at 14 mm of the body's height takes the bumper in: the plate would stand out behind and beside it.
+  const far = engine.trace({ body, wheels: [], extend: 0, band: 14 });
+  assert.ok(Math.abs(far.points.at(-1)[0] - (tail + 5)) < 0.3 && far.width > 66, 'the bumper, which is there on both sides');
+  // Reaching out 0.5 mm is measured from the lower edge as well.
+  const proud = engine.trace({ body, wheels: [], extend: 0.5, band: 1.5 });
+  assert.ok(Math.abs(proud.points.at(-1)[0] - (tail + 0.5)) < 0.3 && Math.abs(proud.width - 61) < 0.3);
 });

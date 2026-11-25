@@ -351,6 +351,8 @@ export function createEngine(wasm) {
       if (on(cutAt)) parts.push(rect(cutAt.params.along - cutAt.params.depth - 2, -BIG, cutAt.params.along + 2.5, BIG));
       // A kicked-up area is a closed plate.
       for (const [x0, y0, x1, y1] of kickAreas(d, BIG)) parts.push(rect(x0, y0, x1, y1));
+      // Behind the rear wheels the plate is closed too: a rear plate, as the makers' chassis have.
+      if (fp.tail !== false) parts.push(rect(d.car.wheelbase + d.car.rear.tyreD / 2 + 1.5, -BIG, BIG, BIG));
       // Rails that run side by side with only a slit between them are joined into one: a gap narrower
       // than a rail is of no use, and one wide rail is stronger than two thin ones.
       const join = Math.max(0.6, w * 0.6);
@@ -833,21 +835,36 @@ export function createEngine(wasm) {
     bin = [];
     try {
       const p = body.positions, idx = body.indices, STEP = 0.5;
-      let zmin = Infinity;
-      for (let i = 2; i < p.length; i += 3) zmin = Math.min(zmin, p[i]);
-      const top = zmin + Math.max(0.5, band), wide = new Map();
-      const note = (x, y) => { const k = Math.round(x / STEP), v = Math.abs(y); if (v > (wide.get(k) ?? -1)) wide.set(k, v); };
-      // Walk every edge of the body, keeping the part of it that lies in the band.
-      for (let t = 0; t < idx.length; t += 3)
-        for (let e = 0; e < 3; e++) {
-          const a = idx[t + e] * 3, b = idx[t + ((e + 1) % 3)] * 3;
-          let ax = p[a], ay = p[a + 1], az = p[a + 2], bx = p[b], by = p[b + 1], bz = p[b + 2];
-          if (az > top && bz > top) continue;
-          if (az > top) { const k = (top - bz) / (az - bz); ax = bx + (ax - bx) * k; ay = by + (ay - by) * k; }
-          else if (bz > top) { const k = (top - az) / (bz - az); bx = ax + (bx - ax) * k; by = ay + (by - ay) * k; }
-          const n = Math.max(1, Math.ceil(Math.abs(bx - ax) / STEP));
-          for (let i = 0; i <= n; i++) note(ax + ((bx - ax) * i) / n, ay + ((by - ay) * i) / n);
-        }
+      // The band is measured up from the body's lower edge where you are along the car, not from its lowest
+      // point anywhere: a nose or tail that sits higher than the sills is followed all the same, and a
+      // bumper that juts out above the lower edge does not count while the edge below it does.
+      const reach = Math.max(0.5, band), NEAR = Math.round(5 / STEP), lowest = new Map(), wide = new Map();
+      const walk = (visit) => {
+        for (let t = 0; t < idx.length; t += 3)
+          for (let e = 0; e < 3; e++) {
+            const a = idx[t + e] * 3, b = idx[t + ((e + 1) % 3)] * 3;
+            const n = Math.min(2000, Math.max(1, Math.ceil(Math.max(Math.abs(p[b] - p[a]) / STEP, Math.abs(p[b + 2] - p[a + 2]) / 0.25))));
+            for (let i = 0; i <= n; i++) { const u = i / n; visit(p[a] + (p[b] - p[a]) * u, p[a + 1] + (p[b + 1] - p[a + 1]) * u, p[a + 2] + (p[b + 2] - p[a + 2]) * u); }
+          }
+      };
+      // First where the lower edge is, every half millimetre along the car; then what lies within the band above it.
+      walk((x, y, z) => { const k = Math.round(x / STEP); if (!(lowest.get(k) <= z)) lowest.set(k, z); });
+      const floorAt = new Map();
+      for (const k of lowest.keys()) {
+        let low = Infinity;
+        for (let j = k - NEAR; j <= k + NEAR; j++) { const z = lowest.get(j); if (z < low) low = z; }
+        floorAt.set(k, low);
+      }
+      // The body's edge is there on both sides of the car. Something on one side only (an exhaust pipe, a
+      // filler cap, a tow hook) is not the edge: each side is measured on its own and the lesser one counts.
+      const right = new Map(), left = new Map();
+      walk((x, y, z) => {
+        const k = Math.round(x / STEP);
+        if (z > floorAt.get(k) + reach) return;
+        if (y >= -0.25 && !(right.get(k) >= y)) right.set(k, Math.max(0, y));
+        if (y <= 0.25 && !(left.get(k) >= -y)) left.set(k, Math.max(0, -y));
+      });
+      for (const [k, v] of right) if (left.has(k)) wide.set(k, Math.min(v, left.get(k)));
       if (wide.size < 4) throw Error('The body has nothing to trace in that band. Look at more of its height.');
       const keys = [...wide.keys()].sort((a, b) => a - b), k0 = keys[0], k1 = keys.at(-1);
       // Where the band is open (a wheel arch), carry the width across from either side.
@@ -858,8 +875,19 @@ export function createEngine(wasm) {
         while (!wide.has(next)) next++;
         prof.push(wide.get(last) + ((wide.get(next) - wide.get(last)) * (k - last)) / (next - last));
       }
-      const upper = prof.map((w, i) => [(k0 + i) * STEP, Math.max(w, 0.05)]);
+      // The widths jitter from one half millimetre to the next where the body's edge is faceted or stepped.
+      // Each is replaced by the middle one of itself and its two neighbours either side: that takes the jitter
+      // out and leaves straight and sloping edges exactly where they are.
+      const calm = prof.map((w, i) => {
+        if (i < 2 || i > prof.length - 3) return w;
+        return prof.slice(i - 2, i + 3).sort((x, y) => x - y)[2];
+      });
+      const upper = calm.map((w, i) => [(k0 + i) * STEP, Math.max(w, 0.05)]);
       let shape = poly(upper.concat(upper.slice().reverse().map(([x, y]) => [x, -y])));
+      // A body's lower edge is full of small steps (panel lines, vents, the facets of a curved corner).
+      // The chassis should follow the body's line, not those: notches and teeth narrower than 2 mm are evened out.
+      const even = 1;
+      shape = K(K(K(shape.offset(even, 'Round')).offset(-2 * even, 'Round')).offset(even, 'Round'));
       // Under the body: the body stands on the plate, which follows its outer line and reaches out from
       // under it by `extend` (or stays that far inside it, when negative). Inside the body: a gap in from it.
       if (extend !== null) { if (Math.abs(extend) > 0.01) shape = K(shape.offset(extend, 'Round')); }

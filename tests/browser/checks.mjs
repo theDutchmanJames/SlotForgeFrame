@@ -509,6 +509,8 @@ export const checks = [
     await app.tool('outline', 'trace');
     await page.locator('#panel [data-path="ui.trace.mode"]').selectOption('under');
     assert.equal(await app.field('ui.trace.gap').count(), 0, 'no gap to set in this mode');
+    assert.equal(await app.field('ui.trace.edge').inputValue(), '1.5', 'it follows the lowest 1.5 mm of the body');
+    assert.equal(await app.field('ui.trace.band').count(), 0);
     await app.set('ui.trace.extend', 1);
     await page.evaluate(() => document.querySelectorAll('#toasts .toast').forEach((t) => t.remove()));
     await page.click('#panel [data-act=tracebody]');

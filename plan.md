@@ -256,7 +256,7 @@ Each milestone ends with tests on real shapes, including the seven example parts
 
 | Command | What it covers |
 |---|---|
-| `npm test` | 124 tests of the model, the geometry engine, files, the library, the Anvil link, tracing a body and the update check (Node, no browser) |
+| `npm test` | 127 tests of the model, the geometry engine, files, the library, the Anvil link, tracing a body and the update check (Node, no browser) |
 | `npm run test:ui` | 28 checks of the built app in a real browser (Edge or Chrome, headless, offline): editing, dragging, undo, export, library, import, the Anvil link, themes. Run `npm run build` first |
 | `npm run test:desktop` | Opens the desktop app and checks that it starts, builds and opens its library file |
 

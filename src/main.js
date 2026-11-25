@@ -60,7 +60,7 @@ const state = {
   sel: {}, // the chosen one of each shaping feature: { rib: id, … }
   coupon: null, // the calibration coupon for this design, once built: { key, data }
   measure: { on: false, a: null, b: null }, // the measuring tool in the top view: two points
-  ui: { trace: { mode: 'inside', extend: 0.5, gap: 1.5, band: 6, wellSide: 1, wellEnd: 1.5, headroom: 1 } }, // settings of tools that are not part of the design
+  ui: { trace: { mode: 'inside', extend: 0.5, edge: 1.5, gap: 1.5, band: 6, wellSide: 1, wellEnd: 1.5, headroom: 1 } }, // settings of tools that are not part of the design
   tracing: false,
   theme: loadTheme(),
 };
@@ -481,12 +481,12 @@ const PANELS = {
     return intro + `
       ${kv([['Body', esc(b.name)]])}
       ${sel('The chassis goes', 'ui.trace.mode', { inside: 'Inside the body', under: 'Under the body: the body stands on it' })}
-      <div class="g2">${state.ui.trace.mode === 'under' ? num('Reaches out from under the body', 'ui.trace.extend', 'mm', { min: -10, max: 10 }) : num('Gap to the body', 'ui.trace.gap', 'mm', { min: 0, max: 10 })}${num('Height of body to look at', 'ui.trace.band', 'mm', { min: 0.5, max: 80 })}${num('Room beside the tyres', 'ui.trace.wellSide', 'mm', { min: 0, max: 10 })}${num('Room ahead of and behind the tyres', 'ui.trace.wellEnd', 'mm', { min: 0, max: 15 })}${state.ui.trace.mode === 'under' ? '' : num('Keep clear above the plate', 'ui.trace.headroom', 'mm', { min: 0, max: 30 })}</div>
+      <div class="g2">${state.ui.trace.mode === 'under' ? num('Reaches out from under the body', 'ui.trace.extend', 'mm', { min: -10, max: 10 }) : num('Gap to the body', 'ui.trace.gap', 'mm', { min: 0, max: 10 })}${state.ui.trace.mode === 'under' ? num('Height of the lower edge to follow', 'ui.trace.edge', 'mm', { min: 0.3, max: 80 }) : num('Height of body to look at', 'ui.trace.band', 'mm', { min: 0.5, max: 80 })}${num('Room beside the tyres', 'ui.trace.wellSide', 'mm', { min: 0, max: 10 })}${num('Room ahead of and behind the tyres', 'ui.trace.wellEnd', 'mm', { min: 0, max: 15 })}${state.ui.trace.mode === 'under' ? '' : num('Keep clear above the plate', 'ui.trace.headroom', 'mm', { min: 0, max: 30 })}</div>
       <button class="btn primary" data-act="tracebody" ${state.tracing ? 'disabled' : ''}>${ico('body')}${state.tracing ? 'Tracing…' : 'Trace the body'}</button>
       ${kv([['Outline now', `${f1(s.length)} × ${f1(s.plateWidth)} mm, ${find(d.chassis, 'outline').params.points.length} points`]])}
-      ${state.ui.trace.mode === 'under' ? `<div class="note">The plate follows the body's <b>outer</b> line and reaches out from under it by the amount you set: 0 is flush with the body, a negative amount keeps it that far inside. Tracing also sets the body down on the plate (its underside ${f2(rideClearance(d) + find(d.chassis, 'outline').params.thickness)} mm above the track). The wheel arches are left open.</div>` : ''}
+      ${state.ui.trace.mode === 'under' ? `<div class="note">The plate follows the body's <b>lower edge</b>, where body and chassis meet, and reaches out from under it by the amount you set: 0 is flush with that edge, a negative amount keeps it that far inside. Only the lowest part of the body counts (the height you set, measured up from its lower edge at each place), so a bumper or wing that juts out higher up is not followed. Tracing also sets the body down on the plate (its underside ${f2(rideClearance(d) + find(d.chassis, 'outline').params.thickness)} mm above the track). The wheel arches are left open.</div>` : ''}
       <div class="note" ${state.ui.trace.mode === 'under' ? 'hidden' : ''}>The outline stays the gap away from the body's <b>inside</b>: its walls, sills and bumpers, as far up as the plate reaches plus what you <b>keep clear above the plate</b>. Raise that when a kick-up or a rib runs into the body. The wheel arches are left open over their whole length.</div>
-      <div class="note">The <b>height to look at</b> is measured up from the lowest point of the body. Keep it low to follow the sills and bumpers; raise it when the body's lower edge is not level, or to take in the widest part of the sides.</div>
+      <div class="note">The <b>height to look at</b> is measured up from the body's lower edge at each place along the car. Keep it low to follow the sills and bumpers; raise it when the body's lower edge is not level, or to take in the widest part of the sides.</div>
       <div class="note">Tracing replaces the outline you have drawn; <b>Undo</b> brings it back. The guide holder, the kick-up folds and the cross rails move along when they would fall off the new shape. The body must sit right first: see <b>Body › Body and Anvil</b>.</div>
       <div class="row"><button class="btn sm ghost" data-act="tool" data-tool="outline">${ico('pen')}Edit the points</button><button class="btn sm ghost" data-act="tool" data-tool="body">${ico('body')}Place the body</button></div>`;
   },
@@ -528,6 +528,7 @@ const PANELS = {
       ${chk('Centre rail', P(f, 'spine'))}
       ${chk('Rail under the front axle, between the brackets', P(f, 'axleRail'))}
       ${chk('Rail across the nose, from the guide holder to both sides', P(f, 'guideRail'))}
+      ${chk('Closed plate behind the rear wheels', P(f, 'tail'))}
       ${sel('Nose struts, from the guide', P(f, 'struts'), { none: 'None', axle: 'To the front axle brackets', fan: 'To the brackets and the pod opening' })}
       <div class="lst"><div class="hdr" style="grid-template-columns:18px 1fr 26px"><span></span><span>Cross rails: along, from front axle</span><span></span></div>
         ${p.cross.map((x, i) => `<div class="li one"><span class="n">${i + 1}</span><span class="num"><input data-path="${P(f, `cross.${i}`)}" value="${f2(x)}"><small>mm</small></span><button class="iconbtn" data-act="dellist" data-path="${P(f, 'cross')}" data-i="${i}" title="Remove">${ico('x')}</button></div>`).join('')}</div>
@@ -1198,7 +1199,7 @@ const ACTIONS = {
     renderPanel();
     try {
       const t = state.ui.trace, under = t.mode === 'under';
-      const out = await call('trace', { body: { positions: placed.positions, indices: placed.indices }, gap: t.gap, band: t.band, wellSide: t.wellSide, wellEnd: t.wellEnd, wheels: traceWheels(design), arches: traceArches(design, bodyPlaced().arches), extend: under ? t.extend : null, plateTop: rideClearance(design) + find(design.chassis, 'outline').params.thickness + t.headroom });
+      const out = await call('trace', { body: { positions: placed.positions, indices: placed.indices }, gap: t.gap, band: under ? t.edge : t.band, wellSide: t.wellSide, wellEnd: t.wellEnd, wheels: traceWheels(design), arches: traceArches(design, bodyPlaced().arches), extend: under ? t.extend : null, plateTop: rideClearance(design) + find(design.chassis, 'outline').params.thickness + t.headroom });
       if (state.design !== design) return; // another design was opened meanwhile
       applyOutline(design, out.points);
       // Under the body, the body stands on the plate; inside it, the body stays where it was put.

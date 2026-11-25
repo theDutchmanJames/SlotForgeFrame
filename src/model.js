@@ -148,7 +148,7 @@ export function newDesign(scale = '1/32') {
   design.chassis.features = [
     feature('outline', { points: defaultOutline(wb, scale), thickness: p.plate, round: 1.0, bevelTop: 0, bevelBottom: 0 }),
     feature('podOpening', { gap: 0.5 }),
-    feature('fill', { style: 'frame', railWidth: 1.6, outerRail: 2.4, pad: 1.6, cross: proposeCross(design, 2, wb), length: [big ? 30 : 23], spine: true, axleRail: true, guideRail: true, struts: 'fan', latticeCell: 7 }),
+    feature('fill', { style: 'frame', railWidth: 1.6, outerRail: 2.4, pad: 1.6, cross: proposeCross(design, 2, wb), length: [big ? 30 : 23], spine: true, axleRail: true, guideRail: true, tail: true, struts: 'fan', latticeCell: 7 }),
     feature('guide', { guide: p.guide, along: big ? -24 : -19, side: 0, hole: GUIDES[p.guide].hole, bossD: big ? 8 : 6.3, bossH: 5.8, padD: 11 }),
     // travel: how far the axle can move up and down in its slot; grubTop: a second grub screw from above; independent: a stub axle per wheel.
     feature('frontAxle', { along: 0, spread: big ? 46 : 34.5, width: 5, thick: 3, slot: true, grub: 1.6, travel: 0, grubTop: false, independent: false }),
