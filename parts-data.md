@@ -220,6 +220,8 @@ Wheel fixing: M2 grub on 3/32" axles (M2.5 on Scaleauto and Sloting Plus); M3 gr
 - **Scaleauto (1/24), as quoted by Atomic Slot Cars:** only the Huracán GT3 (110, 186 long, 86 wide, tyres 25.5 × 8 / 27.5 × 13). Nearly every other Scaleauto page says 115 mm, and the Home Series pages contradict it on the same page (96–112), so they are left out. [R][?]
 - **No car dimensions published** by Slot.it, NSR, Scalextric (rounded cm only), Carrera 1/32, Thunderslot, Avant Slot or Black Arrow; Revoslot's site could not be read. A retailer's "technical sheet" for Slot.it cars (slotcar-union.com) does not say it comes from Slot.it, so it is not used.
 
+**Motors from Mabuchi's outline drawings (November 2026)**, read from a copy of Mabuchi's complete catalogue (mikrocontroller.net/attachment/641472/Mabuchi_Motors_Complete.pdf): FC-130 (p79), FK-130SH (p56), FK-180SH (p55), FF-050SB (p72) and FF-030 (p73) agree with the sizes in the app. New: FK-130RD / FC-140 with a plastic endbell (25.0 × 20.4 × 15.4, endbell 3.0 out, p57/p78; no front holes drawn) and FF-130SH (shaft 11.55 out, p69). Front holes: M2.0 × 0.4 tapped, 12.4 apart on a level line on the 20 mm cans; 10.0 apart on a line at 30° on the FF-050 and FF-030 slimlines. No slot maker publishes motor drawings; retailers give the long cans (NSR King, Sloting Plus Speed, Scaleauto Sprinter) as 32.1 × 20.2 × 15.3, the FK-180 can. Slot.it's Flat-6 is a shape of its own with no published sizes (its shaft lies 1.25 mm lower than a Boxer's). [R]
+
 ## 11. Not reached
 
 - Electric Dreams, Pendle, LEB Hobbies, Overdrive and the HRW forum refused automated reading or were not reached.

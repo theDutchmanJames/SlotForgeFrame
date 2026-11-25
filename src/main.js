@@ -976,7 +976,7 @@ const PANELS = {
     const f = find(d.pod, 'motorSeat'), m = motorOf(d);
     return head('Pod', 'Motor seat', 'Two bulkheads hold the motor by its bosses; the shaft-side one takes the motor screws.') + enable(f, 'Build the motor seat') + `
       <div class="g2">${num('Wall thickness', P(f, 'wall'), 'mm', { min: 0.8 })}${num('Play around the motor', P(f, 'clear'), 'mm', { min: 0 })}</div>
-      ${kv([['Motor', m.name], ['Screw spacing', f2(m.pitch)], ['Front boss', 'Ø' + f2(m.bossD)]])}`;
+      ${kv([['Motor', m.name], ['Screw spacing', `${f2(m.pitch)}${m.screwTilt ? `, on a line at ${f2(m.screwTilt)}°` : ''}`], ['Front boss', 'Ø' + f2(m.bossD)]])}`;
   },
   uprights(d) {
     const f = find(d.pod, 'uprights'), p = f.params, b = bearingOf(d, p.bearing);
