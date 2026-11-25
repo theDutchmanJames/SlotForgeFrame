@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>SlotForge Frame: Side view (icon concept)</title>
+  <rect x="8" y="8" width="240" height="240" rx="55" fill="#e5484d"/>
+  <g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M36 190H40M56 190H220" stroke-width="6" opacity=".6"/>
+    <path d="M34 168H186L224 146" stroke-width="11"/>
+    <path d="M48 168V200" stroke-width="9"/>
+    <circle cx="84" cy="156" r="31" fill="#e5484d" stroke-width="10"/>
+    <circle cx="170" cy="152" r="35" fill="#e5484d" stroke-width="10"/>
+    <circle cx="84" cy="156" r="6" fill="#fff" stroke="none"/><circle cx="170" cy="152" r="7" fill="#fff" stroke="none"/>
+    <path d="M70 112H150L176 96" stroke-width="6" stroke-dasharray="2 14" opacity=".85"/>
+  </g>
+</svg>

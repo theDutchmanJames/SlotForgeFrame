@@ -1,0 +1,14 @@
+node_modules/
+dist/
+# Parts used for testing are never part of the app
+*.stl
+*.STL
+*.frame
+# Local agent workspace
+.claude/
+# OS files
+Thumbs.db
+desktop.ini
+.DS_Store
+# Screenshots a failed browser test leaves behind
+browser-test-failure-*.png

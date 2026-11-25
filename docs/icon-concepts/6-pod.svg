@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>SlotForge Frame: Pod and axle (icon concept)</title>
+  <rect x="8" y="8" width="240" height="240" rx="55" fill="#e5484d"/>
+  <g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M52 156H204" stroke-width="8"/>
+    <rect x="30" y="116" width="30" height="80" rx="9" fill="#e5484d" stroke-width="10"/>
+    <rect x="196" y="116" width="30" height="80" rx="9" fill="#e5484d" stroke-width="10"/>
+    <rect x="84" y="64" width="88" height="112" rx="10" stroke-width="10"/>
+    <rect x="106" y="82" width="44" height="50" rx="7" stroke-width="7"/>
+    <path d="M128 132V144" stroke-width="7"/>
+    <rect x="114" y="146" width="28" height="20" rx="3" fill="#fff" stroke="none"/>
+    <circle cx="84" cy="64" r="8" fill="#e5484d" stroke="#fff" stroke-width="7"/><circle cx="172" cy="64" r="8" fill="#e5484d" stroke="#fff" stroke-width="7"/><circle cx="84" cy="176" r="8" fill="#e5484d" stroke="#fff" stroke-width="7"/><circle cx="172" cy="176" r="8" fill="#e5484d" stroke="#fff" stroke-width="7"/>
+  </g>
+</svg>

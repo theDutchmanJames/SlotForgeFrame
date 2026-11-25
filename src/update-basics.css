@@ -1,0 +1,246 @@
+/* The SlotForge Restyle basics the shared update window (update-ui.js,
+   update-window.css, copied from Circuit as they are) sits on. Chassis, like Foundry, has its
+   own buttons, dialogs and settings rows, so these are copied from Circuit's
+   style.css ("Pit Buttons", "Workshop Window", "Settings Sheet") and scoped to
+   the update window and the Settings → Updates card. Circuit's token names
+   are mapped onto Chassis's (the same as Foundry's). */
+:root {
+  --ui-button: var(--btn);
+  --ui-hover: var(--hover);
+  --ui-pressed: var(--pressed);
+  --ui-quiet-hover: var(--quiet-hover);
+  --ui-focus: var(--focus);
+  --ui-success: var(--good);
+  --ui-good: var(--good);
+  --ui-warning: var(--warn-text);
+  --font-numbers: var(--font-mono);
+}
+
+/* Workshop Window */
+dialog.update-dialog {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  max-height: 90dvh;
+  overflow: auto;
+  box-shadow: 0 30px 80px rgb(0 0 0 / 50%);
+  font-size: 14px;
+}
+dialog.update-dialog:focus {
+  outline: none;
+}
+dialog.update-dialog::backdrop {
+  background: rgb(5 7 10 / 62%);
+  backdrop-filter: blur(2px);
+}
+.update-dialog .dialog-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.update-dialog .dialog-heading h2 {
+  font-family: var(--font-title);
+  font-style: italic;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.update-dialog .dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+/* Pit Buttons */
+:is(.update-dialog, .update-card) .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: var(--ui-button);
+  color: var(--ink);
+  font: 400 13px/1.2 var(--font-ui, 'Segoe UI', system-ui, sans-serif);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+:is(.update-dialog, .update-card) .btn:hover:where(:not(:disabled)) {
+  background: var(--ui-hover);
+}
+:is(.update-dialog, .update-card) .btn:active:where(:not(:disabled)) {
+  background: var(--ui-pressed);
+}
+:is(.update-dialog, .update-card) .btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+:is(.update-dialog, .update-card) .btn.primary {
+  background: var(--accent-fill, var(--accent));
+  color: var(--on-accent);
+  font-weight: 600;
+}
+:is(.update-dialog, .update-card) .btn.primary:is(:hover, :active):where(:not(:disabled)) {
+  background: var(--accent);
+}
+:is(.update-dialog, .update-card) .btn.ghost {
+  background: transparent;
+  border-color: var(--line);
+}
+:is(.update-dialog, .update-card) .btn.ghost:hover:where(:not(:disabled)) {
+  background: var(--ui-quiet-hover);
+  border-color: color-mix(in srgb, var(--ink) 25%, var(--line));
+}
+:is(.update-dialog, .update-card) .btn.quiet {
+  background: transparent;
+}
+:is(.update-dialog, .update-card) .btn.quiet:hover:where(:not(:disabled)) {
+  background: var(--ui-quiet-hover);
+}
+
+/* Settings Sheet */
+.update-card.ss-section > h2 {
+  margin: 0 0 6px;
+  font-size: 19px;
+}
+:is(.update-dialog, .update-card) .ss-sheet {
+  margin: 0 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  overflow: hidden;
+}
+:is(.update-dialog, .update-card) .ss-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 20px;
+  min-height: 52px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+}
+:is(.update-dialog, .update-card) .ss-row:first-child {
+  border-top: 0;
+}
+:is(.update-dialog, .update-card) .ss-t {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+:is(.update-dialog, .update-card) .ss-t > b {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+:is(.update-dialog, .update-card) .ss-t > .ss-desc {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+:is(.update-dialog, .update-card) .ss-ctl {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+:is(.update-dialog, .update-card) .ss-note {
+  margin: -8px 2px 18px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.update-card .ss-note:last-child {
+  margin-bottom: 0;
+}
+:is(.update-dialog, .update-card) .ss-note.warn {
+  color: var(--ui-warning);
+}
+.update-card .ss-val {
+  font: 500 13px var(--font-numbers, monospace);
+  color: var(--ink);
+}
+.update-card input.ss-switch {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--line);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.update-card input.ss-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+.update-card input.ss-switch:checked {
+  background: var(--accent-fill, var(--accent));
+}
+.update-card input.ss-switch:checked::after {
+  transform: translateX(14px);
+}
+.update-card .ss-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.update-card .ss-pill::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.update-card .ss-pill.good {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--ui-good) 45%, var(--line));
+}
+.update-card .ss-pill.good::before {
+  background: var(--ui-good);
+}
+.update-card .ss-pill.needs {
+  color: var(--ui-warning);
+  border-color: color-mix(in srgb, var(--ui-warning) 45%, var(--line));
+}
+@media (max-width: 640px) {
+  :is(.update-dialog, .update-card) .ss-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :is(.update-dialog, .update-card) .ss-ctl {
+    justify-content: flex-start;
+  }
+}
+/* Chassis's Settings window: the card sits in it. */
+.update-card {
+  padding: 14px 16px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+}

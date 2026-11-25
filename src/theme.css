@@ -1,0 +1,286 @@
+/* SlotForge Graphite: the shared look of the SlotForge apps (Circuit, Timing).
+   Every other stylesheet uses only these tokens. Dark is the default theme;
+   <html data-theme="…" data-tone="…"> picks a preset (src/app-theme.js). */
+
+@font-face {
+  font-family: 'SF Barlow Condensed';
+  src: url('./fonts/BarlowCondensed-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'SF Barlow Condensed';
+  src: url('./fonts/BarlowCondensed-BoldItalic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'SF Roboto Mono';
+  src: url('./fonts/RobotoMono-Variable.ttf') format('truetype');
+  font-weight: 100 700;
+  font-display: swap;
+}
+
+/* The tone (dark or light lettering on the panels) sets everything that is
+   not one of a theme's six colours. data-tone is set with data-theme. */
+:root,
+:root[data-tone='dark'] {
+  color-scheme: dark;
+  --accent-fill: var(--accent);
+  --accent-text: color-mix(in srgb, var(--accent) 78%, #fff);
+  --good: #3ecf8e;
+  --warn: #e6b84f;
+  --warn-text: #e6c47f;
+  --focus: #4c9aff;
+  --grid: rgb(255 255 255 / 4.5%);
+  --canvas: color-mix(in srgb, var(--bg) 85%, var(--panel));
+  --shadow: 0 20px 50px rgb(0 0 0 / 45%);
+}
+:root[data-tone='light'] {
+  color-scheme: light;
+  --accent-fill: var(--accent);
+  --accent-text: color-mix(in srgb, var(--accent) 85%, #000);
+  --good: #25623a;
+  --warn: #d99a1e;
+  --warn-text: #815a13;
+  --focus: #1f6fd6;
+  --grid: rgb(0 0 0 / 5%);
+  --canvas: color-mix(in srgb, var(--bg) 60%, var(--panel));
+  --shadow: 0 20px 50px rgb(0 0 0 / 14%);
+}
+/* The SlotForge presets, as in Circuit and Timing. Without :root, so a
+   theme tile in Settings shows its own colours. */
+:root,
+[data-theme='dark'] {
+  --bg: #171b21;
+  --panel: #222831;
+  --ink: #e8e6e1;
+  --muted: #98a0ab;
+  --line: #343b47;
+  --accent: #e5484d;
+  --on-accent: #fff;
+}
+:root[data-theme='dark'] {
+  --accent-fill: #d6383e;
+  --accent-text: #f06b6f;
+  --canvas: #191d23;
+}
+[data-theme='light'] {
+  --bg: #f1efea;
+  --panel: #ffffff;
+  --ink: #1d2229;
+  --muted: #656c76;
+  --line: #d9d6cf;
+  --accent: #c92424;
+  --on-accent: #fff;
+}
+:root[data-theme='light'] {
+  --accent-text: #b5222b;
+  --canvas: #f6f4ef;
+}
+[data-theme='midnight'] { --bg: #0e1624; --panel: #16233a; --ink: #e6edf7; --muted: #8fa3bf; --line: #2a3b57; --accent: #4c9aff; --on-accent: #06101f; }
+[data-theme='forest'] { --bg: #121a16; --panel: #1b2721; --ink: #e5efe8; --muted: #93a89b; --line: #2f4137; --accent: #3ecf8e; --on-accent: #06150e; }
+[data-theme='sunset'] { --bg: #1c1512; --panel: #2a1f1a; --ink: #f3e8e0; --muted: #b49a8a; --line: #46352c; --accent: #ff7a3d; --on-accent: #1f0d03; }
+[data-theme='violet'] { --bg: #17131f; --panel: #221c2e; --ink: #ece6f5; --muted: #a094b5; --line: #3a3150; --accent: #a46bff; --on-accent: #12061f; }
+[data-theme='carbon'] { --bg: #121212; --panel: #1e1e1e; --ink: #eaeaea; --muted: #9a9a9a; --line: #333333; --accent: #ffd400; --on-accent: #000000; }
+[data-theme='ocean'] { --bg: #e8f1f6; --panel: #ffffff; --ink: #12232e; --muted: #5a7080; --line: #c9d9e3; --accent: #0d70b0; --on-accent: #ffffff; }
+/* Midnight blue's accent is the focus blue: focus rings turn white there. */
+:root[data-theme='midnight'] {
+  --focus: #e6edf7;
+}
+:root {
+  /* Mixes used everywhere (see SlotForgeRestyle.md › Graphite). */
+  --btn: color-mix(in srgb, var(--ink) 8%, var(--panel));
+  --hover: color-mix(in srgb, var(--ink) 13%, var(--panel));
+  --pressed: color-mix(in srgb, var(--ink) 17%, var(--panel));
+  --quiet-hover: color-mix(in srgb, var(--ink) 6%, transparent);
+  --sel: color-mix(in srgb, var(--ink) 10%, var(--panel));
+  --rail: color-mix(in srgb, var(--bg) 55%, var(--panel));
+  --box: color-mix(in srgb, var(--ink) 4%, var(--panel));
+  --inset: color-mix(in srgb, var(--bg) 75%, var(--panel));
+  /* Older names, kept so existing rules follow the theme. */
+  --red: var(--accent);
+  --teal: var(--accent);
+  --paper: var(--panel);
+  --panel-soft: var(--box);
+
+  --font-title: 'SF Barlow Condensed', 'Bahnschrift', sans-serif;
+  --font-ui: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'SF Roboto Mono', Consolas, monospace;
+
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  color: var(--ink);
+  background: var(--bg);
+  font-synthesis: none;
+}
+body {
+  background: var(--bg);
+  color: var(--ink);
+}
+::selection {
+  background: color-mix(in srgb, var(--focus) 35%, transparent);
+}
+
+/* Titles: Barlow Condensed, bold italic capitals. */
+.sf-title,
+#app :is(h1, h2, h3):not(.plain),
+dialog :is(h2, h3):not(.plain) {
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+/* Eyebrows above a name: small spaced capitals, not Barlow. */
+.sf-eyebrow {
+  font: 700 10.5px/1.4 var(--font-ui);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+/* Numbers that are data. */
+.sf-mono,
+input[type='number'] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Fields */
+:is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']), select, textarea) {
+  background: var(--inset);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+:is(input, select, textarea):hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--ink) 25%, var(--line));
+}
+input[type='checkbox'],
+input[type='radio'],
+input[type='range'] {
+  accent-color: var(--accent-fill);
+}
+option {
+  background: var(--panel);
+  color: var(--ink);
+}
+
+/* Scroll bars in the theme */
+* {
+  scrollbar-color: color-mix(in srgb, var(--ink) 22%, transparent) transparent;
+}
+
+/* Light / Dark switch in the top bar */
+.tone-switch {
+  display: flex;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--rail);
+}
+.tone-switch button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.tone-switch button[aria-pressed='true'] {
+  background: var(--sel);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Wordmark: light lettering on the dark theme, dark lettering on the light one. */
+.wm-light {
+  display: none !important;
+}
+:root[data-tone='light'] .wm-light {
+  display: block !important;
+}
+:root[data-tone='light'] .wm-dark {
+  display: none !important;
+}
+
+/* Diagrams in the panels (clip, border, plate, bridge…): the same material
+   colours as the 3D view, on a background that follows the theme. */
+:root {
+  --d-paper: var(--inset);
+  --d-track: #3d424a;
+  --d-track-edge: #2a2e34;
+  --d-border: #5c636d;
+  --d-slot: #121418;
+  --d-hardware: #e5484d;
+  --d-hardware-edge: #a8323a;
+  --d-support: #727b86;
+  --d-ink: var(--ink);
+  --d-muted: var(--muted);
+  --d-guide: color-mix(in srgb, var(--ink) 35%, var(--line));
+  --d-focus: var(--focus);
+  --d-warn: var(--warn);
+  --d-error: var(--accent);
+  --d-paint: #ece9e2;
+  --d-kerb: #e5484d;
+}
+
+/* Pit Buttons: one flat family. Primary (the one main action), secondary,
+   ghost (outline), danger (red text), small. */
+.sf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: var(--btn);
+  color: var(--ink);
+  font: 400 13px/1.2 var(--font-ui);
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s;
+}
+.sf-btn:hover:not(:disabled) {
+  background: var(--hover);
+}
+.sf-btn:active:not(:disabled) {
+  background: var(--pressed);
+}
+.sf-btn.primary {
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.sf-btn.primary:hover:not(:disabled) {
+  background: var(--accent);
+}
+.sf-btn.ghost {
+  background: transparent;
+  border-color: var(--line);
+}
+.sf-btn.ghost:hover:not(:disabled) {
+  background: var(--quiet-hover);
+  border-color: color-mix(in srgb, var(--ink) 25%, var(--line));
+}
+.sf-btn.danger {
+  background: transparent;
+  color: var(--accent-text);
+}
+.sf-btn.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.sf-btn.sm {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12.5px;
+}
+.sf-btn .i {
+  width: 15px;
+  height: 15px;
+}

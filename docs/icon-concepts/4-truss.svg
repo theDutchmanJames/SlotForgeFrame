@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>SlotForge Frame: Truss (icon concept)</title>
+  <rect x="8" y="8" width="240" height="240" rx="55" fill="#e5484d"/>
+  <g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M44 174H212L184 90H72Z" stroke-width="11"/>
+    <path d="M72 90L100 174L128 90L156 174L184 90" stroke-width="8"/>
+    <circle cx="44" cy="174" r="10" fill="#e5484d" stroke="#fff" stroke-width="7"/><circle cx="100" cy="174" r="10" fill="#e5484d" stroke="#fff" stroke-width="7"/><circle cx="156" cy="174" r="10" fill="#e5484d" stroke="#fff" stroke-width="7"/><circle cx="212" cy="174" r="10" fill="#e5484d" stroke="#fff" stroke-width="7"/><circle cx="72" cy="90" r="10" fill="#e5484d" stroke="#fff" stroke-width="7"/><circle cx="128" cy="90" r="10" fill="#e5484d" stroke="#fff" stroke-width="7"/><circle cx="184" cy="90" r="10" fill="#e5484d" stroke="#fff" stroke-width="7"/>
+  </g>
+</svg>

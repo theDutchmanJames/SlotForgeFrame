@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>SlotForge Frame: Solid, upright (icon concept)</title>
+  <rect x="8" y="8" width="240" height="240" rx="55" fill="#e5484d"/>
+  <g transform="rotate(0 128 128) translate(128 128) scale(0.96) translate(-128 -128)" stroke="#fff" stroke-linecap="round" stroke-linejoin="round"><path d="M118 26H138Q146 26 146 34V54H158V104H172V156H158V206H166V220Q166 230 156 230H100Q90 230 90 220V206H98V156H84V104H98V54H110V34Q110 26 118 26Z" fill="#fff" stroke="none"/><rect x="110" y="114" width="36" height="74" rx="8" fill="#e5484d" stroke="none"/><rect x="61" y="56" width="22" height="38" rx="9" fill="#fff" stroke="none"/><rect x="173" y="56" width="22" height="38" rx="9" fill="#fff" stroke="none"/><rect x="55" y="166" width="26" height="40" rx="10" fill="#fff" stroke="none"/><rect x="175" y="166" width="26" height="40" rx="10" fill="#fff" stroke="none"/></g>
+</svg>

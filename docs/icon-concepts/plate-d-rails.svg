@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>SlotForge Frame: Rail frame (icon concept)</title>
+  <rect x="8" y="8" width="240" height="240" rx="55" fill="#e5484d"/>
+  <g transform="rotate(45 128 128) translate(128 128) scale(0.86) translate(-128 -128)" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M128 30C160 30 186 40 186 62V74H164V112H186V160H164V204H182V216Q182 226 172 226H84Q74 226 74 216V204H92V160H70V112H92V74H70V62C70 40 96 30 128 30Z" stroke-width="13"/><rect x="104" y="124" width="48" height="82" rx="6" stroke-width="9"/><circle cx="128" cy="55" r="8" fill="#fff" stroke="none"/></g>
+</svg>

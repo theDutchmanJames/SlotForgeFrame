@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>SlotForge Chassis (preview icon)</title>
+  <rect x="8" y="8" width="240" height="240" rx="55" fill="#e5484d"/>
+  <!-- A rail chassis seen from above, turned 45 degrees: outer rail, pod opening, cross rails, guide. -->
+  <g transform="rotate(45 128 128) translate(128 128) scale(.82) translate(-128 -128)" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M100 34h56l10 22v28l-12 10v64l12 10v36l-12 20h-52l-12-20v-36l12-10V94L90 84V56z" stroke-width="11"/>
+    <rect x="108" y="112" width="40" height="62" rx="5" stroke-width="8"/>
+    <path d="M102 94h52M102 192h52M128 60v34" stroke-width="6"/>
+    <circle cx="128" cy="50" r="7" fill="#fff" stroke="none"/>
+    <path d="M70 62v30M186 62v30M66 178v34M190 178v34" stroke-width="13"/>
+  </g>
+</svg>

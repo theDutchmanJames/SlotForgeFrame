@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-tone="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- The app is one offline page: nothing may be loaded from, or sent to, the network. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob: 'unsafe-inline' 'wasm-unsafe-eval'; connect-src 'self' data: blob: ws://localhost:* ws://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'">
+<script>
+  // The SlotForge theme before the first paint; src/app-theme.js owns it (as in Anvil and Foundry).
+  (function () {
+    var root = document.documentElement, theme = 'dark', custom = null, legacy = null;
+    try {
+      legacy = localStorage.getItem('chassis.theme');
+      var saved = JSON.parse(localStorage.getItem('slotforge.appearance.v1') || 'null');
+      theme = (saved && saved.theme) || (legacy === 'light' ? 'light' : 'dark');
+      custom = saved && saved.customColors;
+    } catch (e) {}
+    try { theme = new URL(location.href).searchParams.get('sfTheme') || theme; } catch (e) {}
+    root.dataset.theme = theme;
+    root.dataset.tone = theme === 'light' || theme === 'ocean' || (theme === 'custom' && legacy === 'light') ? 'light' : 'dark';
+    if (theme === 'custom' && custom)
+      for (var k in custom) if (/^#[0-9a-f]{6}$/i.test(custom[k])) root.style.setProperty('--' + k, custom[k]);
+  })();
+</script>
+<script>
+  // If the app cannot start, say why instead of leaving an empty page.
+  (function () {
+    function show(text) {
+      if (window.slotforgeFrame || document.getElementById('startfail')) return;
+      var box = document.createElement('pre');
+      box.id = 'startfail';
+      box.style.cssText = 'margin:40px;padding:18px 20px;border:1px solid #e5484d;border-radius:10px;font:14px/1.5 Consolas,monospace;white-space:pre-wrap;color:#e8ecf1;background:#1f252d';
+      box.textContent = 'SlotForge Frame could not start in this browser.\n\n' + text;
+      (document.body || document.documentElement).appendChild(box);
+    }
+    addEventListener('error', function (e) {
+      var t = e.target;
+      if (t && t !== window && (t.src || t.href)) {
+        // A file that did not arrive is often a passing thing (the page was reloaded halfway): try once more.
+        var again = false;
+        try { again = !sessionStorage.getItem('slotforge.frame.retried'); if (again) sessionStorage.setItem('slotforge.frame.retried', '1'); } catch (x) {}
+        show('A file did not load: ' + (t.src || t.href) + (again ? '\n\nTrying once more…' : '\n\nReload the page to try again.'));
+        if (again) setTimeout(function () { location.reload(); }, 1500);
+      }
+      else show((e.message || 'Unknown error') + (e.filename ? '\n' + e.filename + ':' + e.lineno + ':' + e.colno : ''));
+    }, true);
+    // Once the app is up, a later failure gets its one retry again.
+    addEventListener('load', function () { setTimeout(function () { if (window.slotforgeFrame) try { sessionStorage.removeItem('slotforge.frame.retried'); } catch (x) {} }, 4000); });
+    addEventListener('unhandledrejection', function (e) { show(String((e.reason && (e.reason.stack || e.reason.message)) || e.reason)); });
+  })();
+</script>
+<title>SlotForge Frame</title>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4 10-10"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3 2 20h20zM12 10v4M12 17h.01"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></symbol>
+  <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5M4 20h16"/></symbol>
+  <symbol id="i-open" viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+  <symbol id="i-mirror" viewBox="0 0 24 24"><path d="M12 3v18" stroke-dasharray="3 3"/><path d="M9 7 4 12l5 5zM15 7l5 5-5 5z"/></symbol>
+  <symbol id="i-section" viewBox="0 0 24 24"><path d="M4 6h16v12H4z"/><path d="M12 3v18" stroke-dasharray="3 3"/></symbol>
+  <symbol id="i-ruler" viewBox="0 0 24 24"><path d="M4 16 16 4l4 4L8 20zM9 13l2 2M12 10l2 2"/></symbol>
+  <symbol id="i-final" viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/><path d="M4 20h16"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></symbol>
+  <symbol id="i-select" viewBox="0 0 24 24"><path d="M5 3l14 8-6 2-2 6z"/></symbol>
+  <symbol id="i-move" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16z"/><path d="M14 7l3 3"/></symbol>
+  <symbol id="i-outline" viewBox="0 0 24 24"><path d="M7 3h10l2 4v4l-2 2v6l2 2H5l2-2v-6L5 11V7z"/></symbol>
+  <symbol id="i-shape" viewBox="0 0 24 24"><path d="M3 17h11l7-5"/><path d="M14 17v3M17.5 14.5v5M21 12v8" /></symbol>
+  <symbol id="i-fill" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M4 15h16M10 4v16M15 4v16"/></symbol>
+  <symbol id="i-feature" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/></symbol>
+  <symbol id="i-pod" viewBox="0 0 24 24"><rect x="5" y="6" width="14" height="12" rx="2"/><path d="M9 9h6v6H9z"/><path d="M3 15h18"/></symbol>
+  <symbol id="i-body" viewBox="0 0 24 24"><path d="M3 16v-3l3-1 3-4h7l4 4 1 1v3z"/><circle cx="8" cy="16" r="2"/><circle cx="17" cy="16" r="2"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><path d="M6 9V4h12v5M6 17H4v-7h16v7h-2"/><path d="M8 14h8v6H8z"/></symbol>
+  <symbol id="i-library" viewBox="0 0 24 24"><path d="M4 5v14M8 5v14M12 5l5 14M19 5v14" /></symbol>
+  <symbol id="i-kick" viewBox="0 0 24 24"><path d="M3 17h11l7-6"/><path d="M14 13v8" stroke-dasharray="2 2"/></symbol>
+  <symbol id="i-profile" viewBox="0 0 24 24"><path d="M3 17h5l3-3h5l5-4"/><path d="M3 21h18" stroke-dasharray="3 3"/></symbol>
+  <symbol id="i-level" viewBox="0 0 24 24"><path d="M3 18h5v-5h8v5h5"/></symbol>
+  <symbol id="i-wall" viewBox="0 0 24 24"><path d="M3 19h18M5 19l2-10M19 19l-2-10"/></symbol>
+  <symbol id="i-rib" viewBox="0 0 24 24"><path d="M3 19h18M6 19l5-9v9M13 19l5-9v9"/></symbol>
+  <symbol id="i-tunnel" viewBox="0 0 24 24"><path d="M4 19V9h7v10M13 19V9h7v10M2 19h20"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 24 24"><path d="M4 19V6h16v13"/><path d="M8 10h3v5H8zM13 10h3v5h-3zM2 19h20"/></symbol>
+  <symbol id="i-round" viewBox="0 0 24 24"><path d="M4 20V11a7 7 0 0 1 7-7h9"/></symbol>
+  <symbol id="i-split" viewBox="0 0 24 24"><path d="M3 8h8v8H3zM13 8h8v8h-8z"/><path d="M11 12h2"/></symbol>
+  <symbol id="i-guide" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M12 11v10M9 21h6"/></symbol>
+  <symbol id="i-axle" viewBox="0 0 24 24"><path d="M3 12h18"/><rect x="2" y="7" width="4" height="10" rx="1"/><rect x="18" y="7" width="4" height="10" rx="1"/></symbol>
+  <symbol id="i-post" viewBox="0 0 24 24"><path d="M4 4h16"/><path d="M8 4c1.5 0 1.5 2 1.5 3v13h5V7c0-1 0-3 1.5-3"/></symbol>
+  <symbol id="i-pocket" viewBox="0 0 24 24"><path d="M3 8h5v8h8V8h5"/></symbol>
+  <symbol id="i-wire" viewBox="0 0 24 24"><path d="M3 18c6 0 4-12 9-12s3 12 9 12"/></symbol>
+  <symbol id="i-cut" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6" stroke-dasharray="2 2"/></symbol>
+  <symbol id="i-motor" viewBox="0 0 24 24"><rect x="4" y="7" width="12" height="10" rx="2"/><path d="M16 12h5M8 7v10"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2"/></symbol>
+  <symbol id="i-bearing" viewBox="0 0 24 24"><circle cx="12" cy="11" r="4"/><path d="M5 20v-7a7 7 0 0 1 14 0v7M3 20h18"/></symbol>
+  <symbol id="i-lug" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><circle cx="4" cy="6" r="2"/><circle cx="20" cy="6" r="2"/><circle cx="4" cy="18" r="2"/><circle cx="20" cy="18" r="2"/></symbol>
+  <symbol id="i-import" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M4 20h16"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-coupon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="8" cy="12" r="1.5"/><circle cx="12.5" cy="12" r="2"/><circle cx="17.5" cy="12" r="2.5"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14A8 8 0 1 1 10 4a6.5 6.5 0 0 0 10 10z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-car" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="3"/><path d="M4 6v4M20 6v4M4 15v4M20 15v4"/></symbol>
+  <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 3l8 4v10l-8 4-8-4V7z"/><path d="M4 7l8 4 8-4M12 11v10"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+</svg>
+<div id="app"></div>
+<input id="file" type="file" accept=".frame,.json" hidden>
+<div id="toasts" aria-live="polite"></div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

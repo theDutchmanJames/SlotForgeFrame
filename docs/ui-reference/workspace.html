@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-tone="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SlotForge Chassis — workspace preview</title>
+<link rel="icon" href="./assets/slotforge-chassis.svg">
+<link rel="stylesheet" href="./theme.css">
+<link rel="stylesheet" href="./anvil-style.css">
+<style>
+/* Chassis additions on top of the shared SlotForge look (theme.css, anvil-style.css). */
+:root {
+  --c-plate: color-mix(in srgb, var(--ink) 62%, var(--canvas));
+  --c-plate-fill: color-mix(in srgb, var(--ink) 16%, var(--canvas));
+  --c-pod: var(--accent);
+  --c-part: #6fb6ff;
+  --c-body: color-mix(in srgb, var(--muted) 70%, var(--canvas));
+  --c-dim: var(--muted);
+}
+:root[data-tone='light'] { --c-part: #1f6fd6; }
+.brand-name { font: italic 700 27px/1 var(--font-title); text-transform: uppercase; letter-spacing: .02em; color: var(--ink); }
+.brand-name b { color: var(--accent-text); font-weight: 700; }
+.brand-copy.text { grid-template-columns: auto; gap: 3px; }
+.tools .end { margin-left: auto; display: flex; gap: 4px; align-items: center; }
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--line); font-size: 11.5px; color: var(--muted); background: var(--panel); }
+.pill.un { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); color: var(--warn-text); }
+.pill.ok { border-color: color-mix(in srgb, var(--good) 40%, var(--line)); color: var(--good); }
+
+/* viewport */
+.view svg.draw { position: absolute; inset: 0; width: 100%; height: 100%; }
+.view .grid { position: absolute; inset: 0; background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 24px 24px; }
+.views { left: 60px; top: 12px; right: 14px; flex-wrap: wrap; }
+.views .gap { flex: 1; }
+.plate { fill: none; stroke: var(--c-plate); stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+.plate.fill { fill: var(--c-plate-fill); }
+.rail { fill: none; stroke: var(--c-plate); stroke-width: 1.5; stroke-linecap: round; }
+.pad { fill: var(--c-plate); stroke: none; }
+.hole { fill: var(--canvas); stroke: none; }
+.pod { fill: color-mix(in srgb, var(--c-pod) 16%, transparent); stroke: var(--c-pod); stroke-width: 1.1; stroke-linejoin: round; }
+.pod.solid { fill: var(--c-pod); stroke: none; }
+.part { fill: color-mix(in srgb, var(--c-part) 15%, transparent); stroke: var(--c-part); stroke-width: .7; }
+.part.line { fill: none; stroke-width: 1.2; stroke-linecap: round; }
+.bodyghost { fill: none; stroke: var(--c-body); stroke-width: .7; stroke-dasharray: 3 2.2; }
+.mirror { stroke: var(--focus); stroke-width: .45; stroke-dasharray: 2.5 2; opacity: .8; }
+.dim { stroke: var(--c-dim); stroke-width: .4; fill: none; }
+.dimt { fill: var(--muted); font: 500 3.1px var(--font-mono); text-anchor: middle; }
+.lbl { fill: var(--muted); font: 600 2.6px var(--font-ui); letter-spacing: .12em; text-transform: uppercase; }
+.sel { stroke: var(--accent); stroke-width: 2; }
+.sel2 { stroke: var(--accent); stroke-width: 1.6; opacity: .45; }
+.handle { fill: var(--panel); stroke: var(--accent); stroke-width: .6; }
+.kick { fill: color-mix(in srgb, var(--warn) 16%, transparent); stroke: none; }
+.fold { stroke: var(--warn); stroke-width: .6; stroke-dasharray: 2 1.5; }
+.track { stroke: var(--muted); stroke-width: .6; }
+.hide-parts .lay-parts, .hide-body .lay-body, .hide-track .lay-track { display: none; }
+.focus-pod .lay-chassis { opacity: .22; } .focus-chassis .lay-pod { opacity: .22; }
+.inset { left: 60px; bottom: 14px; width: 320px; padding: 8px 10px 6px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel); flex-direction: column; align-items: stretch; gap: 2px; }
+.inset svg { width: 100%; height: auto; display: block; }
+.inset .top { display: flex; align-items: center; justify-content: space-between; }
+.checks { right: 14px; bottom: 14px; padding: 8px 12px; gap: 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel); font-size: 12.5px; }
+.checks span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+
+/* side panel extras */
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.tiles.t3 { grid-template-columns: repeat(3, 1fr); }
+.tile { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 4px 7px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); font-size: 11.5px; color: var(--muted); cursor: pointer; }
+.tile svg { width: 34px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.tile.on { border-color: color-mix(in srgb, var(--accent) 65%, var(--line)); background: color-mix(in srgb, var(--ink) 7%, var(--panel)); color: var(--ink); font-weight: 600; }
+.tile.on svg { color: var(--accent-text); }
+.kv { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: 12.5px; color: var(--ink2); }
+.kv b { font: 500 12.5px var(--font-mono); color: var(--ink); text-align: right; }
+.src { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-weight: 400; }
+.src.un { color: var(--warn-text); border-color: color-mix(in srgb, var(--warn) 40%, var(--line)); }
+.stepsbox .sp .tag { font-size: 10.5px; color: var(--faint); }
+.stepsbox { max-height: 34%; }
+.parttabs { display: flex; gap: 2px; padding: 8px 10px 0; }
+.parttabs button { flex: 1; height: 28px; border: 0; border-radius: 7px 7px 0 0; background: none; color: var(--muted); font-size: 12.5px; cursor: pointer; border-bottom: 2px solid transparent; }
+.parttabs button.on { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
+
+/* library window (Workshop Window) */
+.scrim { position: fixed; inset: 0; background: rgb(0 0 0 / 45%); display: grid; place-items: center; z-index: 30; }
+.win { width: min(980px, 94vw); height: min(640px, 88vh); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+.win header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.win header h2 { margin: 0; font-size: 24px; line-height: 1; }
+.win .body { display: grid; grid-template-columns: 190px minmax(0, 1fr) 260px; min-height: 0; }
+.win .cats { padding: 10px; border-right: 1px solid var(--line); background: var(--rail); display: flex; flex-direction: column; gap: 1px; overflow-y: auto; }
+.win .cats button { display: flex; justify-content: space-between; align-items: center; height: 30px; padding: 0 9px; border: 0; border-radius: 7px; background: none; color: var(--ink2); font-size: 12.5px; cursor: pointer; text-align: left; }
+.win .cats button.on { background: var(--sel); color: var(--ink); font-weight: 600; box-shadow: inset 3px 0 0 var(--accent); }
+.win .cats small { color: var(--faint); font: 500 11px var(--font-mono); }
+.win .list { padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.card2 { border: 1px solid var(--line); border-radius: 11px; background: var(--box); padding: 9px 10px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; }
+.card2.on { border-color: color-mix(in srgb, var(--accent) 65%, var(--line)); }
+.card2 .thumb { height: 74px; border-radius: 7px; background: var(--inset); display: grid; place-items: center; }
+.card2 .thumb svg { width: 86%; height: 80%; }
+.card2 b { font-size: 13px; }
+.card2 small { color: var(--muted); font-size: 11.5px; }
+.win .detail { border-left: 1px solid var(--line); padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; background: var(--rail); }
+.win footer { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--line); }
+.win footer .sp2 { flex: 1; }
+.previewbar { position: fixed; left: 50%; transform: translateX(-50%); bottom: 44px; z-index: 25; padding: 6px 12px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4 10-10"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3 2 20h20zM12 10v4M12 17h.01"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></symbol>
+  <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5M4 20h16"/></symbol>
+  <symbol id="i-open" viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+  <symbol id="i-mirror" viewBox="0 0 24 24"><path d="M12 3v18" stroke-dasharray="3 3"/><path d="M9 7 4 12l5 5zM15 7l5 5-5 5z"/></symbol>
+  <symbol id="i-section" viewBox="0 0 24 24"><path d="M4 6h16v12H4z"/><path d="M12 3v18" stroke-dasharray="3 3"/></symbol>
+  <symbol id="i-ruler" viewBox="0 0 24 24"><path d="M4 16 16 4l4 4L8 20zM9 13l2 2M12 10l2 2"/></symbol>
+  <symbol id="i-final" viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/><path d="M4 20h16"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></symbol>
+  <symbol id="i-select" viewBox="0 0 24 24"><path d="M5 3l14 8-6 2-2 6z"/></symbol>
+  <symbol id="i-move" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16z"/><path d="M14 7l3 3"/></symbol>
+  <symbol id="i-outline" viewBox="0 0 24 24"><path d="M7 3h10l2 4v4l-2 2v6l2 2H5l2-2v-6L5 11V7z"/></symbol>
+  <symbol id="i-shape" viewBox="0 0 24 24"><path d="M3 17h11l7-5"/><path d="M14 17v3M17.5 14.5v5M21 12v8" /></symbol>
+  <symbol id="i-fill" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M4 15h16M10 4v16M15 4v16"/></symbol>
+  <symbol id="i-feature" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/></symbol>
+  <symbol id="i-pod" viewBox="0 0 24 24"><rect x="5" y="6" width="14" height="12" rx="2"/><path d="M9 9h6v6H9z"/><path d="M3 15h18"/></symbol>
+  <symbol id="i-body" viewBox="0 0 24 24"><path d="M3 16v-3l3-1 3-4h7l4 4 1 1v3z"/><circle cx="8" cy="16" r="2"/><circle cx="17" cy="16" r="2"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><path d="M6 9V4h12v5M6 17H4v-7h16v7h-2"/><path d="M8 14h8v6H8z"/></symbol>
+  <symbol id="i-library" viewBox="0 0 24 24"><path d="M4 5v14M8 5v14M12 5l5 14M19 5v14" /></symbol>
+  <symbol id="i-kick" viewBox="0 0 24 24"><path d="M3 17h11l7-6"/><path d="M14 13v8" stroke-dasharray="2 2"/></symbol>
+  <symbol id="i-profile" viewBox="0 0 24 24"><path d="M3 17h5l3-3h5l5-4"/><path d="M3 21h18" stroke-dasharray="3 3"/></symbol>
+  <symbol id="i-level" viewBox="0 0 24 24"><path d="M3 18h5v-5h8v5h5"/></symbol>
+  <symbol id="i-wall" viewBox="0 0 24 24"><path d="M3 19h18M5 19l2-10M19 19l-2-10"/></symbol>
+  <symbol id="i-rib" viewBox="0 0 24 24"><path d="M3 19h18M6 19l5-9v9M13 19l5-9v9"/></symbol>
+  <symbol id="i-tunnel" viewBox="0 0 24 24"><path d="M4 19V9h7v10M13 19V9h7v10M2 19h20"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 24 24"><path d="M4 19V6h16v13"/><path d="M8 10h3v5H8zM13 10h3v5h-3zM2 19h20"/></symbol>
+  <symbol id="i-round" viewBox="0 0 24 24"><path d="M4 20V11a7 7 0 0 1 7-7h9"/></symbol>
+  <symbol id="i-split" viewBox="0 0 24 24"><path d="M3 8h8v8H3zM13 8h8v8h-8z"/><path d="M11 12h2"/></symbol>
+  <symbol id="i-guide" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M12 11v10M9 21h6"/></symbol>
+  <symbol id="i-axle" viewBox="0 0 24 24"><path d="M3 12h18"/><rect x="2" y="7" width="4" height="10" rx="1"/><rect x="18" y="7" width="4" height="10" rx="1"/></symbol>
+  <symbol id="i-post" viewBox="0 0 24 24"><path d="M4 4h16"/><path d="M8 4c1.5 0 1.5 2 1.5 3v13h5V7c0-1 0-3 1.5-3"/></symbol>
+  <symbol id="i-pocket" viewBox="0 0 24 24"><path d="M3 8h5v8h8V8h5"/></symbol>
+  <symbol id="i-wire" viewBox="0 0 24 24"><path d="M3 18c6 0 4-12 9-12s3 12 9 12"/></symbol>
+  <symbol id="i-cut" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6" stroke-dasharray="2 2"/></symbol>
+  <symbol id="i-motor" viewBox="0 0 24 24"><rect x="4" y="7" width="12" height="10" rx="2"/><path d="M16 12h5M8 7v10"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2"/></symbol>
+  <symbol id="i-bearing" viewBox="0 0 24 24"><circle cx="12" cy="11" r="4"/><path d="M5 20v-7a7 7 0 0 1 14 0v7M3 20h18"/></symbol>
+  <symbol id="i-lug" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><circle cx="4" cy="6" r="2"/><circle cx="20" cy="6" r="2"/><circle cx="4" cy="18" r="2"/><circle cx="20" cy="18" r="2"/></symbol>
+  <symbol id="i-import" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M4 20h16"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-coupon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="8" cy="12" r="1.5"/><circle cx="12.5" cy="12" r="2"/><circle cx="17.5" cy="12" r="2.5"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14A8 8 0 1 1 10 4a6.5 6.5 0 0 0 10 10z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+</svg>
+
+<div id="app">
+  <!-- top bar (Pit Board) -->
+  <header class="pb">
+    <div class="brand">
+      <img class="brand-icon" src="./assets/slotforge-chassis.svg" alt="">
+      <div class="brand-copy text">
+        <span class="brand-name">Chassis</span>
+        <small>BUILT FROM THE GROUND UP</small>
+      </div>
+    </div>
+    <span class="vline"></span>
+    <div class="who">
+      <span class="eyebrow">1/32 · Chassis + pod</span>
+      <input class="name" value="McLaren MP4-12C" aria-label="Design name">
+      <span class="note">Inline · short can · 63.2 × 20 pod pattern</span>
+    </div>
+    <div class="end">
+      <span class="state"><svg class="ico"><use href="#i-check"/></svg>Saved</span>
+      <button class="btn ghost"><svg class="ico"><use href="#i-file"/></svg>New</button>
+      <button class="btn ghost"><svg class="ico"><use href="#i-open"/></svg>Open</button>
+      <button class="btn ghost"><svg class="ico"><use href="#i-save"/></svg>Save</button>
+      <span class="vline"></span>
+      <button class="btn icon" title="Undo"><svg class="ico"><use href="#i-undo"/></svg></button>
+      <button class="btn icon" title="Redo" disabled><svg class="ico"><use href="#i-redo"/></svg></button>
+      <span class="vline"></span>
+      <button class="btn" data-tool="check"><svg class="ico"><use href="#i-final"/></svg>Final check</button>
+      <div class="tone-switch" role="group" aria-label="Theme">
+        <button data-tone="light" aria-pressed="false"><svg class="ico"><use href="#i-sun"/></svg><span>Light</span></button>
+        <button data-tone="dark" aria-pressed="true"><svg class="ico"><use href="#i-moon"/></svg><span>Dark</span></button>
+      </div>
+      <button class="btn icon" title="Settings"><svg class="ico"><use href="#i-settings"/></svg></button>
+      <button class="btn primary"><svg class="ico"><use href="#i-export"/></svg>Export</button>
+    </div>
+  </header>
+
+  <!-- menus -->
+  <nav class="tools" id="menus">
+    <button class="tbtn" data-menu="outline"><svg class="ico"><use href="#i-outline"/></svg>Outline</button>
+    <button class="tbtn" data-menu="shape"><svg class="ico"><use href="#i-shape"/></svg>Shape</button>
+    <button class="tbtn on" data-menu="fill"><svg class="ico"><use href="#i-fill"/></svg>Fill</button>
+    <button class="tbtn" data-menu="features"><svg class="ico"><use href="#i-feature"/></svg>Features</button>
+    <span class="vline"></span>
+    <button class="tbtn" data-menu="pod"><svg class="ico"><use href="#i-pod"/></svg>Pod</button>
+    <span class="vline"></span>
+    <button class="tbtn" data-menu="body"><svg class="ico"><use href="#i-body"/></svg>Body</button>
+    <button class="tbtn" data-menu="print"><svg class="ico"><use href="#i-print"/></svg>Print</button>
+    <div class="end">
+      <button class="tbtn on" id="mirrorlock" title="Mirror about the centre line"><svg class="ico"><use href="#i-mirror"/></svg>Mirror</button>
+      <span class="vline"></span>
+      <button class="tbtn" id="openlib"><svg class="ico"><use href="#i-library"/></svg>Library</button>
+    </div>
+  </nav>
+
+  <!-- tool row: one per menu -->
+  <div id="subs">
+    <div class="sub" data-sub="outline" hidden>
+      <span class="gl">Outline</span>
+      <button class="tbtn" data-tool="outline"><svg class="ico"><use href="#i-pen"/></svg>Draw</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-file"/></svg>Template</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-body"/></svg>From body</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-import"/></svg>Trace import</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-round"/></svg>Round corner</button>
+    </div>
+    <div class="sub" data-sub="shape" hidden>
+      <span class="gl">Shape</span>
+      <button class="tbtn" data-tool="kickup"><svg class="ico"><use href="#i-kick"/></svg>Kick-up</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-profile"/></svg>Side profile</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-level"/></svg>Level</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-wall"/></svg>Edge wall</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-rib"/></svg>Rib / strake</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-tunnel"/></svg>Tunnel</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-panel"/></svg>Upright panel</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-round"/></svg>Round / bevel</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-split"/></svg>Split part</button>
+    </div>
+    <div class="sub" data-sub="fill">
+      <span class="gl">Fill</span>
+      <button class="tbtn on" data-tool="frame"><svg class="ico"><use href="#i-fill"/></svg>Fill style</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-pen"/></svg>Draw rail</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-cut"/></svg>Window</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-feature"/></svg>Zone</button>
+    </div>
+    <div class="sub" data-sub="features" hidden>
+      <span class="gl">Features</span>
+      <button class="tbtn" data-tool="guide"><svg class="ico"><use href="#i-guide"/></svg>Guide holder</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-axle"/></svg>Front axle</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-post"/></svg>Body mount</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-pocket"/></svg>Pocket</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-wire"/></svg>Wire channel</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-cut"/></svg>Cut-out</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-plus"/></svg>Added block</button>
+    </div>
+    <div class="sub" data-sub="pod" hidden>
+      <span class="gl">Pod</span>
+      <button class="tbtn" data-tool="drivetrain"><svg class="ico"><use href="#i-gear"/></svg>Drivetrain</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-motor"/></svg>Motor seat</button>
+      <button class="tbtn" data-tool="uprights"><svg class="ico"><use href="#i-bearing"/></svg>Axle uprights</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-lug"/></svg>Mount lugs</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-cut"/></svg>Pod opening</button>
+      <span class="vline"></span>
+      <button class="tbtn"><svg class="ico"><use href="#i-library"/></svg>Use a bought pod</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-import"/></svg>Import pod STL</button>
+    </div>
+    <div class="sub" data-sub="body" hidden>
+      <span class="gl">Body</span>
+      <button class="tbtn"><svg class="ico"><use href="#i-import"/></svg>Load body</button>
+      <button class="tbtn" data-tool="posts"><svg class="ico"><use href="#i-post"/></svg>Post spots</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-ruler"/></svg>Clearance</button>
+      <span class="vline"></span>
+      <button class="tbtn"><svg class="ico"><use href="#i-send"/></svg>Send to Anvil</button>
+    </div>
+    <div class="sub" data-sub="print" hidden>
+      <span class="gl">Print</span>
+      <button class="tbtn" data-tool="printer"><svg class="ico"><use href="#i-print"/></svg>Printer</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-coupon"/></svg>Calibration coupon</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-split"/></svg>Split part</button>
+      <button class="tbtn"><svg class="ico"><use href="#i-level"/></svg>Lay flat</button>
+    </div>
+  </div>
+
+  <!-- workspace -->
+  <div class="ws">
+    <div class="view" id="view">
+      <div class="grid"></div>
+
+      <!-- TOP VIEW. Front of the car is left. Units are mm. -->
+      <svg class="draw" id="topview" viewBox="-84 -52 172 118" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <g id="half-outline"><path d="M-70 0C-70 12-67 21-60 25L-52.5 27V19.5H-28L-25 30.5H28L31 19H55.5V27H70V0"/></g>
+          <g id="half-rails">
+            <path d="M-63 0C-63 9-61 16-56 19.5"/>
+            <path d="M-52.5 0V19.5M-28 0V19.5M-28 8H-11.5"/>
+            <path d="M-11.5 0V13.7H47.5V0"/>
+            <path d="M-8 13.7V30.5M20 13.7V30.5M-25 23H28"/>
+            <path d="M47.5 13.7 55.5 19"/>
+          </g>
+          <g id="half-pads">
+            <rect x="-43" y="14.6" width="6" height="5.2" rx="1"/>
+            <circle cx="-22" cy="25.5" r="3.3"/><circle cx="60" cy="8.25" r="3.3"/>
+            <circle cx="-13.6" cy="10" r="2.9"/><circle cx="49.6" cy="10" r="2.9"/>
+          </g>
+          <g id="half-holes">
+            <circle cx="-22" cy="25.5" r="1.25"/><circle cx="60" cy="8.25" r="1.25"/>
+            <circle cx="-13.6" cy="10" r="1.25"/><circle cx="49.6" cy="10" r="1.25"/>
+            <circle cx="-40" cy="17.2" r="1"/>
+          </g>
+        </defs>
+
+        <g class="lay-body"><rect class="bodyghost" x="-75" y="-32.5" width="150" height="65" rx="15"/><text class="lbl" x="-73" y="-35">Body from Anvil</text></g>
+
+        <g class="lay-chassis">
+          <rect class="kick" x="55.5" y="-27" width="14.5" height="54"/>
+          <use href="#half-outline" class="plate"/><use href="#half-outline" class="plate" transform="scale(1,-1)"/>
+          <g class="lay-frame">
+            <use href="#half-rails" class="rail"/><use href="#half-rails" class="rail" transform="scale(1,-1)"/>
+          </g>
+          <g class="rail"><path d="M56 6H70M56 12H70M56 18H70M56-6H70M56-12H70M56-18H70M56 0H70" stroke-width=".9"/></g>
+          <line class="fold" x1="55.5" y1="-27" x2="55.5" y2="27"/>
+          <circle class="pad" cx="-59" cy="0" r="5.4"/>
+          <use href="#half-pads" class="pad"/><use href="#half-pads" class="pad" transform="scale(1,-1)"/>
+          <circle class="hole" cx="-59" cy="0" r="1.9"/>
+          <use href="#half-holes" class="hole"/><use href="#half-holes" class="hole" transform="scale(1,-1)"/>
+          <!-- selected rail and its mirrored twin -->
+          <path class="sel" d="M20-13.7V-30.5" fill="none" stroke-linecap="round"/>
+          <path class="sel2" d="M20 13.7V30.5" fill="none" stroke-linecap="round"/>
+          <rect class="handle" x="18.9" y="-14.8" width="2.2" height="2.2"/><rect class="handle" x="18.9" y="-31.6" width="2.2" height="2.2"/>
+        </g>
+
+        <g class="lay-pod">
+          <rect class="pod" x="-10.5" y="-12.7" width="57" height="25.4" rx="1.6"/>
+          <rect class="hole" x="5" y="-10.4" width="27" height="20.8" rx="1"/>
+          <rect class="pod" x="5" y="-10.4" width="27" height="20.8" rx="1" fill="none"/>
+          <path class="pod" d="M-10.5-10H-13.6M-10.5 10H-13.6M46.5-10H49.6M46.5 10H49.6" stroke-width="3.6" stroke-linecap="round"/>
+          <g class="pod solid"><circle cx="-13.6" cy="-10" r="2.1"/><circle cx="-13.6" cy="10" r="2.1"/><circle cx="49.6" cy="-10" r="2.1"/><circle cx="49.6" cy="10" r="2.1"/>
+            <rect x="41.2" y="-12.7" width="4.4" height="3.2" rx=".6"/><rect x="41.2" y="9.5" width="4.4" height="3.2" rx=".6"/></g>
+          <g class="hole"><circle cx="-13.6" cy="-10" r=".9"/><circle cx="-13.6" cy="10" r=".9"/><circle cx="49.6" cy="-10" r=".9"/><circle cx="49.6" cy="10" r=".9"/></g>
+        </g>
+
+        <g class="lay-parts">
+          <path class="part line" d="M-40-28V28M43.4-29V29"/>
+          <rect class="part" x="-49.75" y="-30" width="19.5" height="9" rx="2"/><rect class="part" x="-49.75" y="21" width="19.5" height="9" rx="2"/>
+          <rect class="part" x="33.15" y="-31" width="20.5" height="10.5" rx="2"/><rect class="part" x="33.15" y="20.5" width="20.5" height="10.5" rx="2"/>
+          <rect class="part" x="6" y="-10.05" width="25" height="20.1" rx="2.5"/>
+          <path class="part line" d="M31 0H40.2"/>
+          <rect class="part" x="34.4" y="-2.75" width="4.6" height="5.5" rx=".5"/>
+          <rect class="part" x="39.6" y="-7.9" width="2.4" height="15.8" rx=".6"/>
+          <rect class="part" x="-68.5" y="-.9" width="21" height="1.8" rx=".5"/>
+          <path class="part line" d="M-59-9.4A9.4 9.4 0 0 1-59 9.4" stroke-dasharray="1.6 1.4" stroke-width=".5"/>
+        </g>
+
+        <line class="mirror" id="mirrorline" x1="-80" y1="0" x2="84" y2="0"/>
+        <g>
+          <path class="dim" d="M-40 36V40M43.4 36V40M-40 38H43.4"/><text class="dimt" x="1.7" y="42.2">wheelbase 83.4</text>
+          <path class="dim" d="M-59-36V-40M43.4-36V-40M-59-38H43.4"/><text class="dimt" x="-7.8" y="-40">guide lead 102.4</text>
+          <text class="lbl" x="57" y="-29" style="fill:var(--warn-text)">Kick-up 12°</text>
+        </g>
+      </svg>
+
+      <!-- SIDE VIEW (shown when Side is chosen) -->
+      <svg class="draw" id="sideview" viewBox="-84 -34 172 62" preserveAspectRatio="xMidYMid meet" hidden>
+        <g class="lay-track"><line class="track" x1="-84" y1="0" x2="88" y2="0"/><text class="lbl" x="72" y="4">Track</text></g>
+        <g class="lay-parts">
+          <circle class="part" cx="-40" cy="-9.75" r="9.75"/><circle class="part" cx="43.4" cy="-10.25" r="10.25"/>
+          <circle class="part" cx="-40" cy="-9.75" r="1.2"/><circle class="part" cx="43.4" cy="-10.25" r="1.2"/>
+          <rect class="part" x="6" y="-17.1" width="25" height="15.1" rx="2"/><path class="part line" d="M31-9.5H40"/>
+          <rect class="part" x="-68.5" y="0" width="21" height="6.5" rx=".6"/><rect class="part" x="-60.8" y="-9" width="3.6" height="9"/>
+        </g>
+        <g class="lay-chassis">
+          <rect class="plate fill" x="-70" y="-3.5" width="125.5" height="1.5" stroke-width=".6"/>
+          <path class="plate fill" d="M55.5-2 70-5.1V-6.6L55.5-3.5z" stroke-width=".6"/>
+          <path class="kick" d="M55.5-2H70V-5.1z"/>
+          <rect class="plate fill" x="-62.2" y="-9.3" width="6.4" height="5.8" stroke-width=".6"/>
+          <rect class="plate fill" x="-42.5" y="-13.5" width="5" height="10" stroke-width=".6"/>
+          <rect class="plate fill" x="-23.7" y="-15" width="3.4" height="11.5" stroke-width=".6"/><rect class="plate fill" x="58.3" y="-17" width="3.4" height="11" stroke-width=".6"/>
+        </g>
+        <g class="lay-pod">
+          <rect class="pod" x="-10.5" y="-4.8" width="57" height="2.8"/><path class="pod" d="M40.6-2 41.6-13.2H45.2L46.2-2z"/>
+        </g>
+        <path class="dim" d="M20 0V-2"/><text class="dimt" x="20" y="5">clearance 2.0</text>
+        <path class="dim" d="M55-10.25H74M72-10.25V-2"/><text class="dimt" x="76" y="-12.5">axle 8.25</text>
+      </svg>
+
+      <div class="float views">
+        <div class="seg" id="viewseg"><button class="on" data-view="top">Top</button><button data-view="side">Side</button><button data-view="3d">3D</button></div>
+        <div class="seg" id="focusseg"><button data-focus="chassis">Chassis</button><button data-focus="pod">Pod</button><button class="on" data-focus="both">Both</button></div>
+        <span class="gap"></span>
+        <div class="seg" id="showseg"><button class="on" data-show="parts"><svg class="ico"><use href="#i-eye"/></svg>Parts</button><button class="on" data-show="body">Body</button><button class="on" data-show="track">Track</button></div>
+      </div>
+
+      <div class="strip">
+        <button class="on" title="Select"><svg class="ico"><use href="#i-select"/></svg></button>
+        <button title="Move"><svg class="ico"><use href="#i-move"/></svg></button>
+        <button title="Draw"><svg class="ico"><use href="#i-pen"/></svg></button>
+        <i></i>
+        <button title="Measure"><svg class="ico"><use href="#i-ruler"/></svg></button>
+        <button title="Section"><svg class="ico"><use href="#i-section"/></svg></button>
+      </div>
+
+      <div class="float inset" id="inset">
+        <div class="top"><span class="eyebrow">Side</span><span class="mono muted" style="font-size:11px">clearance 2.0 · axle 8.25</span></div>
+        <svg viewBox="-76 -22 152 30">
+          <line class="track" x1="-76" y1="0" x2="76" y2="0"/>
+          <circle class="part" cx="-40" cy="-9.75" r="9.75"/><circle class="part" cx="43.4" cy="-10.25" r="10.25"/>
+          <rect class="part" x="6" y="-17.1" width="25" height="15.1" rx="2"/>
+          <rect class="part" x="-68.5" y="0" width="21" height="6.5" rx=".6"/>
+          <rect class="plate fill" x="-70" y="-3.5" width="125.5" height="1.5" stroke-width=".6"/>
+          <path class="plate fill" d="M55.5-2 70-5.1V-6.6L55.5-3.5z" stroke-width=".6"/><path class="kick" d="M55.5-2H70V-5.1z"/>
+          <path class="pod" d="M40.6-2 41.6-13.2H45.2L46.2-2z"/>
+        </svg>
+      </div>
+
+      <div class="float checks">
+        <span><i class="dot ok"></i>Gear mesh</span>
+        <span><i class="dot ok"></i>Clearance</span>
+        <span><i class="dot w"></i>1 print warning</span>
+      </div>
+    </div>
+
+    <!-- side panel -->
+    <aside class="side">
+      <div class="panel" id="panels" style="flex:1">
+
+        <section data-panel="frame">
+          <div class="head"><span class="eyebrow">Fill</span><div class="cond">Fill style</div><div class="muted">How the plate is filled between its outline and its features.</div></div>
+          <div class="tiles">
+            <div class="tile"><svg viewBox="0 0 34 24"><rect x="3" y="4" width="28" height="16" rx="2" fill="currentColor" stroke="none" opacity=".5"/></svg>Closed</div>
+            <div class="tile"><svg viewBox="0 0 34 24"><rect x="3" y="4" width="28" height="16" rx="2"/><rect x="9" y="8" width="7" height="8"/><rect x="19" y="8" width="7" height="8"/></svg>Open</div>
+            <div class="tile on"><svg viewBox="0 0 34 24"><rect x="3" y="4" width="28" height="16" rx="2"/><path d="M3 12h28M12 4v16M22 4v16"/></svg>Frame</div>
+            <div class="tile"><svg viewBox="0 0 34 24"><rect x="3" y="4" width="28" height="16" rx="2"/><path d="M8 4l5 8-5 8M13 12h8M26 4l-5 8 5 8"/></svg>Lattice</div>
+          </div>
+          <div class="g2">
+            <label class="fx">Rail width<span class="num"><input value="1.6"><small>mm</small></span></label>
+            <label class="fx">Rail height<span class="num"><input value="1.5"><small>mm</small></span></label>
+            <label class="fx">Cross rails<span class="num"><input value="2"><small>per side</small></span></label>
+            <label class="fx">Length rails<span class="num"><input value="1"><small>per side</small></span></label>
+            <label class="fx">Outer rail<span class="num"><input value="2.2"><small>mm</small></span></label>
+            <label class="fx">Pad around features<span class="num"><input value="1.6"><small>mm</small></span></label>
+          </div>
+          <label class="chk"><input type="checkbox" checked>Snap rail width to the nozzle (0.4 mm)</label>
+          <button class="btn sm ghost"><svg class="ico"><use href="#i-fill"/></svg>Propose the frame again</button>
+          <div class="hr"></div>
+          <div class="head"><span class="eyebrow">Selected</span><div class="cond">Cross rail 2</div></div>
+          <div class="g2">
+            <label class="fx">Along, from front axle<span class="num"><input value="60.0"><small>mm</small></span></label>
+            <label class="fx">Width<span class="num"><input value="1.6"><small>mm</small></span></label>
+          </div>
+          <div class="row"><label class="chk"><input type="checkbox" checked>Mirrored</label><button class="btn sm danger" style="margin-left:auto"><svg class="ico"><use href="#i-trash"/></svg>Delete</button></div>
+        </section>
+
+        <section data-panel="outline" hidden>
+          <div class="head"><span class="eyebrow">Outline</span><div class="cond">Draw the outline</div><div class="muted">Top view. Draw one side; the other follows while Mirror is on.</div></div>
+          <div class="seg"><button class="on">Line</button><button>Arc</button><button>Curve</button><button>Point</button></div>
+          <div class="g2">
+            <label class="fx">Plate thickness<span class="num"><input value="1.5"><small>mm</small></span></label>
+            <label class="fx">Corner round<span class="num"><input value="1.0"><small>mm</small></span></label>
+            <label class="fx">Point, along<span class="num"><input value="-12.5"><small>mm</small></span></label>
+            <label class="fx">Point, side<span class="num"><input value="19.5"><small>mm</small></span></label>
+          </div>
+          <div class="kv"><span>Overall length</span><b>140.0</b><span>Overall width</span><b>61.0</b><span>Width limit (1/32)</span><b>64.0</b></div>
+          <div class="note">Start from a <b>template</b>, from the <b>body</b>'s underside pulled in by a gap, or by <b>tracing</b> an imported chassis.</div>
+        </section>
+
+        <section data-panel="kickup" hidden>
+          <div class="head"><span class="eyebrow">Shape</span><div class="cond">Kick-up</div><div class="muted">Tilts the plate upward behind a fold line.</div></div>
+          <div class="seg"><button class="on">Full width</button><button>Drawn zone</button></div>
+          <div class="g2">
+            <label class="fx">Fold line, from front axle<span class="num"><input value="95.5"><small>mm</small></span></label>
+            <label class="fx">Direction<select class="num"><option>Rear</option><option>Front</option></select></label>
+            <label class="fx">Angle<span class="num"><input value="12"><small>°</small></span></label>
+            <label class="fx">End height<span class="num"><input value="3.1"><small>mm</small></span></label>
+          </div>
+          <div class="seg"><button class="on">Sharp fold</button><button>Curved</button></div>
+          <label class="chk"><input type="checkbox" checked>Strakes underneath, filled to floor level</label>
+          <div class="g2">
+            <label class="fx">Strakes<span class="num"><input value="7"></span></label>
+            <label class="fx">Thickness<span class="num"><input value="0.8"><small>mm</small></span></label>
+          </div>
+          <div class="note warn"><b>Needs support when printed.</b> The raised plate leaves the print bed. The strakes reach bed level and carry it; the widest gap between them is 6.0 mm, within this printer's bridge limit.</div>
+        </section>
+
+        <section data-panel="guide" hidden>
+          <div class="head"><span class="eyebrow">Features</span><div class="cond">Guide holder</div><div class="muted">Where the guide turns. Every value is yours to set.</div></div>
+          <label class="f">Guide<select class="num" style="width:100%"><option>Slot.it CH85 (screw-in)</option><option>NSR 4844</option><option>Sloting Plus SP101003</option><option>Custom</option></select></label>
+          <div class="g2">
+            <label class="fx">Along, ahead of front axle<span class="num"><input value="19.0"><small>mm</small></span></label>
+            <label class="fx">Side<span class="num"><input value="0.0"><small>mm</small></span></label>
+            <label class="fx">Hole <span class="src un">unconfirmed</span><span class="num"><input value="3.70"><small>mm</small></span></label>
+            <label class="fx">Boss diameter<span class="num"><input value="6.3"><small>mm</small></span></label>
+            <label class="fx">Boss height<span class="num"><input value="5.8"><small>mm</small></span></label>
+            <label class="fx">Swing recess<span class="num"><input value="18.8"><small>mm</small></span></label>
+          </div>
+          <div class="kv"><span>Guide lead</span><b>102.4</b><span>Limit (BSCRA Sports/GT)</span><b>105.0</b></div>
+          <div class="note">The hole size comes from the library. It is marked <b>unconfirmed</b> until someone has measured this guide.</div>
+        </section>
+
+        <section data-panel="drivetrain" hidden>
+          <div class="head"><span class="eyebrow">Pod</span><div class="cond">Drivetrain</div><div class="muted">Sets where the motor and rear axle sit. The pod is built around them.</div></div>
+          <label class="f">Layout</label>
+          <div class="tiles t3">
+            <div class="tile on"><svg viewBox="0 0 34 24"><rect x="5" y="7" width="14" height="10" rx="2"/><path d="M19 12h6M27 3v18"/></svg>Inline</div>
+            <div class="tile"><svg viewBox="0 0 34 24"><rect x="8" y="5" width="16" height="8" rx="2"/><path d="M24 9h4M4 19h26"/></svg>Sidewinder</div>
+            <div class="tile"><svg viewBox="0 0 34 24"><rect x="7" y="5" width="16" height="8" rx="2" transform="rotate(-22 15 9)"/><path d="M4 20h26"/></svg>Anglewinder</div>
+          </div>
+          <label class="f">Motor<select class="num" style="width:100%"><option>Short can (FC-130) · 25 × 20.1 × 15.1</option><option>Long can (FK-180) · 32.1 × 20.4 × 15.4</option><option>Slimline (FF-050) · 26.9 × 15.5 × 12</option></select></label>
+          <label class="f">Gear set<select class="num" style="width:100%"><option>Slot.it inline · crown 27 T / pinion 9 T</option><option>NSR inline · 27 / 10</option></select></label>
+          <div class="g2">
+            <label class="fx">Offset (axle above shaft)<span class="num"><input value="0.75"><small>mm</small></span></label>
+            <label class="fx">Rear axle height<span class="num"><input value="8.25"><small>mm</small></span></label>
+            <label class="fx">Rear tyre diameter<span class="num"><input value="20.5"><small>mm</small></span></label>
+            <label class="fx">Ground clearance<span class="num"><input value="2.0"><small>mm</small></span></label>
+          </div>
+          <div class="crows">
+            <div class="crow"><svg class="ico ok"><use href="#i-check"/></svg><b>Gear mesh fits</b><span>Crown Ø15.8 with pinion Ø5.5, the pair this pod is built for.</span></div>
+            <div class="crow"><svg class="ico ok"><use href="#i-check"/></svg><b>Ratio 3.00 : 1</b><span>27 / 9</span></div>
+            <div class="crow"><svg class="ico wa"><use href="#i-warn"/></svg><b>Motor-face distance unconfirmed</b><span>No maker publishes it. Measure a real pod, or keep the default and test-fit.</span></div>
+          </div>
+        </section>
+
+        <section data-panel="uprights" hidden>
+          <div class="head"><span class="eyebrow">Pod</span><div class="cond">Axle uprights</div><div class="muted">The two holders for the rear axle. Both seats are cut in one pass, so they are always in line.</div></div>
+          <label class="f">Bearing<select class="num" style="width:100%"><option>Ball bearing 3/32" · seat Ø4.75</option><option>Flanged bronze bushing · seat Ø4.9</option><option>Spherical bushing (Slot.it CH56b)</option></select></label>
+          <label class="f">Holder</label>
+          <div class="tiles t3">
+            <div class="tile on"><svg viewBox="0 0 34 24"><path d="M8 21V11a9 9 0 0 1 18 0v10M5 21h24"/><circle cx="17" cy="11" r="4"/></svg>Closed</div>
+            <div class="tile"><svg viewBox="0 0 34 24"><path d="M8 21V11a9 9 0 0 1 5-8M26 21V11a9 9 0 0 0-5-8M5 21h24"/><path d="M13.5 8a4 4 0 1 0 7 0"/></svg>Snap-in</div>
+            <div class="tile"><svg viewBox="0 0 34 24"><path d="M8 21V11a9 9 0 0 1 18 0v10M5 21h24"/><circle cx="17" cy="11" r="4"/><path d="M17 2v5"/></svg>Clamp</div>
+          </div>
+          <div class="g2">
+            <label class="fx">Seat diameter <span class="src">published</span><span class="num"><input value="4.75"><small>mm</small></span></label>
+            <label class="fx">Printer hole fix<span class="num"><input value="+0.20"><small>mm</small></span></label>
+            <label class="fx">Spread, outside<span class="num"><input value="29.0"><small>mm</small></span></label>
+            <label class="fx">Wall around seat<span class="num"><input value="2.0"><small>mm</small></span></label>
+          </div>
+          <label class="chk"><input type="checkbox" checked>Cross brace under the axle</label>
+          <label class="chk"><input type="checkbox" checked>Buttress on the outside</label>
+          <label class="chk"><input type="checkbox">Lube hole under each seat</label>
+          <div class="note ok"><b>Closed holders in PETG.</b> Ream to fit and add a drop of glue. Closed holders are the strongest choice; snap-in is only advised for PETG or nylon.</div>
+        </section>
+
+        <section data-panel="posts" hidden>
+          <div class="head"><span class="eyebrow">Body</span><div class="cond">Post spots</div><div class="muted">The chassis owns the spots. Anvil builds the posts on the body at the same places.</div></div>
+          <div class="plist">
+            <label class="prow"><input type="checkbox" checked><span>Front pair<small>18.0 behind front axle · 25.5 to the side</small></span></label>
+            <label class="prow"><input type="checkbox" checked><span>Rear pair<small>100.0 behind front axle · 8.25 to the side</small></span></label>
+          </div>
+          <div class="g2">
+            <label class="fx">Screw hole<span class="num"><input value="2.5"><small>mm</small></span></label>
+            <label class="fx">Head recess<span class="num"><input value="4.5"><small>mm</small></span></label>
+            <label class="fx">Body float<span class="num"><input value="0.3"><small>mm</small></span></label>
+            <label class="fx">Pad diameter<span class="num"><input value="6.6"><small>mm</small></span></label>
+          </div>
+          <div class="note">Body <b>McLaren MP4-12C.anvil</b> is loaded as a ghost. Both pairs have body above them.</div>
+          <button class="btn primary"><svg class="ico"><use href="#i-send"/></svg>Send to Anvil</button>
+        </section>
+
+        <section data-panel="printer" hidden>
+          <div class="head"><span class="eyebrow">Print</span><div class="cond">Printer</div><div class="muted">Sizes holes, rails and walls for your printer and material.</div></div>
+          <label class="f">Profile<select class="num" style="width:100%"><option>My printer · PETG · 0.4 nozzle</option><option>PLA+ · 0.4 nozzle</option><option>SLS nylon (print service)</option></select></label>
+          <div class="g2">
+            <label class="fx">Small-hole fix<span class="num"><input value="+0.20"><small>mm</small></span></label>
+            <label class="fx">Minimum wall<span class="num"><input value="0.8"><small>mm</small></span></label>
+            <label class="fx">Longest bridge<span class="num"><input value="8.0"><small>mm</small></span></label>
+            <label class="fx">Steepest overhang<span class="num"><input value="50"><small>°</small></span></label>
+          </div>
+          <div class="note">Print the <b>calibration coupon</b> once per printer and material. It carries every hole and seat this design uses; type in what fits and the fix is set.</div>
+          <button class="btn"><svg class="ico"><use href="#i-coupon"/></svg>Export calibration coupon</button>
+        </section>
+
+        <section data-panel="check" hidden>
+          <div class="head"><span class="eyebrow">Final check</span><div class="verdict">Ready, with 2 notes</div></div>
+          <div class="crows">
+            <div class="crow"><svg class="ico ok"><use href="#i-check"/></svg><b>Gear mesh</b><span>Crown and pinion match the pod.</span></div>
+            <div class="crow"><svg class="ico ok"><use href="#i-check"/></svg><b>Ground clearance 2.0 mm</b><span>Limit for this rule set: 0.75 mm.</span></div>
+            <div class="crow"><svg class="ico ok"><use href="#i-check"/></svg><b>Width 61.0 mm · guide lead 102.4 mm</b><span>Within BSCRA Sports/GT (64 and 105).</span></div>
+            <div class="crow"><svg class="ico ok"><use href="#i-check"/></svg><b>No collisions</b><span>Gear, tyres and motor clear the chassis and body, also with the pod tilted.</span></div>
+            <div class="crow"><svg class="ico wa"><use href="#i-warn"/></svg><b>Kick-up needs support</b><span>Strakes carry it. <button class="btn sm ghost">Show</button></span></div>
+            <div class="crow"><svg class="ico wa"><use href="#i-warn"/></svg><b>2 values unconfirmed</b><span>Guide hole, motor-face distance. Test-fit before racing.</span></div>
+          </div>
+          <div class="kinds">
+            <div class="kind"><b>Chassis</b>9.8 g in PETG</div>
+            <div class="kind"><b>Pod</b>3.9 g in PETG</div>
+          </div>
+        </section>
+
+        <section data-panel="none" hidden>
+          <div class="head"><span class="eyebrow">Preview</span><div class="cond">Not drawn yet</div><div class="muted">This tool has no panel in the preview. Drawn so far: Outline › Draw, Shape › Kick-up, Fill › Fill style, Features › Guide holder, Pod › Drivetrain and Axle uprights, Body › Post spots, Print › Printer, and Final check.</div></div>
+        </section>
+      </div>
+
+      <!-- feature list -->
+      <div class="parttabs"><button class="on">Chassis · 14</button><button>Pod · 6</button></div>
+      <div class="stepsbox">
+        <div class="steps">
+          <div class="sp"><span class="n">1</span><span class="t">Outline<small>140.0 × 61.0 · plate 1.5</small></span><span class="tag">mirror</span><button><svg class="ico"><use href="#i-eye"/></svg></button></div>
+          <div class="sp"><span class="n">2</span><span class="t">Pod opening<small>from pod · gap 0.5</small></span><span></span><button><svg class="ico"><use href="#i-eye"/></svg></button></div>
+          <div class="sp on"><span class="n">3</span><span class="t">Fill: frame<small>2 cross · 1 length · rail 1.6</small></span><span class="tag">mirror</span><button><svg class="ico"><use href="#i-eye"/></svg></button></div>
+          <div class="sp"><span class="n">4</span><span class="t">Guide holder<small>Slot.it CH85 · hole 3.70</small></span><span></span><button><svg class="ico"><use href="#i-eye"/></svg></button></div>
+          <div class="sp"><span class="n">5</span><span class="t">Front axle bracket<small>spread 34.5 · M2 grubs</small></span><span class="tag">mirror</span><button><svg class="ico"><use href="#i-eye"/></svg></button></div>
+          <div class="sp"><span class="n">6</span><span class="t">Pod mounts<small>63.2 × 20 · 4 screws</small></span><span class="tag">mirror</span><button><svg class="ico"><use href="#i-eye"/></svg></button></div>
+          <div class="sp"><span class="n">7</span><span class="t">Body mounts<small>2 pairs</small></span><span class="tag">mirror</span><button><svg class="ico"><use href="#i-eye"/></svg></button></div>
+          <div class="sp"><span class="n">8</span><span class="t">Kick-up<small>rear · 12° · 7 strakes</small></span><span></span><button><svg class="ico"><use href="#i-eye"/></svg></button></div>
+          <div class="sp off"><span class="n">9</span><span class="t">Wire channel<small>switched off</small></span><span></span><button><svg class="ico"><use href="#i-eye"/></svg></button></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- status bar -->
+  <footer class="status">
+    <span class="sb"><b>1/32</b></span>
+    <span class="sb">Wheelbase <b class="mono">83.4</b></span>
+    <span class="sb">Guide lead <b class="mono">102.4</b></span>
+    <span class="sb">Width <b class="mono">61.0</b></span>
+    <span class="sb">Clearance <b class="mono">2.0</b></span>
+    <span class="sb"><i class="dot w"></i>2 notes</span>
+    <span class="sb">PETG · 0.4 nozzle</span>
+    <span class="sb end">mm</span>
+    <span class="sb end">v0.1 preview</span>
+    <span class="sf-footer-brand"><img class="wm-dark" src="./assets/slotforge-dark.svg" alt="SlotForge"><img class="wm-light" src="./assets/slotforge-light.svg" alt="SlotForge"></span>
+  </footer>
+</div>
+
+<!-- Library (Workshop Window) -->
+<div class="scrim" id="lib" hidden>
+  <div class="win" role="dialog" aria-label="Library">
+    <header>
+      <div><span class="eyebrow">Parts library</span><h2>Library</h2></div>
+      <input style="margin-left:auto;height:32px;padding:0 10px;width:240px" placeholder="Search parts">
+      <button class="btn icon" id="closelib" title="Close"><svg class="ico"><use href="#i-x"/></svg></button>
+    </header>
+    <div class="body">
+      <div class="cats">
+        <span class="eyebrow" style="padding:4px 9px">Made and imported</span>
+        <button>Chassis<small>4</small></button>
+        <button class="on">Pods<small>5</small></button>
+        <button>Pod patterns<small>2</small></button>
+        <span class="eyebrow" style="padding:10px 9px 4px">Components</span>
+        <button>Motors<small>7</small></button>
+        <button>Gear sets<small>31</small></button>
+        <button>Bushings and bearings<small>9</small></button>
+        <button>Guides<small>14</small></button>
+        <button>Wheels and tyres<small>86</small></button>
+        <button>Axles and screws<small>42</small></button>
+        <span class="eyebrow" style="padding:10px 9px 4px">Setup</span>
+        <button>Printers<small>3</small></button>
+        <button>Rule sets<small>5</small></button>
+        <button>Car presets<small>165</small></button>
+      </div>
+      <div class="list">
+        <div class="row"><div class="seg"><button class="on">All</button><button>Made here</button><button>Imported</button><button>Bought</button></div><div class="seg" style="margin-left:auto"><button class="on">1/32</button><button>1/24</button></div></div>
+        <div class="cards">
+          <div class="card2 on"><div class="thumb"><svg viewBox="0 0 70 30"><rect class="pod" x="6" y="3" width="57" height="24" rx="2"/><rect class="hole" x="20" y="6" width="26" height="18"/><circle class="pod solid" cx="3.5" cy="6" r="2"/><circle class="pod solid" cx="3.5" cy="24" r="2"/><circle class="pod solid" cx="66.5" cy="6" r="2"/><circle class="pod solid" cx="66.5" cy="24" r="2"/></svg></div><b>Inline, short can</b><small>Made here · 63.2 × 20 · offset 0.75</small></div>
+          <div class="card2"><div class="thumb"><svg viewBox="0 0 70 30"><rect class="pod" x="6" y="3" width="57" height="24" rx="2"/><rect class="hole" x="20" y="6" width="26" height="18"/><circle class="pod solid" cx="3.5" cy="6" r="2"/><circle class="pod solid" cx="3.5" cy="24" r="2"/><circle class="pod solid" cx="66.5" cy="6" r="2"/><circle class="pod solid" cx="66.5" cy="24" r="2"/></svg></div><b>inline_motor_pod</b><small>Imported STL · 63.0 × 20.0</small></div>
+          <div class="card2"><div class="thumb"><svg viewBox="0 0 70 30"><rect class="pod" x="6" y="3" width="57" height="24" rx="2"/><rect class="hole" x="18" y="7" width="15" height="16"/><rect class="hole" x="38" y="5" width="18" height="20"/><circle class="pod solid" cx="3.5" cy="6" r="2"/><circle class="pod solid" cx="3.5" cy="24" r="2"/><circle class="pod solid" cx="66.5" cy="6" r="2"/><circle class="pod solid" cx="66.5" cy="24" r="2"/></svg></div><b>Sidwinder_Pod_New</b><small>Imported STL · 63.0 × 20.0</small></div>
+          <div class="card2"><div class="thumb"><svg viewBox="0 0 70 30"><rect class="pod" x="6" y="3" width="57" height="24" rx="2"/><rect class="hole" x="26" y="2" width="20" height="26" transform="rotate(25 36 15)"/><circle class="pod solid" cx="3.5" cy="6" r="2"/><circle class="pod solid" cx="3.5" cy="24" r="2"/><circle class="pod solid" cx="66.5" cy="6" r="2"/><circle class="pod solid" cx="66.5" cy="24" r="2"/></svg></div><b>AW</b><small>Imported STL · 63.3 × 20.0 · 24.8°</small></div>
+          <div class="card2"><div class="thumb"><svg viewBox="0 0 70 30"><path class="pod" d="M8 15 30 4h32v22H30z"/><circle class="pod solid" cx="6" cy="15" r="2"/><circle class="pod solid" cx="64" cy="5" r="2"/><circle class="pod solid" cx="64" cy="25" r="2"/></svg></div><b>NSR triangular, sidewinder</b><small>Bought · not measured yet</small></div>
+        </div>
+      </div>
+      <div class="detail">
+        <div><span class="eyebrow">Pod</span><div class="cond">Inline, short can</div></div>
+        <div class="kv"><span>Layout</span><b>Inline</b><span>Motor</span><b>FC-130</b><span>Gear set</span><b>27 / 9</b><span>Offset</span><b>0.75</b><span>Pattern</span><b>63.2 × 20</b><span>Axle spread</span><b>29.0</b><span>Changed</span><b>24 Nov</b></div>
+        <div class="row"><span class="pill ok">Made here</span><span class="pill un">1 value unconfirmed</span></div>
+        <div class="note">Used in <b>McLaren MP4-12C</b> and 1 other design.</div>
+      </div>
+    </div>
+    <footer>
+      <button class="btn ghost"><svg class="ico"><use href="#i-import"/></svg>Import STL</button>
+      <button class="btn ghost"><svg class="ico"><use href="#i-plus"/></svg>Add by measurements</button>
+      <span class="sp2"></span>
+      <button class="btn ghost">Duplicate</button>
+      <button class="btn primary">Use in this design</button>
+    </footer>
+  </div>
+</div>
+
+
+<script>
+// Preview wiring only: switches what is shown. Nothing here is app logic.
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const root = document.documentElement, view = $('#view');
+function showPanel(id) {
+  const has = $(`[data-panel="${id}"]`) ? id : 'none';
+  $$('#panels > section').forEach(s => (s.hidden = s.dataset.panel !== has));
+}
+$$('.tone-switch button').forEach(b => b.onclick = () => {
+  root.dataset.theme = root.dataset.tone = b.dataset.tone;
+  $$('.tone-switch button').forEach(x => x.setAttribute('aria-pressed', x === b));
+});
+$$('#menus [data-menu]').forEach(b => b.onclick = () => {
+  $$('#menus [data-menu]').forEach(x => x.classList.toggle('on', x === b));
+  $$('#subs .sub').forEach(s => (s.hidden = s.dataset.sub !== b.dataset.menu));
+  const first = $(`#subs [data-sub="${b.dataset.menu}"] .tbtn`);
+  first && first.click();
+});
+$$('#subs .tbtn').forEach(b => b.onclick = () => {
+  $$('.tbtn', b.parentElement).forEach(x => x.classList.toggle('on', x === b));
+  showPanel(b.dataset.tool || 'none');
+  const pod = b.closest('[data-sub="pod"]');
+  setFocus(pod ? 'pod' : 'both');
+});
+$('[data-tool="check"]').onclick = () => showPanel('check');
+function setFocus(f) {
+  view.classList.toggle('focus-pod', f === 'pod'); view.classList.toggle('focus-chassis', f === 'chassis');
+  $$('#focusseg button').forEach(x => x.classList.toggle('on', x.dataset.focus === f));
+}
+$$('#focusseg button').forEach(b => b.onclick = () => setFocus(b.dataset.focus));
+$$('#showseg button').forEach(b => b.onclick = () => { b.classList.toggle('on'); view.classList.toggle('hide-' + b.dataset.show, !b.classList.contains('on')); });
+$$('#viewseg button').forEach(b => b.onclick = () => {
+  if (b.dataset.view === '3d') return;
+  $$('#viewseg button').forEach(x => x.classList.toggle('on', x === b));
+  const side = b.dataset.view === 'side';
+  $('#topview').toggleAttribute('hidden', side); $('#sideview').toggleAttribute('hidden', !side); $('#inset').hidden = side;
+});
+$('#mirrorlock').onclick = e => { const on = e.currentTarget.classList.toggle('on'); $('#mirrorline').style.display = on ? '' : 'none'; };
+$('#openlib').onclick = () => ($('#lib').hidden = false);
+$('#closelib').onclick = () => ($('#lib').hidden = true);
+$('#lib').onclick = e => { if (e.target.id === 'lib') e.currentTarget.hidden = true; };
+$$('.tiles').forEach(t => $$('.tile', t).forEach(x => x.onclick = () => $$('.tile', t).forEach(y => y.classList.toggle('on', y === x))));
+$$('.panel .seg, .win .seg').forEach(t => $$('button', t).forEach(x => x.onclick = () => $$('button', t).forEach(y => y.classList.toggle('on', y === x))));
+</script>
+</body>
+</html>
