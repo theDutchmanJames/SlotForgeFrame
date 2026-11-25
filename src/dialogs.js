@@ -150,7 +150,8 @@ export function createDialogs(ctx) {
   function itemFromDesign(kind) {
     const { design, built, meshes } = ctx.state;
     if (kind === 'insert') {
-      const key = ctx.insertKey(), top = ctx.state.insBuilt?.data?.top;
+      const key = ctx.insertKey(), built = ctx.state.insBuilt;
+      const top = built?.key === JSON.stringify([design.inserts[key], design.printer.nozzle, design.car.axleD]) ? built.data?.top : null;
       return cleanItem({ kind, name: `${design.name} ${key} insert`, scale: design.scale, updated: Date.now(), thumb: top?.length ? thumbOf(top) : null, data: { insert: design.inserts[key] } }, cleanPart);
     }
     const part = design[kind], imp = part.imported;

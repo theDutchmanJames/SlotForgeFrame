@@ -286,6 +286,8 @@ export function uprightSpread(d) {
 // socket round a ball end (the length is taken over the balls).
 // The size of the hole the holder is built round: the seat, or the ball of a spherical bushing.
 export const seatSize = (p) => (p.form === 'sphere' ? p.ballD : p.seat);
+// The inner face of an upright whose outer face is at `yo`: never closer than 0.5 mm to the middle.
+export const uprightInner = (yo, p) => yo - Math.min(p.thick, yo - 0.5);
 // A flange counts on a straight seat of its own (an axle tube's ends sit in the seats instead).
 export const flanged = (p) => p.flange === true && p.form !== 'sphere' && !p.tube;
 // How far a flange stands out of an upright's face on one side ('out': the wheel side, 'in': the motor side).
@@ -543,7 +545,7 @@ export function partsLayout(d) {
     for (const s of [1, -1]) out.bushes.push(ball ? { x: wb, y: o + s * yc, z, d: p.ballD, w: p.ballW } : p.tube ? { x: wb, y: o + s * yc, z, d: p.seat, w: p.thick } : { x: wb, y: o + s * yc, z, d: p.seat, w: Math.min(p.thick, b?.width ?? p.thick) });
     // A flange against one face of each upright: in a recess in the face, or standing out of it.
     if (flanged(p)) {
-      const face = p.flangeAt === 'in' ? yo - p.thick : yo, into = p.flangeAt === 'in' ? 1 : -1, t = p.flangeT;
+      const face = p.flangeAt === 'in' ? uprightInner(yo, p) : yo, into = p.flangeAt === 'in' ? 1 : -1, t = p.flangeT;
       const mid = face + (p.flangeRecess ? into : -into) * t / 2;
       for (const s of [1, -1]) out.bushes.push({ x: wb, y: o + s * mid, z, d: p.flangeD, w: t, flange: true });
     }

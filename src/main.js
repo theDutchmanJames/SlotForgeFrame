@@ -17,7 +17,7 @@ import {
   newDesign, find, on, round, summary, heights, checks, partsLayout, podLayout, motorOf, gearOf, proposeCross, unconfirmed, uprightSpread, useBearing, meshCentre, activeKicks, profileOf, pinionOut, motorAngle, gearAngle, traceWheels, traceArches, applyOutline, centreMounts, podShift, podSideways, podRide, rideClearance, balance,
   encodeProject, decodeProject, createHistory, MATERIALS, FEATURE_NAMES, MULTI, newShape, shapesOf, gearsFor, bearingOf, guideOf, choicesFor, moveRear, couponHoles,
 } from './model.js';
-import { ringSizes, RING_COUNT, PRESETS as INSERT_PRESETS, LAYER_TYPES, LAYER_NAMES, MODES, MODE_NAMES, presetFor, newLayer, layerShape, circle as insCircle, directional, fitToSegment, cleanInsert } from './inserts.js';
+import { newInserts, ringSizes, RING_COUNT, PRESETS as INSERT_PRESETS, LAYER_TYPES, LAYER_NAMES, MODES, MODE_NAMES, presetFor, newLayer, layerShape, circle as insCircle, directional, fitToSegment, cleanInsert } from './inserts.js';
 // ?inline: the pictures are built into the page, which is the only file the desktop app ships.
 import iconUrl from './assets/slotforge-frame.svg?inline';
 import wordmarkDark from './assets/frame-dark.svg?inline';
@@ -1458,7 +1458,7 @@ const ACTIONS = {
     const L = insCur().layers[state.insSel];
     if (L?.type !== 'draw') return;
     // A new point halfway along the side after the chosen point.
-    const i = state.insPt ?? L.points.length - 1, a = L.points[i], b = L.points[(i + 1) % L.points.length];
+    const i = state.insPt != null && state.insPt < L.points.length ? state.insPt : L.points.length - 1, a = L.points[i], b = L.points[(i + 1) % L.points.length];
     L.points.splice(i + 1, 0, [round((a[0] + b[0]) / 2, 3), round((a[1] + b[1]) / 2, 3)]);
     state.insPt = i + 1;
     commit();
@@ -1466,7 +1466,7 @@ const ACTIONS = {
   insptdel() {
     const L = insCur().layers[state.insSel];
     if (L?.type !== 'draw' || L.points.length <= 3) return;
-    L.points.splice(state.insPt ?? L.points.length - 1, 1);
+    L.points.splice(state.insPt != null && state.insPt < L.points.length ? state.insPt : L.points.length - 1, 1);
     state.insPt = null;
     commit();
   },
@@ -1734,16 +1734,18 @@ function afterChange(path) {
   // (An axle tube sets the spread of the uprights, and the gear sits outside them: it is placed again too.)
   if (path.endsWith('.bearing')) { const f = find(d.pod, 'uprights'); useBearing(f.params, bearingOf(d, f.params.bearing)); }
   // Things that move the gear out: a tube that sets the spread, or a flange standing out of the uprights.
-  const up = find(d.pod, 'uprights').params;
-  const tubeMoved = /\.(tube|tubeLen|form|ballW)$/.test(path) && up.tube;
+  const upF = find(d.pod, 'uprights'), up = upF.params, ofUprights = path.startsWith(`f.${upF.id}.`);
+  const tubeMoved = ofUprights && /\.(tube|tubeLen|form|ballW)$/.test(path) && up.tube;
   if ((path === 'drivetrain.layout' || path === 'drivetrain.gear' || path === 'drivetrain.drives' || tubeMoved) && !d.pod.imported) find(d.pod, 'base').params.sideways = podSideways(d);
   // A flange may need the pod moved further over; one set by hand is kept when it already leaves room.
-  else if (/\.(flange|flangeT|flangeAt|flangeRecess|bearing)$/.test(path) && !d.pod.imported) {
+  else if (ofUprights && /\.(flange|flangeT|flangeAt|flangeRecess|bearing)$/.test(path) && !d.pod.imported) {
     const base = find(d.pod, 'base').params, need = podSideways(d);
     if (Math.abs(need) > Math.abs(base.sideways || 0)) base.sideways = need;
   }
   if (path.endsWith('.guide')) { const f = find(d.chassis, 'guide'); f.params.hole = guideOf(d, f.params.guide)?.hole ?? f.params.hole; }
-  if (path === 'inserts.same' && !d.inserts.same) d.inserts.front = cleanInsert(JSON.parse(JSON.stringify(d.inserts.rear)), d.scale);
+  // The front starts as a copy of the rear, unless it already has a design of its own (it is not the fresh one).
+  if (path === 'inserts.same' && !d.inserts.same && JSON.stringify(d.inserts.front) === JSON.stringify(newInserts(d.scale).front))
+    d.inserts.front = cleanInsert(JSON.parse(JSON.stringify(d.inserts.rear)), d.scale);
   // The rear of the car moves with the rear axle.
   if (path === 'car.wheelbase') moveRear(d, JSON.parse(lastSnap).car.wheelbase, d.car.wheelbase);
 }
@@ -1858,7 +1860,7 @@ function wire() {
   const app = $('#app');
   app.addEventListener('click', (e) => {
     // Measuring: a click in the top view sets a place, and does nothing else.
-    if (state.measure.on && e.target.closest('#topview')) {
+    if (state.measure.on && !insMode() && e.target.closest('#topview')) {
       const p = new DOMPoint(e.clientX, e.clientY).matrixTransform($('#topview').getScreenCTM().inverse()), at = [round(p.x, 1), round(p.y, 1)];
       if (!state.measure.a || state.measure.b) Object.assign(state.measure, { a: at, b: null });
       else state.measure.b = at;
@@ -1923,7 +1925,7 @@ function wire() {
   });
   app.addEventListener('pointerdown', (e) => {
     const el = e.target.closest?.('[data-drag]');
-    if (el && !state.measure.on) startDrag(e, el);
+    if (el && (!state.measure.on || insMode())) startDrag(e, el);
   });
   addEventListener('keydown', (e) => {
     if (!(e.ctrlKey || e.metaKey) || e.target.matches('input, select, textarea')) return;

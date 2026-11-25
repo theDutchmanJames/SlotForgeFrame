@@ -212,8 +212,9 @@ export function insertChecks(ins, ctx = {}) {
   if (Math.abs(fit - b.od) > 0.011) add(false, 'The insert does not match the pocket', `With a Ø${b.pocketD} pocket and ${b.clear} mm clearance the insert should be Ø${fit}; it is Ø${b.od}.`, true);
   else add(true, `Fits a Ø${b.pocketD} pocket`, `Ø${b.od}, with ${b.clear} mm all round.`);
   if (b.od >= b.wheelD - 0.6) add(false, 'The insert is as big as the wheel', `A Ø${b.wheelD} wheel cannot have a pocket for a Ø${b.od} insert: leave at least 0.3 mm of wheel round it.`);
-  // The tallest thing on the face: the lip or the highest raised layer.
-  const tall = b.thick + (b.form === 'cup' ? b.skirt : 0) + Math.max(b.lip > 0 ? b.lipH : 0, ...ins.layers.filter((l) => l.mode === 'raise').map((l) => l.h));
+  // The tallest thing on the face: the lip, or the highest raised layer (on top of the lip where it reaches it).
+  const lipH = b.lip > 0 ? b.lipH : 0, onLip = (l) => lipH > 0 && outerOf(l) > R - b.lip;
+  const tall = b.thick + (b.form === 'cup' ? b.skirt : 0) + Math.max(lipH, ...ins.layers.filter((l) => l.mode === 'raise').map((l) => l.h + (onLip(l) ? lipH : 0)));
   if (tall > b.pocketDepth + 0.01) add(false, 'The insert stands out of the pocket', `It is ${tall.toFixed(2)} mm deep; the pocket is ${b.pocketDepth} mm. That is fine if it is meant to.`, true);
   if (b.hole > 0 && b.hole < axleD + 0.2) add(false, 'The centre hole is smaller than the axle', `The axle (Ø${axleD}) has to pass, with room: make the hole at least Ø${(axleD + 0.2).toFixed(2)}, or 0 for a closed face.`);
   if (b.dish > b.thick - 0.4 + 1e-6) add(false, 'The dish is too deep', `Leave at least 0.4 mm under the dish: at most ${(b.thick - 0.4).toFixed(2)} mm with this thickness.`);
@@ -239,6 +240,15 @@ export function insertChecks(ins, ctx = {}) {
     if (L.type === 'bolts' && L.count > 0 && L.d < nozzle) add(false, `${name}: studs smaller than the nozzle`, `Studs of Ø${L.d} do not print with a ${nozzle} mm nozzle.`, true);
   });
   return out;
+}
+
+// How far out from the centre a layer reaches.
+function outerOf(L) {
+  if (L.type === 'spokes') return L.rim;
+  if (L.type === 'holes') return L.at + (L.shape === 'round' ? L.size : L.len) / 2;
+  if (L.type === 'ring') return L.r + L.w / 2;
+  if (L.type === 'bolts') return Math.max(L.count > 0 ? L.pcd + L.d / 2 : 0, L.nut !== 'none' ? L.nutD / 2 : 0);
+  return Math.max(0, ...(L.points ?? []).map(([x, y]) => Math.hypot(x, y)));
 }
 
 export function round(v, n = 3) {

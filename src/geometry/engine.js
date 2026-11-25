@@ -2,7 +2,7 @@
 // Runs in the worker (engine.worker.js) and in Node tests.
 // All booleans are done by Manifold, as in SlotForge Foundry.
 
-import { find, on, heights, motorOf, gearOf, motorPlace, podLayout, uprightSpread, seatSize, holderSize, flanged, flangeProud, gearSide, asRight, podShift, unshifted, podRide, kickActive, activeKicks, profileOf, bearingOf, couponHoles } from '../model.js';
+import { find, on, heights, motorOf, gearOf, motorPlace, podLayout, uprightSpread, uprightInner, seatSize, holderSize, flanged, flangeProud, gearSide, asRight, podShift, unshifted, podRide, kickActive, activeKicks, profileOf, bearingOf, couponHoles } from '../model.js';
 import { createAnalyser } from './analyse.js';
 import { layerShape, directional, insertOf, insertChecks, ringSizes } from '../inserts.js';
 
@@ -761,7 +761,7 @@ export function createEngine(wasm) {
 
     if (on(up)) {
       const p = upP, ball = p.form === 'sphere', sd = seatSize(p), zc = z0 + h.axle, hw = holderSize(p) / 2 + p.wall, zt = zc + holderSize(p) / 2 + p.wall;
-      const yo = uprightSpread(d) / 2, yi = yo - Math.min(p.thick, yo - 0.5);
+      const yo = uprightSpread(d) / 2, yi = uprightInner(yo, p);
       // The motor may clip a holder's corner (a shallow anglewinder does), but must leave the
       // bearing seat its wall: half the wall around the seat is kept clear.
       const keep = sd / 2 + p.wall / 2;
@@ -771,7 +771,7 @@ export function createEngine(wasm) {
       for (const s of [1, -1]) {
         const a = Math.min(s * yi, s * yo), b = Math.max(s * yi, s * yo);
         add.push(box(wb - hw, a, z0, wb + hw, b, zt));
-        if (p.buttress) add.push(box(wb - hw - 2.5, a, z0, wb + hw, b,Math.max(z0 + base.thickness, zc - seatD / 2 - 0.5)));
+        if (p.buttress) add.push(box(wb - hw - 2.5, a, z0, wb + hw, b,Math.max(z0 + base.thickness, zc - sd / 2 - 0.5)));
         if (p.lube) cut.push(cylZ(wb, s * (yo + yi) / 2, z0 - 1, zc, 0.6));
       }
       // What runs between the uprights: the axle, or an axle tube round it.
