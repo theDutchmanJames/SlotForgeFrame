@@ -1,4 +1,8 @@
 // SlotForge Frame: the workspace. Layout and look follow docs/ui-reference/workspace.html.
+import './editor-tools.css';
+import { referencePanel, arrangePanel, inspectPanel } from './editor-panel.js';
+import { featureRegions } from './feature-regions.js';
+import { featuresOf, ANCHOR_TYPES, COPY_TYPES, setReference, syncReferences, translateFeature, operateSelection } from './feature-tools.js';
 import './theme.css';
 import './style.css';
 import './app.css';
@@ -14,7 +18,7 @@ import { packMesh, unpackMesh } from './library-core.js';
 import { encodeAnvilChassis, placeBody, hullOf, bodyFit, bodyGuess, findArches, archFit, archNote } from './anvil.js';
 import { readSTL } from './geometry/stl-read.js';
 import {
-  newDesign, newOnePieceDesign, builtIn, frontBearings, useFrontBearing, find, on, round, summary, heights, checks, partsLayout, podLayout, motorOf, gearOf, proposeCross, unconfirmed, uprightSpread, useBearing, meshCentre, activeKicks, profileOf, pinionOut, motorAngle, gearAngle, traceWheels, traceArches, applyOutline, centreMounts, podShift, podSideways, podRide, rideClearance, balance,
+  newId, newDesign, newOnePieceDesign, builtIn, frontBearings, useFrontBearing, find, on, round, summary, heights, checks, partsLayout, podLayout, motorOf, gearOf, proposeCross, unconfirmed, uprightSpread, useBearing, meshCentre, activeKicks, profileOf, pinionOut, motorAngle, gearAngle, traceWheels, traceArches, applyOutline, centreMounts, podShift, podSideways, podRide, rideClearance, balance,
   encodeProject, decodeProject, createHistory, MATERIALS, FEATURE_NAMES, MULTI, newShape, shapesOf, gearsFor, bearingOf, guideOf, choicesFor, moveRear, couponHoles,
 } from './model.js';
 import { WING_PRESETS, ENDPLATES, FLAT_SIDES, wingPreset, wingSide, legYs, pinsOf, deckZ, cleanWing } from './wings.js';
@@ -68,6 +72,9 @@ const state = {
   error: null,
   saved: true,
   selPoint: 0,
+  editorSelection: [],
+  arrange: {dx:10,dy:0,name:'My assembly'},
+  inspection: {axis:'',at:0,flip:false,pointMode:false,distance:null,pair:'pod',range:20,result:null,error:null,busy:false,reset:0},
   sel: {}, // the chosen one of each shaping feature: { rib: id, … }
   coupon: null, // the calibration coupon for this design, once built: { key, data }
   measure: { on: false, a: null, b: null }, // the measuring tool in the top view: two points
@@ -85,13 +92,13 @@ const MENUS = [
   ['outline', 'Outline', 'outline', [['outline', 'Draw', 'pen'], ['trace', 'From body', 'body']]],
   ['shape', 'Shape', 'shape', [['kickup', 'Kick-up', 'kick'], ['kickfront', 'Front kick-up', 'kick'], ['profile', 'Side profile', 'profile'], ['rib', 'Rib / strake', 'rib'], ['wall', 'Edge wall', 'wall'], ['tunnel', 'Tunnel', 'tunnel'], ['panel', 'Upright panel', 'panel'], ['level', 'Level / pocket', 'level'], ['split', 'Split part', 'split']]],
   ['fill', 'Fill', 'fill', [['fill', 'Fill style', 'fill'], ['rail', 'Rail', 'pen'], ['window', 'Window', 'cut'], ['cutout', 'Cut-out', 'pen']]],
-  ['features', 'Features', 'feature', [['guide', 'Guide holder', 'guide'], ['frontAxle', 'Front axle', 'axle'], ['bodyMounts', 'Body mounts', 'post'], ['tab', 'Body support', 'wall'], ['podMounts', 'Pod mounts', 'lug'], ['podOpening', 'Pod opening', 'cut'], ['holder', 'Magnet / ballast', 'pocket'], ['wire', 'Wire guide', 'wire'], ['chip', 'Chip mount', 'level']]],
+  ['features', 'Features', 'feature', [['guide', 'Guide holder', 'guide'], ['frontAxle', 'Front axle', 'axle'], ['bodyMounts', 'Body mounts', 'post'], ['tab', 'Body support', 'wall'], ['podMounts', 'Pod mounts', 'lug'], ['podOpening', 'Pod opening', 'cut'], ['holder', 'Magnet / ballast', 'pocket'], ['wire', 'Wire guide', 'wire'], ['chip', 'Chip mount', 'level'], ['arrange', 'Arrange features', 'feature']]],
   ['pod', 'Pod', 'pod', [['drivetrain', 'Drivetrain', 'gear'], ['base', 'Base plate', 'level'], ['motorSeat', 'Motor seat', 'motor'], ['uprights', 'Axle uprights', 'bearing'], ['lugs', 'Mount lugs', 'lug']]],
   ['onepiece', 'One piece', 'pod', ONE_PIECE_PARTS.map((part) => [`op-${part}`, ONE_PIECE_NAMES[part], { plate: 'level', guide: 'guide', front: 'axle', motor: 'motor', gear: 'gear', rear: 'bearing', mounts: 'post' }[part]])],
   ['body', 'Body', 'body', [['body', 'Body and Anvil', 'body']]],
   ['inserts', 'Inserts', 'insert', [['insertRear', 'Rear insert', 'insert'], ['insertFront', 'Front insert', 'insert'], ['insertRing', 'Calibration ring', 'coupon']]],
   ['wings', 'Wings', 'wing', [['wing', 'Wing', 'wing'], ['wingPlates', 'Endplates', 'wing'], ['wingLegs', 'Legs and mounting', 'lug'], ['wingPrint', 'Print', 'print']]],
-  ['print', 'Print', 'print', [['printer', 'Printer', 'print'], ['coupon', 'Calibration coupon', 'coupon']]],
+  ['print', 'Print', 'print', [['printer', 'Printer', 'print'], ['coupon', 'Calibration coupon', 'coupon'], ['inspect', 'Clearance inspection', 'ruler']]],
 ];
 const POD_TOOLS = new Set(['drivetrain', 'base', 'motorSeat', 'uprights', 'lugs']);
 // A one-piece design has no drawn chassis and no pod: the One piece menu takes their place.
@@ -128,6 +135,7 @@ const call = (method, args) => new Promise((resolve, reject) => {
 
 let buildToken = 0, buildTimer = 0;
 function rebuild(delay = 60) {
+  invalidateInspection();
   clearTimeout(buildTimer);
   state.busy = true;
   renderStatus();
@@ -232,6 +240,7 @@ function dropUnusedMeshes() {
 // The design less its inserts: when only an insert changed, the chassis and the pod need no new build.
 const carPart = (d) => JSON.stringify({ ...d, inserts: null, wing: null });
 function commit() {
+  syncReferences(state.design);
   const before = carPart(JSON.parse(lastSnap));
   history.push(lastSnap);
   lastSnap = JSON.stringify(state.design);
@@ -263,6 +272,7 @@ function replaceDesign(design) {
   state.saved = true;
   state.selPoint = 0;
   state.sel = {};
+  state.editorSelection = [];
   history.clear(); // undo never reaches back into another design
   dropUnusedMeshes();
   autosave();
@@ -389,7 +399,7 @@ function skeleton() {
       </aside>
     </div>
     <footer class="status" id="status"></footer>`;
-  viewport = createViewport($('#gl'));
+  viewport = createViewport($('#gl'), {onPick: pickEditorFeature, onMove: moveEditorFeature, onMeasure: distance => {state.inspection.distance=distance;renderPanel();}});
 }
 
 // ------------------------------------------------------------ settings
@@ -1441,7 +1451,7 @@ function renderPanel() {
   const panel = d.pod.imported && POD_TOOLS.has(state.tool) ? importedPodPanel
     : d.chassis.imported && FIXED_TOOLS.has(state.tool) ? importedChassisPanel
     : PANELS[state.tool] ?? PANELS.check;
-  $('#panel').innerHTML = `<section>${panel(d)}</section>`;
+  $('#panel').innerHTML = `<section>${state.tool==='arrange'?arrangePanel(d,state.editorSelection,state.arrange):state.tool==='inspect'?inspectPanel(state,d):panel(d)+(!partMode()&&!d.onePiece&&!d.chassis.imported?referencePanel(featureOf(state.tool)):'')}</section>`;
   if (active) $(`#panel [data-path="${active}"]`)?.focus();
 }
 
@@ -1488,7 +1498,7 @@ function renderSteps() {
   $('#tabs').innerHTML = ['chassis', 'pod'].map((t) => `<button class="${state.tab === t ? 'on' : ''}" data-act="tab" data-tab="${t}">${t === 'chassis' ? 'Chassis' : 'Pod'} · ${d[t].features.length}</button>`).join('');
   $('#steps').innerHTML = d[state.tab].features.map((f, i) => `
     <div class="sp ${state.tool === f.type && (!MULTI.includes(f.type) || chosen(f.type) === f) ? 'cur' : ''} ${on(f) ? '' : 'off'}" data-act="tool" data-tool="${f.type}" data-id="${f.id}">
-      <span class="n">${i + 1}</span><span class="t">${FEATURE_NAMES[f.type]}<small>${on(f) ? esc(describe(f, d)) : 'switched off'}</small></span><span></span>
+      <span class="n">${i + 1}</span><span class="t">${esc(f.editor?.name||FEATURE_NAMES[f.type])}${f.editor?.group?` <small>${esc(f.editor.groupName)}</small>`:''}<small>${on(f) ? esc(describe(f, d)) : 'switched off'}</small></span><span></span>
       ${['outline', 'fill', 'base'].includes(f.type) ? '<span></span>' : `<button data-act="toggle" data-f="${f.id}" title="${on(f) ? 'Switch off' : 'Switch on'}">${ico('eye')}</button>`}
     </div>`).join('');
 }
@@ -1703,6 +1713,7 @@ function renderView() {
     if (part === 'insert') viewport.frame(6, [0, 0, 0.6]);
     if (part === 'wing') viewport.frame(state.design.wing.span * 0.55, [state.design.wing.chord / 2, 0, state.design.wing.height * 0.7]);
   }
+  syncEditorViewport();
   viewport.showWheels(state.show.inserts);
   if (onCar) viewport.show({ chassis: true, pod: true, parts: state.show.parts, track: state.show.track, body: state.show.body, solid: state.show.solid });
   if (partMode()) return insViewbar(top);
@@ -1785,10 +1796,28 @@ function render() {
   renderView();
 }
 
+function invalidateInspection(){const i=state.inspection;i.reset++;i.result=null;i.error=null;i.distance=null;i.busy=false;}
+function syncEditorViewport(){
+  if(!viewport)return;
+  const inspect=state.tool==='inspect',i=state.inspection;
+  viewport.setEditor({enabled:state.view==='3d'&&!partMode()&&!state.busy&&!state.error,regions:featureRegions(state.design,state.built),selected:featureOf(state.tool)?.id,section:inspect?i:null,pointMode:inspect&&i.pointMode,intersection:inspect?i.result?.intersection:null,reset:i.reset});
+}
+function pickEditorFeature(id,add){
+  const f=featuresOf(state.design).find(f=>f.id===id);if(!f)return;
+  if(add&&COPY_TYPES.includes(f.type)){const ids=new Set(state.editorSelection);ids.has(id)?ids.delete(id):ids.add(id);state.editorSelection=[...ids];setTool('arrange');}
+  else {if(COPY_TYPES.includes(f.type))state.editorSelection=f.editor?.group?state.design.chassis.features.filter(q=>q.editor?.group===f.editor.group).map(q=>q.id):[id];state.sel[f.type]=id;setTool(f.type);}
+  render();
+}
+function moveEditorFeature(id,dx,dy){
+  const f=state.design.chassis.features.find(f=>f.id===id);if(!f)return;
+  try{if(f.editor?.group)operateSelection(state.design,state.design.chassis.features.filter(q=>q.editor?.group===f.editor.group).map(q=>q.id),'move',{dx,dy,newId});else translateFeature(f,dx,dy);commit();}catch(e){toast(e.message,true);}
+}
+
 // ------------------------------------------------------------ actions
 
 function setTool(tool) {
   state.tool = tool;
+  if(tool==='inspect')state.view='3d';
   state.menu = tool === 'check' ? null : menuOf(tool) ?? state.menu;
   const feat = featureOf(tool);
   if (feat) state.tab = state.design.pod.features.includes(feat) ? 'pod' : 'chassis';
@@ -1796,6 +1825,27 @@ function setTool(tool) {
 }
 
 const ACTIONS = {
+  editorop(el) {
+    try {
+      state.editorSelection=operateSelection(state.design,state.editorSelection,el.dataset.op,{dx:Number($('#editor-dx').value),dy:Number($('#editor-dy').value),name:$('#editor-group-name').value,newId});
+      commit();
+    }catch(e){toast(e.message,true);}
+  },
+  editorgroupselect(el){state.editorSelection=state.design.chassis.features.filter(f=>f.editor?.group===el.dataset.group).map(f=>f.id);renderPanel();},
+  editorclearmeasure(){state.inspection.distance=null;state.inspection.reset++;syncEditorViewport();renderPanel();},
+  async editorinspect(){
+    const i=state.inspection;if(state.busy||i.busy||state.error)return;
+    const token=++i.reset;i.busy=true;i.error=null;i.result=null;renderPanel();syncEditorViewport();
+    try {
+      const body=bodyPlaced().placed;
+      const a=i.pair==='pod'?state.built?.chassis:body;
+      const b=i.pair==='body-chassis'?state.built?.chassis:state.built?.pod;
+      if(!a?.positions?.length||!b?.positions?.length)throw Error('Both parts must exist. Built-in motor mounts have no separate pod.');
+      const result=await call('inspectClearance',{a,b,range:i.range});
+      if(token===i.reset)i.result=result;
+    }catch(e){if(token===i.reset)i.error=e.message;}
+    if(token===i.reset){i.busy=false;syncEditorViewport();renderPanel();}
+  },
   wingpreset(el) {
     const d = state.design, keep = { wall: d.wing.wall, deck: d.wing.deck, fix: d.wing.fix, pins: d.wing.pins, printAs: d.wing.printAs, flat: d.wing.flat };
     // A new wing keeps what belongs to the body and the printing: its wall, its slope, the fixing and how it prints.
@@ -2266,6 +2316,18 @@ function afterChange(path) {
 
 function onChange(e) {
   const el = e.target;
+  if(el.dataset.arrange){const k=el.dataset.arrange,v=k==='name'?el.value:Number(el.value);if(k!=='name'&&(!Number.isFinite(v)||el.value.trim()===''))return renderPanel();state.arrange[k]=v;return;}
+  if(el.dataset.editorCheck){const ids=new Set(state.editorSelection);el.checked?ids.add(el.dataset.editorCheck):ids.delete(el.dataset.editorCheck);state.editorSelection=[...ids];renderPanel();return;}
+  if(el.dataset.editorRef||el.dataset.editorOffset||el.dataset.editorName){
+    const f=featuresOf(state.design).find(f=>f.id===(el.dataset.editorRef||el.dataset.editorOffset||el.dataset.editorName));if(!f)return;
+    try{if(el.dataset.editorName){f.editor??={};f.editor.name=el.value.trim().slice(0,60);}else setReference(state.design,f,el.dataset.editorRef?el.value:f.editor.anchor.reference,el.dataset.editorOffset?(el.value.trim()===''?NaN:Number(el.value)):undefined);commit();}catch(e){toast(e.message,true);renderPanel();}return;
+  }
+  if(el.dataset.inspect){
+    const k=el.dataset.inspect;let v=el.type==='checkbox'?el.checked:el.type==='number'?Number(el.value):el.value;
+    if(typeof v==='number'&&(!Number.isFinite(v)||el.value.trim()===''||(k==='range'&&(v<=0||v>100))))return renderPanel();
+    state.inspection[k]=v;if(k==='pair'||k==='range'){state.inspection.result=null;state.inspection.error=null;state.inspection.busy=false;state.inspection.reset++;}
+    syncEditorViewport();renderPanel();return;
+  }
   if (el.id === 'name') { state.design.name = el.value.trim() || 'New chassis'; return commit(); }
   if (el.id === 'file') return openFile(el);
   const path = el.dataset.path;
@@ -2284,7 +2346,7 @@ function onChange(e) {
     setPath(path, v);
   }
   if (path.startsWith('ui.')) return renderPanel(); // not a change to the design
-  afterChange(path);
+  try{afterChange(path);}catch(e){state.design=JSON.parse(lastSnap);render();toast(e.message,true);return;}
   commit();
 }
 
@@ -2477,4 +2539,4 @@ render();
   rebuild(0);
 })();
 // For the desktop start-up test and for debugging.
-window.slotforgeFrame = { state, ready: () => engineReady };
+window.slotforgeFrame = { state, ready: () => engineReady, projectPoint: p => viewport.projectPoint(p) };

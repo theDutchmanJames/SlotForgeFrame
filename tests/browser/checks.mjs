@@ -1120,6 +1120,36 @@ export const checks = [
     await page.click('#viewbar [data-act=view][data-view=top]');
   }],
 
+  ['weight and balance: shown for a separate pod, a one-piece chassis and a built-in motor mount', async (app) => {
+    const { page, assert } = app;
+    const settled = () => page.waitForFunction(() => { const s = window.slotforgeFrame.state; return s.built && !s.busy; }, null, { timeout: 30000 });
+    // The balance rows hold a weight and a share of the wheelbase, both real numbers.
+    const balanceShown = async (where) => {
+      const text = await page.locator('#panel').innerText();
+      const grams = /Printed parts\s+([\d.]+) g/.exec(text), share = /([\d.]+) % of the wheelbase/.exec(text);
+      assert.ok(grams && Number(grams[1]) > 0, `${where}: a weight (${text.slice(0, 120)})`);
+      assert.ok(share && Number.isFinite(Number(share[1])), `${where}: a balance`);
+      assert.ok(!/NaN|undefined|Infinity/.test(text), `${where}: no broken numbers`);
+    };
+    const design = async (make) => { await page.click('[data-act=pop][data-pop=new]'); await page.click(make); await settled(); };
+    await design('.popmenu [data-act=new][data-scale="1/32"]');
+    await app.tool('print', 'printer');
+    await balanceShown('separate pod, Print > Printer');
+    await design('.popmenu [data-act=newonepiece]');
+    await app.tool('print', 'printer');
+    await balanceShown('one piece, Print > Printer');
+    await design('.popmenu [data-act=new][data-scale="1/24"]');
+    await app.tool('pod', 'base');
+    await page.click('#panel [data-act=builtin][data-v="1"]');
+    await settled();
+    await app.tool('print', 'printer');
+    await balanceShown('built in, Print > Printer');
+    await app.tool('features', 'holder');
+    await page.click('#panel [data-act=addshape][data-type=holder]');
+    await settled();
+    await balanceShown('built in, Features > Magnet / ballast');
+  }],
+
   ['rear wings: a wing is picked, changed, given its own endplate, shown in 3D and exported with its template', async (app) => {
     const { page, assert } = app;
     const wing = () => page.evaluate(() => JSON.parse(JSON.stringify(window.slotforgeFrame.state.design.wing)));

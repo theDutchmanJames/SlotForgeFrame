@@ -5,6 +5,9 @@
 // centre line at Y = 0, X runs from the front to the back.
 // X = 0 is the front axle ("along" is measured from it).
 
+import { cleanEditor, captureAnchored, restoreAnchored } from './feature-tools.js';
+const editorFields=(f,type)=>{const editor=cleanEditor(f?.editor,type);return editor?{editor}:{};};
+
 export const FORMAT = 'slotforge-frame-project';
 export const VERSION = 1;
 
@@ -303,6 +306,7 @@ export function customUsed(d, part) {
 export function moveRear(d, from, to) {
   const shift = to - from, mid = from / 2;
   if (Math.abs(shift) < 1e-6) return;
+  const anchored = captureAnchored(d, to);
   for (const p of find(d.chassis, 'outline').params.points) if (p[0] > mid) p[0] = round(p[0] + shift);
   const fill = find(d.chassis, 'fill').params;
   fill.cross = fill.cross.map((x) => (x > mid ? round(x + shift) : x));
@@ -317,6 +321,7 @@ export function moveRear(d, from, to) {
     for (const q of p.points ?? []) if (q[0] > mid) q[0] = round(q[0] + shift);
     for (const k of ['x0', 'x1', 'along']) if (typeof p[k] === 'number' && p[k] > mid) p[k] = round(p[k] + shift);
   }
+  restoreAnchored(d, anchored, to);
 }
 
 // Heights above the chassis underside (the pod's underside is flush with it).
@@ -890,11 +895,11 @@ function cleanFeatures(defaults, raw, multiSource) {
   raw = Array.isArray(raw) ? raw.filter((f) => f && typeof f === 'object') : [];
   const out = defaults.map((def) => {
     const got = raw.find((f) => f.type === def.type);
-    return { id: newId(), type: def.type, enabled: got ? got.enabled !== false : def.enabled, params: cleanParams(def.params, got?.params, def.type) };
+    return { id: newId(), ...editorFields(got, def.type), type: def.type, enabled: got ? got.enabled !== false : def.enabled, params: cleanParams(def.params, got?.params, def.type) };
   });
   if (multiSource)
     for (const f of raw.filter((x) => MULTI.includes(x.type)).slice(0, 80))
-      out.push({ id: newId(), type: f.type, enabled: f.enabled !== false, params: cleanParams(newShape(f.type, multiSource).params, f.params, f.type) });
+      out.push({ id: newId(), ...editorFields(f, f.type), type: f.type, enabled: f.enabled !== false, params: cleanParams(newShape(f.type, multiSource).params, f.params, f.type) });
   return out;
 }
 const KEY = /^[\w-]{1,64}$/;

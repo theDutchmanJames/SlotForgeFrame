@@ -144,6 +144,14 @@ Frame works along eight menus, roughly in the order you build a car: **Car, Outl
 - **Export for Anvil:** an `.anvilchassis` file with the chassis, the pod and the body-mount spots. Anvil shows them inside the body and builds the posts on those spots.
 - **Body from Anvil:** load the body's STL and turn it the right way up. It shows over the chassis as a ghost or solid. Frame finds its wheel arches and fits the wheelbase and the axles to them, says whether the chassis and the wheels stay inside it, and checks in 3D that nothing of the chassis runs into the body.
 
+### Arrange, select and inspect
+
+- **Position references:** a feature can keep its place from the front axle, the rear axle or the middle of the wheelbase, by an offset you set, so it holds its size and position when the wheelbase changes. Features without a reference resize as before.
+- **Arrange features** (Features menu): duplicate, move, mirror-copy, align and space out ribs, rails, pockets and other repeatable features, and keep them as named groups. Groups and references are saved in projects and in the library.
+- **Select and drag in 3D:** click a part of the chassis or pod in 3D to open its settings; orange handles move it along or across the car, as one undo step. Shift-click adds features to Arrange.
+- **Clearance inspection** (Print menu): section planes across, along or level with the car to look inside; a point-to-point measurement between two clicked surfaces; and the smallest gap, or the overlap, between the chassis, the pod and the body, measured on the real solids.
+- Older versions of Frame can open projects with groups and references, but they leave the groups and references out when they save.
+
 ### Check, then print
 
 - **Printer and material:** nozzle, minimum wall and the fixes for holes that print undersize.

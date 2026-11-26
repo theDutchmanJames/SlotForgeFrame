@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium } from 'playwright-core';
 import { checks } from './browser/checks.mjs';
+import { editorChecks } from './browser/editor-checks.mjs';
 
 const artifact = new URL('../dist/index.html', import.meta.url);
 if (!existsSync(artifact)) throw Error('Build the app with npm run build before running the browser test.');
@@ -103,7 +104,7 @@ try {
     assert,
   };
 
-  for (const [name, check] of checks) {
+  for (const [name, check] of [...checks,...editorChecks]) {
     if (only && !name.toLowerCase().includes(only)) continue;
     ran++;
     const before = [pageErrors.length, consoleErrors.length];

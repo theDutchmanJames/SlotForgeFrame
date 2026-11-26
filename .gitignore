@@ -16,3 +16,5 @@ desktop.ini
 .DS_Store
 # Screenshots a failed browser test leaves behind
 browser-test-failure-*.png
+# Screenshots the browser checks take
+test-results/

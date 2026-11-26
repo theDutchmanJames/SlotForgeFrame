@@ -1,4 +1,5 @@
 // The 3D view: the printed parts as solids, the bought parts as a see-through preview.
+import { installViewportTools } from './viewport-tools.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -20,7 +21,7 @@ function resolve(value) {
   return c ? new THREE.Color(+c[1], +c[2], +c[3]) : new THREE.Color('#888');
 }
 
-export function createViewport(host) {
+export function createViewport(host, { onPick, onMove, onMeasure } = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   host.append(renderer.domElement);
@@ -167,11 +168,14 @@ export function createViewport(host) {
   function draw() {
     renderer.render(scene, camera);
   }
+  const editor = installViewportTools({scene,camera,renderer,controls,groups,draw,onPick,onMove,onMeasure});
   new ResizeObserver(resize).observe(host);
   colours();
 
   return {
     canvas: renderer.domElement,
+    setEditor: editor.set,
+    projectPoint: editor.project,
     set({ chassis, pod, parts, target }) {
       setMesh(groups.chassis, chassis, mats.chassis);
       setMesh(groups.pod, pod, mats.pod);

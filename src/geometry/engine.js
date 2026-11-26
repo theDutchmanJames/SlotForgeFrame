@@ -3,6 +3,7 @@
 // All booleans are done by Manifold, as in SlotForge Foundry.
 
 import { builtIn, find, on, heights, motorOf, gearOf, motorPlace, podLayout, uprightSpread, uprightInner, seatSize, holderSize, flanged, flangeProud, flangeSides, gearSide, asRight, podShift, unshifted, podRide, kickActive, activeKicks, profileOf, bearingOf, couponHoles } from '../model.js';
+import { createClearanceInspector } from './clearance.js';
 import { createAnalyser } from './mesh-measure.js';
 import { layerShape, mirrored, insertOf, insertChecks, ringSizes, modelOf, cutsOf, minDepth, modelScale } from '../inserts.js';
 import { MESHES, STEP } from './jivko-meshes.js';
@@ -1478,5 +1479,5 @@ export function createEngine(wasm) {
     } finally { freeBin(); }
   }
 
-  return { build, coupon, trace, bodyClash, setMesh, dropMesh, insert, insertSet, insertRing, wing, wingPrint, wingTemplate, analyse: (mesh) => analyser.analyse(mesh) };
+  return { inspectClearance: createClearanceInspector(wasm), build, coupon, trace, bodyClash, setMesh, dropMesh, insert, insertSet, insertRing, wing, wingPrint, wingTemplate, analyse: (mesh) => analyser.analyse(mesh) };
 }
