@@ -3,6 +3,8 @@ dist/
 # Parts used for testing are never part of the app
 *.stl
 *.STL
+# ...except Jivko's wheel inserts, which ship with the app (tools/jivko-pack.mjs packs them)
+!assets/jivko-design/*.stl
 *.frame
 # Local agent workspace
 .claude/

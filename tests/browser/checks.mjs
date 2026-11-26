@@ -990,6 +990,46 @@ export const checks = [
     assert.equal(fitted.clear, 0.175);
   }],
 
+  ['ready-made inserts: a design by Jivko is picked, sized, drilled, mirrored and used from the library', async (app) => {
+    const { page, assert } = app;
+    const built = () => page.waitForFunction(() => { const s = window.slotforgeFrame.state, b = s.insBuilt; return b?.data && b.key === JSON.stringify([s.design.inserts.rear, s.design.printer.nozzle, s.design.car.axleD]); }, null, { timeout: 30000 });
+    const rear = () => page.evaluate(() => JSON.parse(JSON.stringify(window.slotforgeFrame.state.design.inserts.rear)));
+    await app.tool('inserts', 'insertRear');
+    await page.click('#panel [data-act=tile][data-path="inserts.rear.base.form"][data-v=model]');
+    await built();
+    assert.equal((await rear()).base.model, 'jivko-abstract', 'the first design');
+    assert.equal(await page.locator('#panel [data-act=insmodel]').count(), 10);
+    // Another design keeps the wheel and the size; the depth stops where the face starts.
+    const od = (await rear()).base.od;
+    await page.click('#panel [data-act=insmodel][data-p="jivko-star"]');
+    await built();
+    assert.equal((await rear()).base.od, od);
+    await app.set('inserts.rear.base.depth', 1);
+    await built();
+    const shallow = await rear();
+    assert.ok(shallow.base.depth > 4, `depth ${shallow.base.depth}`);
+    assert.ok(Math.abs(await app.state(() => window.slotforgeFrame.state.insBuilt.data.size[2]) - shallow.base.depth) < 0.01);
+    await app.set('inserts.rear.base.hole', 3);
+    await built();
+    assert.equal(await app.state(() => window.slotforgeFrame.state.insBuilt.data.pieces), 1);
+    // Star turns one way: the left-hand pair can be mirrored, or not.
+    await page.click('#panel input[data-path="inserts.rear.mirror"]');
+    assert.equal((await rear()).mirror, false);
+    assert.equal(await page.locator('#steps .sp').count(), 1);
+    // From the library: a built-in entry, used for the insert being edited.
+    await page.click('#panel [data-act=library][data-kind=insert]');
+    await page.click('#dialog [data-d=filter][data-filter=builtin]');
+    assert.equal(await page.locator('#dialog .card2').count(), 10);
+    await page.click('#dialog .card2:has-text("Jivko Design - Eight")');
+    assert.ok(await page.locator('#dialog [data-d=delete][disabled]').count(), 'a built-in entry cannot be deleted');
+    await page.click('#dialog [data-d=use]');
+    await built();
+    const used = await rear();
+    assert.equal(used.base.model, 'jivko-eight');
+    assert.equal(used.base.hole, 3, 'the axle hole stays');
+    assert.equal(used.mirror, false, 'the mirroring stays');
+  }],
+
   ['rear wings: a wing is picked, changed, given its own endplate, shown in 3D and exported with its template', async (app) => {
     const { page, assert } = app;
     const wing = () => page.evaluate(() => JSON.parse(JSON.stringify(window.slotforgeFrame.state.design.wing)));

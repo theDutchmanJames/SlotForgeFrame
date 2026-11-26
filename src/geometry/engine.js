@@ -4,7 +4,9 @@
 
 import { find, on, heights, motorOf, gearOf, motorPlace, podLayout, uprightSpread, uprightInner, seatSize, holderSize, flanged, flangeProud, flangeSides, gearSide, asRight, podShift, unshifted, podRide, kickActive, activeKicks, profileOf, bearingOf, couponHoles } from '../model.js';
 import { createAnalyser } from './mesh-measure.js';
-import { layerShape, directional, insertOf, insertChecks, ringSizes } from '../inserts.js';
+import { layerShape, mirrored, insertOf, insertChecks, ringSizes, modelOf, cutsOf, minDepth, modelScale } from '../inserts.js';
+import { MESHES, STEP } from './jivko-meshes.js';
+import { base64ToBytes } from '../library-core.js';
 import { wingSide, legYs, pinsOf, wingChecks, deckZ } from '../wings.js';
 
 // The areas a kick-up lifts, seen from above: [x0, y0, x1, y1] each. `far` is how far 'everything' reaches.
@@ -1181,7 +1183,33 @@ export function createEngine(wasm) {
   // ---------- wheel inserts
   // One insert as it prints: the back on the bed (z = 0), the face up. The 2D pattern is drawn as seen
   // from the front of the face (y down); in the solid +y is up, so it is turned over on the way in.
+  // Ready-made models, unpacked once and kept: { id: Manifold }.
+  const models = new Map();
+  function modelBase(id) {
+    if (!models.has(id)) {
+      const packed = MESHES[id];
+      if (!packed) throw Error('This ready-made insert is missing from this copy of the app.');
+      const pb = base64ToBytes(packed.p), ib = base64ToBytes(packed.i);
+      const q = new Int16Array(pb.buffer, pb.byteOffset, pb.byteLength / 2), idx = new Uint16Array(ib.buffer, ib.byteOffset, ib.byteLength / 2);
+      models.set(id, analyser.solidOf({ positions: Float32Array.from(q, (v) => v / STEP), indices: Uint32Array.from(idx) }));
+    }
+    return models.get(id);
+  }
+  // A ready-made model: the face as drawn, on a back made deeper or shallower, then scaled across to
+  // the insert's diameter. Its height is never scaled, so the face keeps its relief.
+  function modelSolid(ins) {
+    const b = ins.base, m = modelOf(ins), src = modelBase(m.id), { lo, hi } = cutsOf(m);
+    const depth = Math.max(b.depth, minDepth(m)), mid = depth - lo - (m.H - hi), k = modelScale(m, b);
+    const slab = (z0, z1) => K(src.intersect(K(K(Manifold.cube([4 * m.R0, 4 * m.R0, z1 - z0], true)).translate([0, 0, (z0 + z1) / 2]))));
+    const parts = [slab(-1, lo), K(slab(hi, m.H + 1).translate([0, 0, lo + mid - hi]))];
+    // The plain back between them: the model's own cross-section, as long as the depth needs (overlapping both a little).
+    if (mid > -0.005) parts.push(ext(K(src.slice((lo + hi) / 2)), mid + 0.02, lo - 0.01));
+    let solid = K(u3(parts).scale([k, k, 1]));
+    if (b.hole > 0) solid = K(solid.subtract(cylZ(0, 0, -1, depth + 2, b.hole / 2)));
+    return solid;
+  }
   function insertSolid(ins) {
+    if (modelOf(ins)) return modelSolid(ins);
     const b = ins.base, R = b.od / 2, back = b.form === 'cup' ? b.skirt : 0, top = back + b.thick;
     const rings = (list) => u2(list.map((r) => poly(r.map(([x, y]) => [x, -y]))));
     let solid = cylZ(0, 0, back, top, R);
@@ -1251,7 +1279,7 @@ export function createEngine(wasm) {
       const list = [];
       for (const which of ['rear', 'front']) {
         const ins = insertOf(design, which), solid = insertSolid(ins);
-        list.push({ ins, solid }, { ins, solid: directional(ins) ? K(solid.mirror([1, 0, 0])) : solid });
+        list.push({ ins, solid }, { ins, solid: mirrored(ins) ? K(solid.mirror([1, 0, 0])) : solid });
       }
       const gap = Math.max(...list.map((p) => p.ins.base.od)) + 4;
       const all = u3(list.map(({ ins, solid }, i) => K(placed(solid, ins.faceDown).translate([(i % 2) * gap, Math.floor(i / 2) * gap, 0]))));

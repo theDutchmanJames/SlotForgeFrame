@@ -3,7 +3,7 @@ import { library } from './library.js';
 import { cleanItem, encodeShare, decodeShare, packMesh, unpackMesh, thumbOf, newItemId } from './library-core.js';
 import { readSTL, orient, guessOrientation, UPS } from './geometry/stl-read.js';
 import { pickMounts } from './geometry/mesh-measure.js';
-import { cleanInsert, LAYER_NAMES } from './inserts.js';
+import { cleanInsert, LAYER_NAMES, MODELS, MODEL_IDS, modelOf, modelInsert } from './inserts.js';
 import { cleanWing, ENDPLATES } from './wings.js';
 import { cleanPart, round, motorOf, gearOf, find, adopt, moveRear, meshCentre, useBearing, FEATURE_NAMES } from './model.js';
 import { KINDS as COMPONENTS, COMPONENT_KINDS, builtins } from './components.js';
@@ -44,9 +44,22 @@ export function createDialogs(ctx) {
     if (!shown.some((x) => x.id === dlg.sel)) dlg.sel = shown[0]?.id ?? null;
     drawLibrary();
   }
-  // What the list shows: your own entries, and for components the built-in ones after them.
+  // The ready-made wheel inserts that come with the app, sized for the insert being edited.
+  function builtinInserts() {
+    const base = ctx.state.design.inserts[ctx.insertKey()].base;
+    return MODEL_IDS.map((id) => {
+      const m = MODELS[id];
+      return { id: 'builtin:' + id, kind: 'insert', name: m.title, builtin: true, source: 'builtin', scale: ctx.state.design.scale, thumb: thumbOf(m.rings), data: { insert: modelInsert(id, base) } };
+    });
+  }
+  // What the list shows: your own entries, and for components and wheel inserts the built-in ones after them.
   function visible() {
     const mine = dlg.items.filter((x) => x.kind === dlg.kind);
+    if (dlg.kind === 'insert') {
+      if (dlg.filter === 'builtin') return builtinInserts();
+      const own = mine.filter((x) => dlg.filter === 'all' || x.source === dlg.filter);
+      return dlg.filter === 'all' ? [...own, ...builtinInserts()] : own;
+    }
     if (!isComponent(dlg.kind)) return mine.filter((x) => dlg.filter === 'all' || x.source === dlg.filter);
     const built = builtins(dlg.kind).map(({ id, ...data }) => ({ id: 'builtin:' + id, kind: dlg.kind, name: data.name, builtin: true, data }));
     return dlg.filter === 'made' ? mine : dlg.filter === 'builtin' ? built : [...mine, ...built];
@@ -60,10 +73,13 @@ export function createDialogs(ctx) {
     return `<svg viewBox="${t.vb.map(Number).join(' ')}" preserveAspectRatio="xMidYMid meet"><path class="${item.kind === 'pod' ? 'pod shape' : 'plate fill'}" fill-rule="evenodd" d="${esc(t.d)}"/></svg>`;
   }
   function details(item) {
-    const d = item.data, rows = [['Kind', KIND_NAME[item.kind]], ['Scale', item.scale], ['Source', item.source === 'imported' ? 'Imported STL' : 'Made here']];
+    const d = item.data, rows = [['Kind', KIND_NAME[item.kind]], ...(item.builtin ? [] : [['Scale', item.scale]]), ['Source', item.builtin ? 'Built in' : item.source === 'imported' ? 'Imported STL' : 'Made here']];
     if (item.kind === 'wing') {
       const w = d.wing;
       rows.push(['Size', `${f2(w.span)} × ${f2(w.chord)}, ${f2(w.angle)}°`], ['Endplates', ENDPLATES[w.plate]], ['Legs', `${w.count} ${w.legs === 'swan' ? 'swan neck' : 'post'}${w.count === 1 ? '' : 's'}, ${w.fix === 'melt' ? 'melted pins' : 'glued'}`]);
+    } else if (item.kind === 'insert' && modelOf(d.insert)) {
+      const b = d.insert.base, m = modelOf(d.insert);
+      rows.push(['Design', `${m.name}, by Jivko`], ['Size', `Ø${f2(b.od)} × ${f2(b.depth)}`], ['Face', `${f2(m.faceDepth)} deep, as drawn`], ['Axle hole', b.hole > 0 ? `Ø${f2(b.hole)}` : 'none'], ['Turns one way', m.directional ? 'yes: mirrored for the other side' : 'no']);
     } else if (item.kind === 'insert') {
       const b = d.insert.base;
       rows.push(['Diameter', `Ø${f2(b.od)} × ${f2(b.thick)}`], ['For a wheel of', `Ø${f2(b.wheelD)}, pocket Ø${f2(b.pocketD)}`], ['Pattern', d.insert.layers.map((l) => LAYER_NAMES[l.type]).join(', ') || 'plain']);
@@ -74,7 +90,7 @@ export function createDialogs(ctx) {
       const fake = { drivetrain: d.drivetrain, custom: d.custom };
       rows.push(['Layout', d.drivetrain.layout], ['Motor', motorOf(fake).name], ['Gears', `${gearOf(fake).gearT} / ${gearOf(fake).pinionT}`], ['Offset', f2(d.drivetrain.offset)]);
     } else rows.push(['Wheelbase', f2(d.car.wheelbase)], ['Features', d.features.length], ['Shaping', d.features.filter((f) => !['outline', 'podOpening', 'fill', 'guide', 'frontAxle', 'podMounts', 'bodyMounts', 'kickup', 'profile', 'kickfront', 'split'].includes(f.type)).map((f) => FEATURE_NAMES[f.type]).join(', ') || 'none']);
-    rows.push(['Changed', when(item.updated)]);
+    if (!item.builtin) rows.push(['Changed', when(item.updated)]);
     return rows.map(([k, v]) => `<span>${k}</span><b>${esc(v)}</b>`).join('');
   }
 
@@ -97,22 +113,22 @@ export function createDialogs(ctx) {
 
   function drawLibrary() {
     const shown = visible(), cur = current(), comp = isComponent(dlg.kind), k = comp ? COMPONENTS[dlg.kind] : null;
-    const count = (kind) => dlg.items.filter((x) => x.kind === kind).length + (isComponent(kind) ? builtins(kind).length : 0);
+    const count = (kind) => dlg.items.filter((x) => x.kind === kind).length + (isComponent(kind) ? builtins(kind).length : kind === 'insert' ? MODEL_IDS.length : 0);
     const design = ctx.state.design;
     const cat = (kind, label) => `<button class="${dlg.kind === kind ? 'on' : ''}" data-d="kind" data-kind="${kind}">${label}<small>${count(kind)}</small></button>`;
-    const filters = comp ? [['all', 'All'], ['made', 'Yours'], ['builtin', 'Built in']] : [['all', 'All'], ['made', 'Made here'], ['imported', 'Imported']];
+    const filters = comp ? [['all', 'All'], ['made', 'Yours'], ['builtin', 'Built in']] : dlg.kind === 'insert' ? [['all', 'All'], ['made', 'Made here'], ['builtin', 'Built in']] : [['all', 'All'], ['made', 'Made here'], ['imported', 'Imported']];
     const list = !shown.length
       ? `<div class="note">${comp ? `None of your own yet. <b>New ${k.one.toLowerCase()}</b> starts one, or duplicate a built-in one to change it.` : `No ${{ pod: 'pods', chassis: 'chassis', insert: 'wheel inserts', wing: 'rear wings' }[dlg.kind]} here yet. Add this design's ${dlg.kind === 'wing' ? 'rear wing' : dlg.kind}${dlg.kind === 'insert' || dlg.kind === 'wing' ? '' : ', import an STL'}, or open a library file someone shared with you.`}</div>`
       : comp
         ? `<div class="plist tall">${shown.map((x) => `<div class="prow ${x.id === dlg.sel ? 'cur' : ''}" data-d="sel" data-id="${esc(x.id)}"><span>${esc(x.data.name)}<small>${esc(k.line(x.data))}</small></span>${x.builtin ? '<span class="pill">Built in</span>' : '<span class="pill ok">Yours</span>'}${k.noConfirm || x.data.confirmed ? '' : '<span class="pill un">Unconfirmed</span>'}</div>`).join('')}</div>`
-        : `<div class="cards">${shown.map((x) => `<div class="card2 ${x.id === dlg.sel ? 'on' : ''}" data-d="sel" data-id="${esc(x.id)}"><div class="thumb">${thumb(x)}</div><b>${esc(x.name)}</b><small>${x.source === 'imported' ? 'Imported STL' : 'Made here'} · ${esc(x.scale)}</small></div>`).join('')}</div>`;
+        : `<div class="cards">${shown.map((x) => `<div class="card2 ${x.id === dlg.sel ? 'on' : ''}" data-d="sel" data-id="${esc(x.id)}"><div class="thumb">${thumb(x)}</div><b>${esc(x.name)}</b><small>${x.builtin ? 'Built in · any scale' : `${x.source === 'imported' ? 'Imported STL' : 'Made here'} · ${esc(x.scale)}`}</small></div>`).join('')}</div>`;
     const detail = !cur ? '<div class="muted">Nothing chosen.</div>'
       : comp ? componentDetail(cur) + (dlg.kind === 'car' && cur.data.scale !== design.scale ? `<div class="note warn">This car is ${esc(cur.data.scale)}; the design is ${esc(design.scale)}. Only the wheelbase is taken over.</div>` : dlg.kind === 'car' ? '<div class="note">Using this car sets the wheelbase, and the tyres and the track where they are known. Length, width and weight are there to compare with.</div>' : '')
-      : `<div><span class="eyebrow">${KIND_NAME[cur.kind]}</span>
-            <input class="name" data-d="rename" value="${esc(cur.name)}" aria-label="Name" spellcheck="false" style="font: italic 700 20px/1.1 var(--font-title); text-transform: uppercase; width: 100%; background: none; border: 0; border-bottom: 1px dashed var(--line); color: var(--ink); padding: 2px 0"></div>
+      : `<div><span class="eyebrow">${KIND_NAME[cur.kind]}${cur.builtin ? ' · built in' : ''}</span>
+            ${cur.builtin ? `<div class="cond">${esc(cur.name)}</div>` : `<input class="name" data-d="rename" value="${esc(cur.name)}" aria-label="Name" spellcheck="false" style="font: italic 700 20px/1.1 var(--font-title); text-transform: uppercase; width: 100%; background: none; border: 0; border-bottom: 1px dashed var(--line); color: var(--ink); padding: 2px 0">`}</div>
           <div class="kv">${details(cur)}</div>
-          ${cur.kind === 'wing' ? '<div class="note">Using this wing replaces the design\'s rear wing. The chassis, the pod and the inserts stay.</div>' : cur.kind === 'insert' ? `<div class="note">Using this insert replaces the one you are editing in Inserts (the ${ctx.insertKey()} insert). The chassis and the pod stay.</div>` : cur.kind === 'chassis' ? `<div class="note">Using this chassis replaces the current chassis and the car's sizes. The pod stays.</div>` : `<div class="note">Using this pod replaces the current pod${cur.data.imported ? '' : ' and drivetrain'}. The chassis follows it.</div>`}
-          ${cur.scale !== design.scale ? `<div class="note warn">This part is ${esc(cur.scale)}; the design is ${esc(design.scale)}.</div>` : ''}`;
+          ${cur.kind === 'wing' ? '<div class="note">Using this wing replaces the design\'s rear wing. The chassis, the pod and the inserts stay.</div>' : cur.kind === 'insert' && cur.builtin ? `<div class="note">Designed by Jivko, and included with the designer's permission. Using it replaces the ${ctx.insertKey()} insert; your wheel, the diameter and the axle hole stay, and you set the depth in Inserts. Built-in entries cannot be changed: <b>This design's ${ctx.insertKey()} insert</b> keeps your version in the library.</div>` : cur.kind === 'insert' ? `<div class="note">Using this insert replaces the one you are editing in Inserts (the ${ctx.insertKey()} insert). The chassis and the pod stay.</div>` : cur.kind === 'chassis' ? `<div class="note">Using this chassis replaces the current chassis and the car's sizes. The pod stays.</div>` : `<div class="note">Using this pod replaces the current pod${cur.data.imported ? '' : ' and drivetrain'}. The chassis follows it.</div>`}
+          ${!cur.builtin && cur.scale !== design.scale ? `<div class="note warn">This part is ${esc(cur.scale)}; the design is ${esc(design.scale)}.</div>` : ''}`;
     const own = cur && !cur.builtin;
     host.innerHTML = `<div class="scrim" data-d="scrim"><div class="win" role="dialog" aria-label="Library">
       <header><div><span class="eyebrow">Parts library · ${library.where() === 'file' ? 'kept in a file on this computer' : 'kept in this browser'}</span><h2 class="sf-title">Library</h2></div>
@@ -206,6 +222,14 @@ export function createDialogs(ctx) {
     ctx.toast(`Now using "${item.name}".`);
   }
 
+  // A ready-made insert: the one being edited in Inserts takes the design, and keeps its wheel, size, hole and mirroring.
+  function useBuiltinInsert(row) {
+    const d = ctx.state.design, key = ctx.insertKey(), was = d.inserts[key];
+    d.inserts[key] = { ...modelInsert(row.id.slice(8), was.base), mirror: was.mirror !== false };
+    close();
+    ctx.commit();
+    ctx.toast(`Now using "${row.name}".`);
+  }
   // Puts a component to work in the open design. Your own ones are copied into the design.
   function useComponent(row) {
     const d = ctx.state.design, kind = row.kind, c = cleanPart(kind, row.data), id = row.builtin ? row.id.slice(8) : row.id;
@@ -293,6 +317,7 @@ export function createDialogs(ctx) {
     use() {
       const cur = current();
       if (!cur) return;
+      if (cur.kind === 'insert' && cur.builtin) return useBuiltinInsert(cur);
       return isComponent(cur.kind) ? useComponent(cur) : useItem(cur.id);
     },
   };

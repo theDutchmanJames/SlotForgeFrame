@@ -12,7 +12,7 @@ wasm.setup();
 const engine = createEngine(wasm);
 const bad = (notes) => notes.filter((n) => !n.ok && !n.soft).map((n) => n.title);
 const build = (ins) => engine.insert({ insert: ins, nozzle: 0.4, axleD: 2.38 });
-const withPreset = (name, base = newDesign().inserts.rear.base) => ({ ...presetFor(name, base), faceDown: false });
+const withPreset = (name, base = newDesign().inserts.rear.base) => ({ ...presetFor(name, base), faceDown: false, mirror: true });
 
 test('a new design has a rear and a front insert, the same, sized for its scale', () => {
   for (const scale of ['1/32', '1/24']) {

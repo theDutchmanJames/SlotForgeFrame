@@ -18,7 +18,7 @@ import {
   encodeProject, decodeProject, createHistory, MATERIALS, FEATURE_NAMES, MULTI, newShape, shapesOf, gearsFor, bearingOf, guideOf, choicesFor, moveRear, couponHoles,
 } from './model.js';
 import { WING_PRESETS, ENDPLATES, FLAT_SIDES, wingPreset, wingSide, legYs, pinsOf, deckZ, cleanWing } from './wings.js';
-import { newInserts, ringSizes, RING_COUNT, PRESETS as INSERT_PRESETS, LAYER_TYPES, LAYER_NAMES, MODES, MODE_NAMES, presetFor, newLayer, layerShape, circle as insCircle, directional, fitToSegment, cleanInsert } from './inserts.js';
+import { newInserts, ringSizes, RING_COUNT, PRESETS as INSERT_PRESETS, LAYER_TYPES, LAYER_NAMES, MODES, MODE_NAMES, presetFor, newLayer, layerShape, circle as insCircle, directional, fitToSegment, cleanInsert, MODELS, MODEL_IDS, modelOf, modelInsert, minDepth, modelScale } from './inserts.js';
 // ?inline: the pictures are built into the page, which is the only file the desktop app ships.
 import iconUrl from './assets/slotforge-frame.svg?inline';
 import wordmarkDark from './assets/frame-dark.svg?inline';
@@ -497,7 +497,14 @@ function rebuildInsert(delay = 40) {
 // The face of an insert as SVG: its base, then each layer through a mask (white: its area, black: what it keeps).
 // `id` keeps the masks of several drawings on one page apart.
 function insertFace(ins, id = 'f', o = {}) {
-  const b = ins.base, R = b.od / 2, defs = [], out = [], box = R + 30;
+  const b = ins.base, R = b.od / 2, defs = [], out = [], box = R + 30, m = modelOf(ins);
+  // A ready-made model: its back as seen from the front, with its openings, scaled to the diameter.
+  if (m) {
+    const k = modelScale(m, b);
+    out.push(`<path class="ins-base" fill-rule="evenodd" d="${ringPath(m.rings.map((r) => r.map(([x, y]) => [x * k, y * k])))}"/>`);
+    if (b.hole > 0) out.push(`<circle class="ins-cut" r="${b.hole / 2}"/>`);
+    return { defs: '', body: out.join('') };
+  }
   out.push(`<circle class="ins-base" r="${R}"/>`);
   if (b.dish > 0) {
     defs.push(`<radialGradient id="${id}dish"><stop offset="0" stop-color="#000" stop-opacity=".32"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>`);
@@ -546,6 +553,8 @@ function insertSection() {
   const host = $('#insec');
   if (!host) return;
   const ins = insCur(), b = ins.base, R = b.od / 2, P = b.pocketD / 2, pd = b.pocketDepth, wr = b.wheelD / 2, W = Math.max(6, pd + 4.5);
+  const m = modelOf(ins);
+  if (m) return modelSection(host, ins, m);
   const back = b.form === 'cup' ? b.skirt : 0, t = b.thick, sink = Math.min(Math.max(0, b.sink), t - 0.4);
   const raise = Math.max(0, ...ins.layers.filter((l) => l.mode === 'raise').map((l) => l.h - sink));
   const face = pd - back - t; // where the outer ring's top lies, measured in from the wheel's outer face (0)
@@ -564,6 +573,19 @@ function insertSection() {
     <div class="muted ins-sec">Wheel Ø${f2(b.wheelD)} · pocket Ø${f2(b.pocketD)} × ${f2(pd)}<br>Face out to the left: ${where}</div>`;
 }
 const d2 = (v) => v / 2;
+// A ready-made model in the wheel: its back on the bottom of the pocket, its face (as drawn) out to the left.
+function modelSection(host, ins, m) {
+  const b = ins.base, R = b.od / 2, P = b.pocketD / 2, pd = b.pocketDepth, wr = b.wheelD / 2, depth = b.depth;
+  const top = pd - depth, W = Math.max(6, pd + 4.5), x0 = Math.min(-1, top - 1), fd = m.faceDepth;
+  let s = `<rect class="ins-tyre" x="0" y="${-wr - 2.2}" width="${W}" height="2.2"/><rect class="ins-tyre" x="0" y="${wr}" width="${W}" height="2.2"/>`;
+  s += `<path class="ins-alu" d="M0 ${-wr}H${W}V${wr}H0V${P}H${pd}V${-P}H0Z"/><rect class="ins-cut" x="${pd}" y="${-d2(state.design.car.axleD)}" width="${W - pd + 0.01}" height="${2 * d2(state.design.car.axleD)}"/>`;
+  // The face keeps its height: it is drawn apart from the back, which is what the depth changes.
+  s += `<rect class="ins-part" x="${top + fd}" y="${-R}" width="${depth - fd}" height="${2 * R}"/><rect class="ins-raise" x="${top}" y="${-R}" width="${fd}" height="${2 * R}"/>`;
+  if (b.hole > 0) s += `<rect class="ins-cut" x="${top - 0.5}" y="${-b.hole / 2}" width="${depth + 0.52}" height="${b.hole}"/>`;
+  const where = top < -0.01 ? `stands ${f2(-top)} out of the wheel` : `${f2(top)} below the wheel's face`;
+  host.innerHTML = `<div class="top"><span class="eyebrow">Section</span><span class="muted">${esc(m.name)}</span></div><svg viewBox="${x0} ${-wr - 2.6} ${W - x0 + 1} ${2 * wr + 5.2}">${s}</svg>
+    <div class="muted ins-sec">Wheel Ø${f2(b.wheelD)} · pocket Ø${f2(b.pocketD)} × ${f2(pd)}<br>Face ${f2(fd)} deep, back ${f2(depth - fd)} · ${where}</div>`;
+}
 function insertLights() {
   const c = state.insBuilt, notes = c?.data?.notes ?? [], bad = notes.filter((n) => !n.ok && !n.soft).length, soft = notes.filter((n) => !n.ok && n.soft).length;
   if (c?.error) return `<span><i class="dot bad"></i>${esc(c.error)}</span>`;
@@ -579,6 +601,13 @@ const layerLine = (L) => L.type === 'spokes' ? `${L.count}${L.split ? ' split' :
 function insertSteps() {
   const ins = insCur(), d = state.design;
   $('#tabs').innerHTML = `<button class="on">Layers · ${ins.layers.length}</button><button data-act="tool" data-tool="${state.tool === 'insertFront' ? 'insertRear' : 'insertFront'}">${state.tool === 'insertFront' ? 'Rear' : 'Front'} insert${d.inserts.same ? ' (same)' : ''}</button>`;
+  const m = modelOf(ins);
+  if (m) {
+    $('#tabs').innerHTML = $('#tabs').innerHTML.replace(/Layers · \d+/, 'Ready-made');
+    $('#steps').innerHTML = `<div class="sp cur"><span class="n">1</span><span class="t">${esc(m.title)}<small>Ø${f2(ins.base.od)} × ${f2(ins.base.depth)}${ins.base.hole > 0 ? ` · axle hole Ø${f2(ins.base.hole)}` : ''}</small></span><span></span></div>
+      <div class="note">A ready-made design has no layers. Choose <b>Flat disc</b> or <b>Cup with skirt</b> in the panel to make your own pattern.</div>`;
+    return;
+  }
   $('#steps').innerHTML = ins.layers.map((L, i) => `
     <div class="sp ${i === state.insSel ? 'cur' : ''}" data-act="inssel" data-i="${i}">
       <span class="n">${i + 1}</span><span class="t">${LAYER_NAMES[L.type]} · ${MODE_NAMES[L.mode].toLowerCase()}<small>${esc(layerLine(L))}</small></span><span></span>
@@ -595,11 +624,12 @@ const PANEL_INSERT = (d) => {
     <label class="f">The insert</label>` + tiles(IP('base.form'), [
       ['disc', 'Flat disc', '<circle cx="17" cy="12" r="9"/><circle cx="17" cy="12" r="2"/>'],
       ['cup', 'Cup with skirt', '<path d="M6 7h22M6 7v10h22V7"/><path d="M10 17v4M24 17v4"/>'],
-    ], 3) + `<div class="g2">${num('Diameter', IP('base.od'), 'mm', { min: 2 })}${num('Thickness', IP('base.thick'), 'mm', { min: 0.3 })}${num('Dish (hollow face)', IP('base.dish'), 'mm', { min: 0 })}${num('Centre hole (0: none)', IP('base.hole'), 'mm', { min: 0 })}${num('Face depth (0: flush)', IP('base.sink'), 'mm', { min: 0 })}${b.sink > 0 ? num('Outer ring width', IP('base.lip'), 'mm', { min: 0 }) : ''}${b.form === 'cup' ? num('Skirt length', IP('base.skirt'), 'mm', { min: 0.3 }) + num('Skirt wall', IP('base.wall'), 'mm', { min: 0.3 }) : ''}</div>
+      ['model', 'Ready-made', '<circle cx="17" cy="12" r="9"/><path d="M17 3.5v6M17 14.5v6M8.5 12h6M19.5 12h6"/><circle cx="17" cy="12" r="2.4"/>'],
+    ], 3) + (b.form === 'model' ? modelPanel(ins) : `<div class="g2">${num('Diameter', IP('base.od'), 'mm', { min: 2 })}${num('Thickness', IP('base.thick'), 'mm', { min: 0.3 })}${num('Dish (hollow face)', IP('base.dish'), 'mm', { min: 0 })}${num('Centre hole (0: none)', IP('base.hole'), 'mm', { min: 0 })}${num('Face depth (0: flush)', IP('base.sink'), 'mm', { min: 0 })}${b.sink > 0 ? num('Outer ring width', IP('base.lip'), 'mm', { min: 0 }) : ''}${b.form === 'cup' ? num('Skirt length', IP('base.skirt'), 'mm', { min: 0.3 }) + num('Skirt wall', IP('base.wall'), 'mm', { min: 0.3 }) : ''}</div>
     <label class="f">Start from a pattern <span class="muted">(replaces the layers; the wheel and the size stay)</span></label>
     <div class="ins-presets">${PRESET_NAMES.map((n, k) => { const p = { base: b, ...presetFor(n, b) }, fc = insertFace(p, 'p' + k), r = b.od / 2 + 0.3; return `<button class="ins-pre" data-act="inspreset" data-p="${esc(n)}"><svg viewBox="${-r} ${-r} ${2 * r} ${2 * r}"><defs>${fc.defs}</defs>${fc.body}</svg>${esc(n)}</button>`; }).join('')}</div>
-    <label class="f">Add a layer</label><div class="ins-add">${LAYER_TYPES.map((t) => `<button class="btn sm ghost" data-act="insadd" data-t="${t}">${ico('plus')}${LAYER_NAMES[t]}</button>`).join('')}</div>`;
-  if (L) {
+    <label class="f">Add a layer</label><div class="ins-add">${LAYER_TYPES.map((t) => `<button class="btn sm ghost" data-act="insadd" data-t="${t}">${ico('plus')}${LAYER_NAMES[t]}</button>`).join('')}</div>`);
+  if (L && b.form !== 'model') {
     h += `<div class="head" style="margin-top:6px"><span class="eyebrow">Layer ${i + 1}</span><div class="cond">${LAYER_NAMES[L.type]}</div></div>
       <div class="seg wide">${MODES.map((m) => segBtn(LP('mode'), m, MODE_NAMES[m])).join('')}</div>`;
     const depth = L.mode !== 'cut' ? num(L.mode === 'raise' ? 'Height' : 'Depth', LP('h'), 'mm', { min: 0.05 }) : '';
@@ -614,11 +644,25 @@ const PANEL_INSERT = (d) => {
     h += `<div class="row"><button class="btn sm ghost" data-act="insmove" data-v="-1" ${i > 0 ? '' : 'disabled'}>Move up</button><button class="btn sm ghost" data-act="insmove" data-v="1" ${i < ins.layers.length - 1 ? '' : 'disabled'}>Move down</button><button class="btn sm ghost" data-act="insdel" data-i="${i}">${ico('trash')}Remove</button></div>
       <div class="note">Layers are made in order, top of the list first: a layer further down works on what the ones before it left.</div>`;
   }
-  h += `<label class="f">Print</label>${chk('Print face down (the face needs to be flat)', IP('faceDown'))}
-    <div class="note">${directional(ins) ? 'This pattern bends one way, so the set has two of it and two mirrored, one for each side of the car.' : 'The set is two rear and two front inserts on one plate.'} Small details print best with a 0.25 mm nozzle, or on a resin printer.</div>
+  h += `<label class="f">Print</label>${b.form === 'model' ? '<div class="note">Printed as it stands: the flat back on the bed, the face up.</div>' : chk('Print face down (the face needs to be flat)', IP('faceDown'))}
+    ${directional(ins) ? chk('Mirror the left-hand pair', IP('mirror')) : ''}
+    <div class="note">${!directional(ins) ? 'The set is two rear and two front inserts on one plate.' : ins.mirror !== false ? 'This pattern turns one way, so the set has two of it and two mirrored, one for each side of the car.' : 'This pattern turns one way; all four are the same, so the two sides of the car turn opposite ways.'} Small details print best with a 0.25 mm nozzle, or on a resin printer.</div>
     <div class="row"><button class="btn primary" data-act="exportinserts">${ico('export')}Export the set of 4</button><button class="btn sm ghost" data-act="tool" data-tool="insertRing">${ico('coupon')}Calibration ring</button><button class="btn sm ghost" data-act="library" data-kind="insert">${ico('library')}Library</button></div>`;
   return h;
 };
+// The ready-made part of the insert panel: the designs to choose from, and their size.
+function modelPanel(ins) {
+  const b = ins.base, m = modelOf(ins), min = minDepth(m), k = modelScale(m, b), hub = 2 * m.hubR * k;
+  const tile = (id) => {
+    const x = MODELS[id], r = x.R0 + 0.3, path = ringPath(x.rings);
+    return `<button class="ins-pre ${id === b.model ? 'on' : ''}" data-act="insmodel" data-p="${esc(id)}" title="${esc(x.title)}"><svg viewBox="${-r} ${-r} ${2 * r} ${2 * r}"><path class="ins-base" fill-rule="evenodd" d="${path}"/></svg>${esc(x.name)}</button>`;
+  };
+  return `<label class="f">Design <span class="muted">(${esc(m.maker)})</span></label>
+    <div class="ins-presets">${MODEL_IDS.map(tile).join('')}</div>
+    <div class="g2">${num('Diameter', IP('base.od'), 'mm', { min: 2 })}${num('Depth', IP('base.depth'), 'mm', { min })}${num('Axle hole (0: none)', IP('base.hole'), 'mm', { min: 0 })}</div>
+    <div class="note">The diameter scales the design across only: the face stays ${f2(m.faceDepth)} mm deep, as drawn, and the depth changes the plain back behind it (at least ${f2(min)} mm in all). At this size the solid hub is Ø${f2(hub)}.</div>
+    <div class="note">Designed by Jivko, and included with the designer's permission.</div>`;
+}
 const PANEL_RING = (d) => {
   const ins = d.inserts, sizes = ringSizes(ins.ring), mid = (RING_COUNT - 1) / 2;
   const ends = ins.same ? [['rear', 'Which one fitted?']] : [['rear', 'Which one fitted the rear wheels?'], ['front', 'Which one fitted the front wheels?']];
@@ -1684,6 +1728,16 @@ const ACTIONS = {
     state.insPt = null;
     commit();
   },
+  // A ready-made design: the wheel, the size, the hole and the mirroring stay.
+  insmodel(el) {
+    const key = insKey(), ins = insCur(), depth = ins.base.form === 'model' ? ins.base.depth : null;
+    const next = modelInsert(el.dataset.p, ins.base);
+    if (depth != null) next.base.depth = Math.max(depth, minDepth(MODELS[el.dataset.p]));
+    state.design.inserts[key] = { ...next, mirror: ins.mirror !== false };
+    state.insSel = 0;
+    state.insPt = null;
+    commit();
+  },
   insfit() {
     const b = insCur().base;
     b.od = round(b.pocketD - 2 * b.clear, 3);
@@ -1993,7 +2047,12 @@ function afterChange(path) {
   // The front starts as a copy of the rear, unless it already has a design of its own (it is not the fresh one).
   // A cup prints face down (face up, its face would be printed in the air over the skirt); a disc face up.
   const form = /^inserts\.(rear|front)\.base\.form$/.exec(path);
-  if (form) d.inserts[form[1]].faceDown = d.inserts[form[1]].base.form === 'cup';
+  if (form) {
+    const ins = d.inserts[form[1]];
+    // Ready-made: the first design (or the one chosen before), keeping the wheel, the size and the hole.
+    if (ins.base.form === 'model') d.inserts[form[1]] = { ...modelInsert(MODELS[ins.base.model] ? ins.base.model : MODEL_IDS[0], ins.base), mirror: ins.mirror !== false };
+    else ins.faceDown = ins.base.form === 'cup';
+  }
   if (path === 'wing.fix') d.wing.pins = d.wing.fix === 'glue' ? 0 : Math.max(1, d.wing.pins);
   if (path === 'inserts.same' && !d.inserts.same && JSON.stringify(d.inserts.front) === JSON.stringify(newInserts(d.scale).front))
     d.inserts.front = cleanInsert(JSON.parse(JSON.stringify(d.inserts.rear)), d.scale);

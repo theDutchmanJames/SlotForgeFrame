@@ -1,7 +1,10 @@
 // Wheel inserts: a disc, or a cup with a skirt, that presses into the pocket in the face of an
 // aluminium wheel, with a pattern on its face. The pattern is a list of layers; each one repeats
 // round the centre by itself and is cut through, sunk into the face or raised from it.
+// Or a ready-made model: one of Jivko's designs, scaled across to fit and with the back made deeper
+// or shallower, so the face keeps its height and its detail.
 // Pure data and 2D shapes (mm, centre at 0,0, y down as drawn): the app draws them, the engine builds them.
+import { JIVKO } from './jivko.js';
 
 export const LAYER_TYPES = ['spokes', 'holes', 'ring', 'bolts', 'draw'];
 export const LAYER_NAMES = { spokes: 'Spokes', holes: 'Holes', ring: 'Ring', bolts: 'Bolts & nut', draw: 'Draw your own' };
@@ -15,7 +18,26 @@ const WHEELS = {
 };
 export function newBase(scale = '1/32') {
   const w = WHEELS[scale] ?? WHEELS['1/32'], clear = 0.1;
-  return { form: 'disc', ...w, clear, od: round(w.pocketD - 2 * clear), thick: round(Math.max(0.6, w.pocketDepth - 0.4)), dish: 0, lip: 0.5, sink: 0, hole: 2.6, skirt: 1.5, wall: 0.6 };
+  return { form: 'disc', ...w, clear, od: round(w.pocketD - 2 * clear), thick: round(Math.max(0.6, w.pocketDepth - 0.4)), dish: 0, lip: 0.5, sink: 0, hole: 2.6, skirt: 1.5, wall: 0.6, model: '', depth: 0 };
+}
+
+// ------------------------------------------------------------ ready-made models
+// Each: { id, name, R0, H, zb, zf, faceDepth, hubR, directional, rings } (see tools/jivko-pack.mjs).
+export const MODELS = Object.fromEntries(JIVKO.map((m) => [m.id, { ...m, maker: 'Jivko Design', title: `Jivko Design - ${m.name}` }]));
+export const MODEL_IDS = Object.keys(MODELS);
+export const modelOf = (ins) => (ins?.base?.form === 'model' ? MODELS[ins.base.model] ?? null : null);
+// The back is kept at least this thick under the face (and never thinner than its own details at the bed).
+export const MIN_BACK = 0.6;
+// Where the engine cuts the model to make the back deeper or shallower: just inside the plain back.
+export const cutsOf = (m) => ({ lo: m.zb + 0.05, hi: m.zf - 0.05 });
+export const minDepth = (m) => { const c = cutsOf(m); return Math.ceil((m.H - c.hi + Math.max(MIN_BACK, c.lo)) * 100) / 100; };
+// Across, the model is scaled to the insert's diameter; its height is never scaled.
+export const modelScale = (m, base) => base.od / (2 * m.R0);
+// A ready-made model for this wheel: the wheel, the size and the centre hole stay; the back starts 1 mm thicker than it must be.
+export function modelInsert(id, base) {
+  const m = MODELS[id];
+  if (!m) throw Error('Not a ready-made insert this app knows.');
+  return { base: { ...base, form: 'model', model: id, depth: round(minDepth(m) + 1, 2), dish: 0, sink: 0 }, layers: [], faceDown: false, mirror: true };
 }
 // A fresh layer of each type, sized for an insert of radius R.
 export function newLayer(type, R = 5.9) {
@@ -67,7 +89,7 @@ export function presetFor(name, base) {
 
 export function newInsert(scale = '1/32') {
   const base = newBase(scale);
-  return { ...presetFor('5-spoke', base), faceDown: false };
+  return { ...presetFor('5-spoke', base), faceDown: false, mirror: true };
 }
 // The calibration ring: seven discs round a middle size you set (your best guess at the pocket),
 // `step` apart. Disc 4 is the middle one.
@@ -81,9 +103,9 @@ export function newInserts(scale = '1/32') {
 export const insertOf = (d, which) => (which === 'front' && !d.inserts.same ? d.inserts.front : d.inserts.rear);
 
 // ------------------------------------------------------------ checking what a file brings
-const BASE_RANGE = { wheelD: [4, 60], pocketD: [2, 50], pocketDepth: [0.2, 10], clear: [-0.5, 1], od: [2, 50], thick: [0.3, 10], dish: [0, 5], lip: [0, 10], sink: [0, 10], hole: [0, 20], skirt: [0.3, 15], wall: [0.3, 10] };
+const BASE_RANGE = { wheelD: [4, 60], pocketD: [2, 50], pocketDepth: [0.2, 10], clear: [-0.5, 1], od: [2, 50], thick: [0.3, 10], dish: [0, 5], lip: [0, 10], sink: [0, 10], hole: [0, 20], skirt: [0.3, 15], wall: [0.3, 10], depth: [0, 60] };
 const LAYER_RANGE = { h: [0.05, 5], count: [0, 48], hub: [0, 30], rim: [0.2, 30], wHub: [0.05, 20], wRim: [0.05, 20], curve: [-120, 120], split: [0, 10], at: [0, 30], size: [0.1, 20], len: [0.1, 30], r: [0.1, 30], w: [0.05, 20], pcd: [0, 30], d: [0.05, 10], nutD: [0.2, 30] };
-const CHOICE = { mode: MODES, shape: ['round', 'slot', 'window'], nut: ['none', 'hex', 'lock'], form: ['disc', 'cup'] };
+const CHOICE = { mode: MODES, shape: ['round', 'slot', 'window'], nut: ['none', 'hex', 'lock'], form: ['disc', 'cup', 'model'], model: ['', ...MODEL_IDS] };
 const WHOLE = new Set(['count']);
 const clampNum = (v, def, [lo, hi], whole) => {
   if (typeof v !== 'number' || !Number.isFinite(v)) return def;
@@ -108,10 +130,13 @@ function cleanObj(def, raw, range) {
 export function cleanInsert(raw, scale = '1/32') {
   raw = raw && typeof raw === 'object' ? raw : {};
   const base = cleanObj(newBase(scale), raw.base, BASE_RANGE);
+  // A model this copy of the app does not have becomes a plain disc; a model's depth is never less than its face needs.
+  if (base.form === 'model' && !MODELS[base.model]) base.form = 'disc';
+  if (base.form === 'model') base.depth = Math.max(base.depth, minDepth(MODELS[base.model]));
   const layers = (Array.isArray(raw.layers) ? raw.layers : []).slice(0, 24)
     .filter((l) => l && LAYER_TYPES.includes(l.type))
     .map((l) => cleanObj(newLayer(l.type, base.od / 2), l, LAYER_RANGE));
-  return { base, layers, faceDown: raw.faceDown === true };
+  return { base, layers, faceDown: base.form !== 'model' && raw.faceDown === true, mirror: raw.mirror !== false };
 }
 export function cleanInserts(raw, scale = '1/32') {
   if (!raw || typeof raw !== 'object') return newInserts(scale);
@@ -192,7 +217,9 @@ export function layerShape(L, R) {
 }
 
 // A pattern that bends one way: the insert on the other side of the car is its mirror image.
-export const directional = (ins) => ins.layers.some((l) => (l.type === 'spokes' && Math.abs(l.curve) > 0.5 && !l.crossed) || l.type === 'draw');
+export const directional = (ins) => (ins.base?.form === 'model' ? !!modelOf(ins)?.directional : ins.layers.some((l) => (l.type === 'spokes' && Math.abs(l.curve) > 0.5 && !l.crossed) || l.type === 'draw'));
+// Whether the set mirrors the left-hand pair: only for a pattern that bends one way, and only if wanted.
+export const mirrored = (ins) => directional(ins) && ins.mirror !== false;
 
 // Fits an imported outline (a list of [x, y] in any units, y down) into the segment that points up:
 // between the hub (40 % of the radius) and the rim (90 %), as wide as the segment allows.
@@ -212,6 +239,16 @@ export function insertChecks(ins, ctx = {}) {
   if (Math.abs(fit - b.od) > 0.011) add(false, 'The insert does not match the pocket', `With a Ø${b.pocketD} pocket and ${b.clear} mm clearance the insert should be Ø${fit}; it is Ø${b.od}.`, true);
   else add(true, `Fits a Ø${b.pocketD} pocket`, `Ø${b.od}, with ${b.clear} mm all round.`);
   if (b.od >= b.wheelD - 0.6) add(false, 'The insert is as big as the wheel', `A Ø${b.wheelD} wheel cannot have a pocket for a Ø${b.od} insert: leave at least 0.3 mm of wheel round it.`);
+  const m = modelOf(ins);
+  if (m) {
+    const min = minDepth(m), k = modelScale(m, b), hub = round(2 * m.hubR * k - 0.6, 2);
+    if (b.depth > b.pocketDepth + 0.01) add(false, 'The insert stands out of the pocket', `It is ${round(b.depth, 2)} mm deep; the pocket is ${b.pocketDepth} mm. That is fine if it is meant to.`, true);
+    if (b.depth <= min + 0.001) add(true, 'As shallow as the face allows', `The face is ${m.faceDepth} mm deep and keeps its height; under it is ${round(min - m.faceDepth, 2)} mm of back.`);
+    if (b.hole > 0 && b.hole < axleD + 0.2) add(false, 'The axle hole is smaller than the axle', `The axle (Ø${axleD}) has to pass, with room: make the hole at least Ø${(axleD + 0.2).toFixed(2)}, or 0 for none.`);
+    if (b.hole > 0 && b.hole > hub) add(false, 'The axle hole runs into the openings', `At Ø${b.od} this design's solid hub is Ø${round(2 * m.hubR * k, 2)}: keep the hole at most Ø${Math.max(0, hub)}, so 0.3 mm of hub is left round it.`);
+    if (2 * m.hubR * k < 1.2) add(false, 'The hub is very small at this size', 'Fine details shrink with the diameter: check that the spokes still print with your nozzle.', true);
+    return out;
+  }
   // The face lies `sink` below the outer ring. A raised layer rises from the face, or from the ring where it reaches it.
   const sink = Math.max(0, b.sink), onRing = (l) => sink > 0 && outerOf(l) > R - b.lip;
   const above = Math.max(0, ...ins.layers.filter((l) => l.mode === 'raise').map((l) => (onRing(l) ? l.h : l.h - sink)));
