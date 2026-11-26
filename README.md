@@ -109,6 +109,11 @@ Frame works along eight menus, roughly in the order you build a car: **Car, Outl
 - **Checks:** axle eyes and key slots too thin to print, a chassis or a motor cradle that reaches the track on your tyres, and a chassis wider than your rules allow.
 - Designed by Peter (SlotForum), included with the designer's permission.
 
+### Motor mount built in (podless)
+
+- **Separate pod, or built into the chassis:** Pod › Base plate. Built in, the motor seat and the rear bearing uprights stand on the chassis plate and the whole car prints as one part, as on Plafit- and Schöler-style metal chassis. Inline, sidewinder and anglewinder at any angle, every motor, gear set and bearing work as with a pod; only the lugs, the pod mounts and the opening's gap are not used. Switch back and forth at any time.
+- **Front axle in bearings:** Features › Front axle can carry the axle in two bearing uprights instead of a bracket: a bearing from the library (such as a 6 mm bearing for a 3 mm axle on a 1/24 car), its seat, the upright's thickness, the wall round it, and a recess for a flanged bearing's flange. The starting sizes follow Plafit's front holder.
+
 ### Wheel inserts
 
 - **Inserts for aluminium wheels:** a disc, or a cup with a skirt, that presses into the pocket in the face of an insert wheel. Set the wheel's diameter and its pocket, and the insert's size follows, with a fit clearance you choose.

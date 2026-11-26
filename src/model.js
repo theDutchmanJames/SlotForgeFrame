@@ -163,7 +163,10 @@ export function newDesign(scale = '1/32') {
     feature('fill', { style: 'frame', railWidth: 1.6, outerRail: 2.4, pad: 1.6, cross: proposeCross(design, 2, wb), length: [S(23, 30)], spine: true, axleRail: true, guideRail: true, tail: true, struts: 'fan', latticeCell: 7 }),
     feature('guide', { guide: p.guide, along: S(-19, -24, -5.5), side: 0, hole: GUIDES[p.guide].hole, bossD: S(6.3, 8), bossH: 5.8, padD: 11 }),
     // travel: how far the axle can move up and down in its slot; grubTop: a second grub screw from above; independent: a stub axle per wheel.
-    feature('frontAxle', { along: 0, spread: S(34.5, 46), width: 5, thick: 3, slot: true, grub: 1.6, travel: 0, grubTop: false, independent: false }),
+    // mount: the axle in a hole or slot of the uprights ('bracket'), or in bearings ('bearing') as on metal chassis:
+    // a seat for the bearing (from the library), bThick thick along the axle, with `wall` round it; a flanged one rests outside.
+    feature('frontAxle', { along: 0, spread: S(34.5, 46), width: 5, thick: 3, slot: true, grub: 1.6, travel: 0, grubTop: false, independent: false,
+      mount: 'bracket', bearing: p.bearing, seat: BEARINGS[p.bearing].seat, bThick: S(4, 6, 3), wall: 1.5, flange: false, flangeD: 6.0, flangeT: 0.6 }),
     feature('podMounts', { hole: 1.8, padD: 5.8 }),
     // One mount on the centre line between the guide and the front axle, one on it behind the rear axle.
     feature('bodyMounts', { posts: [{ along: S(-9.5, -12), side: 0 }, { along: wb + 16.6, side: 0 }], padD: 6.6, hole: 2.5, recessD: 4.5, recessDepth: 1.0, height: 4 }),
@@ -176,7 +179,8 @@ export function newDesign(scale = '1/32') {
   design.pod.features = [
     // onTop: the pod sits on top of the chassis, resting on it by `rest` all round, where otherwise it drops into its opening.
     // drop: the motor and the axle moved up (+) or down (−) in the pod, through its floor.
-    feature('base', { width: S(25.4, 30), thickness: 1.5, sideways: 0, onTop: false, rest: 2, drop: 0 }),
+    // builtIn: the pod is not a part of its own but built into the chassis, as on metal chassis: one part, no lugs or screws.
+    feature('base', { width: S(25.4, 30), thickness: 1.5, sideways: 0, onTop: false, rest: 2, drop: 0, builtIn: false }),
     feature('motorSeat', { wall: 2.0, clear: 0.3 }),
     // form: a straight seat for a bearing or bushing, or a round socket for a spherical bushing (a ball with flat sides,
     // ballD x ballW) that snaps in past a lip (`opening`) and can tilt; `slits` let the lip give.
@@ -218,6 +222,18 @@ function onePieceParts(d) {
   for (const [x, e] of [[0, P.front], [wb, P.rear]])
     for (const s of [1, -1]) out.bushes.push({ x, y: s * (e.inner + e.thick / 2), z: ride + e.height, d: e.hole, w: e.thick });
   return out;
+}
+
+// A pod built into the chassis: one part, as on metal chassis (Plafit, Schöler).
+export const builtIn = (d) => !d.onePiece && !d.pod.imported && find(d.pod, 'base')?.params.builtIn === true;
+// The front axle in bearings: a bearing picked from the library sets the seat and the flange.
+export const frontBearings = (d) => { const f = find(d.chassis, 'frontAxle'); return on(f) && f.params.mount === 'bearing' ? f.params : null; };
+export function useFrontBearing(p, b) {
+  if (!b) return;
+  p.seat = b.seat;
+  p.flange = (b.flangeD || 0) > b.seat;
+  if (p.flange) { p.flangeD = b.flangeD; p.flangeT = b.flangeT; }
+  p.bThick = Math.max(p.bThick, round(b.width + (p.flange ? 0 : 0.5), 2));
 }
 
 // A one-piece design: the chassis and the motor bay in one part (onepiece.js). It starts as Peter's 1:43 chassis.
@@ -539,7 +555,7 @@ export function podLayout(d) {
 // Where a front stub axle ends, from the centre line, when each front wheel has its own; null for one through axle.
 export function frontStub(d) {
   const f = find(d.chassis, 'frontAxle');
-  return on(f) && f.params.independent ? Math.max(1, f.params.spread / 2 - Math.max(f.params.thick, 5) / 2 - 1) : null;
+  return on(f) && f.params.independent && f.params.mount !== 'bearing' ? Math.max(1, f.params.spread / 2 - Math.max(f.params.thick, 5) / 2 - 1) : null;
 }
 // The middle of a closed mesh's weight and its volume: { x, y, z, volume }.
 export function centroidOf(mesh) {
@@ -604,6 +620,9 @@ export function partsLayout(d) {
       for (const s of [1, -1]) out.bushes.push({ x: wb, y: o + s * mid, z, d: p.flangeD, w: t, flange: true });
     }
   }
+  // The front bearings, in their uprights.
+  const fb = frontBearings(d);
+  if (fb) for (const s of [1, -1]) out.bushes.push({ x: fb.along, y: (s * fb.spread) / 2, z: z0 + h.frontAxle, d: fb.seat, w: fb.bThick });
   out.gearBoss = null;
   if (side && side.t < side.w - 0.01) {
     const s = Math.sign(side.yd - side.y) || 1, from = side.y - (s * side.w) / 2, to = side.yd - (s * side.t) / 2;
@@ -829,14 +848,14 @@ export function decodeProject(text) {
 const LIMIT = 600;
 const CHOICES = {
   style: ['closed', 'frame', 'lattice'], struts: ['none', 'axle', 'fan'], shape: ['round', 'bar'],
-  holder: ['closed', 'snap', 'clamp'], form: ['straight', 'sphere'], flangeAt: ['out', 'in', 'both'], side: ['top', 'under'], zone: ['full', 'centre', 'sides'],
+  holder: ['closed', 'snap', 'clamp'], form: ['straight', 'sphere'], mount: ['bracket', 'bearing'], flangeAt: ['out', 'in', 'both'], side: ['top', 'under'], zone: ['full', 'centre', 'sides'],
 };
 // Ranges for values where the general ±2000 limit is too loose.
 const RANGE = {
   thickness: [0.4, 20], round: [0, 50], railWidth: [0.2, 20], outerRail: [0.2, 20], pad: [0, 20], latticeCell: [3, 100],
   strakes: [0, 40], strakeT: [0.2, 10], angle: [0, 80], windows: [0, 20], bar: [0.2, 20], lean: [-45, 60],
   hole: [0.3, 20], bossD: [1, 40], bossH: [0, 40], padD: [1, 40], grub: [0, 10], recessD: [0, 40], recessDepth: [0, 20],
-  wall: [0.2, 20], thick: [0.2, 20], seat: [1, 20], ballD: [1.5, 12], ballW: [0.5, 10], opening: [0.5, 12], slits: [0, 8], slitW: [0.2, 2], tubeLen: [8, 80], tubeD: [0.5, 12], flangeD: [1, 30], flangeT: [0.1, 5], ecc: [0, 2], spread: [4, 200], lugD: [1, 30], lugT: [0.4, 20], clear: [0, 5],
+  wall: [0.2, 20], thick: [0.2, 20], bThick: [0.5, 20], seat: [1, 20], ballD: [1.5, 12], ballW: [0.5, 10], opening: [0.5, 12], slits: [0, 8], slitW: [0.2, 2], tubeLen: [8, 80], tubeD: [0.5, 12], flangeD: [1, 30], flangeT: [0.1, 5], ecc: [0, 2], spread: [4, 200], lugD: [1, 30], lugT: [0.4, 20], clear: [0, 5],
   root: [0, 5], deep: [0.2, 20], floor: [0, 5], mass: [0, 200], reach: [0, 20], rise: [0, 30], sink: [0, 20], d: [1, 40], travel: [0, 6], float: [0, 2], sideways: [-15, 15], rest: [0, 10], drop: [-10, 10], gap: [0, 10], holeFix: [-0.5, 1], zoneHalf: [0.5, 200], bevelTop: [0, 1.5], bevelBottom: [0, 1.5], tabs: [1, 8], depth: [1, 20], neck: [1, 30], head: [1, 30], play: [0, 1], patternX: [5, 300], patternY: [2, 200], h0: [0, 60], h1: [0, 60], height: [0, 80], width: [0.2, 300], offset: [-20, 40],
 };
 const numIn = (v, def, key) => {

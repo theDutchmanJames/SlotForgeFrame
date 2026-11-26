@@ -14,7 +14,7 @@ import { packMesh, unpackMesh } from './library-core.js';
 import { encodeAnvilChassis, placeBody, hullOf, bodyFit, bodyGuess, findArches, archFit, archNote } from './anvil.js';
 import { readSTL } from './geometry/stl-read.js';
 import {
-  newDesign, newOnePieceDesign, find, on, round, summary, heights, checks, partsLayout, podLayout, motorOf, gearOf, proposeCross, unconfirmed, uprightSpread, useBearing, meshCentre, activeKicks, profileOf, pinionOut, motorAngle, gearAngle, traceWheels, traceArches, applyOutline, centreMounts, podShift, podSideways, podRide, rideClearance, balance,
+  newDesign, newOnePieceDesign, builtIn, frontBearings, useFrontBearing, find, on, round, summary, heights, checks, partsLayout, podLayout, motorOf, gearOf, proposeCross, unconfirmed, uprightSpread, useBearing, meshCentre, activeKicks, profileOf, pinionOut, motorAngle, gearAngle, traceWheels, traceArches, applyOutline, centreMounts, podShift, podSideways, podRide, rideClearance, balance,
   encodeProject, decodeProject, createHistory, MATERIALS, FEATURE_NAMES, MULTI, newShape, shapesOf, gearsFor, bearingOf, guideOf, choicesFor, moveRear, couponHoles,
 } from './model.js';
 import { WING_PRESETS, ENDPLATES, FLAT_SIDES, wingPreset, wingSide, legYs, pinsOf, deckZ, cleanWing } from './wings.js';
@@ -422,7 +422,7 @@ function renderTop() {
     </div>
     <span class="vline"></span>
     <div class="who">
-      <span class="eyebrow">${esc(d.scale)} · ${d.onePiece ? 'One-piece chassis' : 'Chassis + pod'}</span>
+      <span class="eyebrow">${esc(d.scale)} · ${d.onePiece ? 'One-piece chassis' : builtIn(d) ? 'Chassis, motor mount built in' : 'Chassis + pod'}</span>
       <input class="name" id="name" value="${esc(d.name)}" aria-label="Design name" spellcheck="false">
       <span class="note">${d.onePiece ? `One piece · ${changedFromPeter(d.onePiece).length ? "from Peter's design" : "Peter's design"}` : d.pod.imported ? 'Imported pod: ' + esc(d.pod.imported.name) : esc(layoutName(d)) + ' · ' + esc(motorOf(d).name)}${d.chassis.imported ? ' · imported chassis: ' + esc(d.chassis.imported.name) : ''}</span>
     </div>
@@ -443,7 +443,7 @@ function renderTop() {
       </div>
       <span class="pop"><button class="btn primary" data-act="pop" data-pop="export">${ico('export')}Export</button>${state.pop === 'export' ? `<div class="popmenu">
         <button data-act="export" data-what="chassis">${ico('outline')}Chassis STL<small>${weight('chassis')}</small></button>
-        ${state.design.onePiece ? '' : `<button data-act="export" data-what="pod">${ico('pod')}Pod STL<small>${weight('pod')}</small></button>
+        ${state.design.onePiece || builtIn(state.design) ? '' : `<button data-act="export" data-what="pod">${ico('pod')}Pod STL<small>${weight('pod')}</small></button>
         <button data-act="export" data-what="both">${ico('export')}Both, as two files</button>`}
         <button data-act="exportinserts">${ico('insert')}Wheel inserts, set of 4</button>
         <button data-act="exportwing">${ico('wing')}Rear wing</button></div>` : ''}</span>
@@ -1052,8 +1052,23 @@ const PANELS = {
       <div class="note">The hole size comes with the guide you pick. It stays marked <b>unconfirmed</b> until someone has measured that guide. Drag the handle in the top view to move the holder.</div>`;
   },
   frontAxle(d) {
-    const f = find(d.chassis, 'frontAxle'), h = heights(d);
-    return head('Features', 'Front axle bracket', 'Two uprights that carry the front axle.') + enable(f, 'Use front axle brackets') + `
+    const f = find(d.chassis, 'frontAxle'), h = heights(d), p = f.params;
+    const kind = `<label class="f">The axle runs</label>` + tiles(P(f, 'mount'), [
+      ['bracket', 'In the uprights', '<rect x="6" y="6" width="5" height="12"/><rect x="23" y="6" width="5" height="12"/><path d="M3 10h28"/>'],
+      ['bearing', 'In bearings', '<rect x="5" y="6" width="7" height="12" rx="3"/><rect x="22" y="6" width="7" height="12" rx="3"/><circle cx="8.5" cy="10" r="2"/><circle cx="25.5" cy="10" r="2"/><path d="M3 10h28"/>'],
+    ], 3);
+    if (p.mount === 'bearing') {
+      const b = bearingOf(d, p.bearing);
+      return head('Features', 'Front axle', 'Two uprights with a bearing each, as on metal chassis.') + enable(f, 'Use front axle uprights') + kind +
+        sel('Bearing', P(f, 'bearing'), choicesFor(d, 'bearing')) + `
+        <div class="g2">${num('Along, from front axle', P(f, 'along'))}${num('Spread, centre to centre', P(f, 'spread'), 'mm', { min: 4 })}${num('Bearing seat', P(f, 'seat'), 'mm', { min: 1 })}${num('Upright thickness', P(f, 'bThick'), 'mm', { min: 0.5 })}${num('Wall round the bearing', P(f, 'wall'), 'mm', { min: 0.2 })}</div>
+        ${chk('Flanged: the flange rests in a recess in the outside face', P(f, 'flange'))}
+        ${p.flange ? `<div class="g2">${num('Flange diameter', P(f, 'flangeD'), 'mm', { min: 1 })}${num('Flange thickness', P(f, 'flangeT'), 'mm', { min: 0.1 })}</div>` : ''}
+        ${kv([['Axle above underside', f2(h.frontAxle)], ['Axle diameter', f2(d.car.axleD)], ['Bearing', b ? `${b.name}` : '–']])}
+        <div class="note">The axle stands at the middle of the front tyres. Plafit's front holder is a 9 × 9 × 6 mm block round a 6 mm bearing for a 3 mm axle; the starting sizes follow it.</div>
+        <div class="row"><button class="btn sm ghost" data-act="library" data-kind="bearing">${ico('library')}Bearings in the library</button></div>`;
+    }
+    return head('Features', 'Front axle bracket', 'Two uprights that carry the front axle.') + enable(f, 'Use front axle brackets') + kind + `
       <div class="g2">${num('Along, from front axle', P(f, 'along'))}${num('Spread, centre to centre', P(f, 'spread'), 'mm', { min: 4 })}${num('Upright length', P(f, 'width'), 'mm', { min: 2 })}${num('Upright thickness', P(f, 'thick'), 'mm', { min: 1 })}${num('Grub screw hole', P(f, 'grub'), 'mm', { min: 0 })}</div>
       ${chk('Open slot, so the axle drops in from above', P(f, 'slot'))}
       <div class="g2">${num('Axle travel, up and down', P(f, 'travel'), 'mm', { min: 0, max: 6 })}</div>
@@ -1075,14 +1090,14 @@ const PANELS = {
   },
   podMounts(d) {
     const f = find(d.chassis, 'podMounts'), l = find(d.pod, 'lugs').params;
-    return head('Features', 'Pod mounts', 'The screw points the pod sits on. Their positions come from the pod.') + enable(f, 'Use pod mounts') + `
+    return head('Features', 'Pod mounts', 'The screw points the pod sits on. Their positions come from the pod.') + `${builtIn(d) ? '<div class="note warn">Not used: the motor mount is built into the chassis (Pod › Base plate).</div>' : ''}` + enable(f, 'Use pod mounts') + `
       <div class="g2">${num('Screw hole', P(f, 'hole'), 'mm', { min: 0.5 })}${num('Pad diameter', P(f, 'padD'), 'mm', { min: 2 })}</div>
       ${kv([['Pattern', `${f2(l.patternX)} × ${f2(l.patternY)}`], ['Screws', '4']])}
       <div class="note">Change the pattern under <b>Pod › Mount lugs</b>. The hole is a pilot for a 2.2 mm self-tapping screw.</div>`;
   },
   podOpening(d) {
     const f = find(d.chassis, 'podOpening'), lay = podLayout(d);
-    return head('Features', 'Pod opening', 'The cut-out the pod drops into. It follows the pod.') + enable(f, 'Cut the pod opening') + `
+    return head('Features', 'Pod opening', 'The cut-out the pod drops into. It follows the pod.') + `${builtIn(d) ? '<div class="note warn">Not used: the motor mount is built into the chassis (Pod › Base plate).</div>' : ''}` + enable(f, 'Cut the pod opening') + `
       <div class="g2">${num('Gap around the pod', P(f, 'gap'), 'mm', { min: 0 })}</div>
       ${kv([['Opening', `${f1(lay.x1 - lay.x0 + 2 * f.params.gap)} × ${f1((lay.widest ?? lay.width) + 2 * f.params.gap)}`]])}
       <div class="note">The gap lets the pod float. More gap gives more movement.</div>`;
@@ -1108,11 +1123,18 @@ const PANELS = {
   },
   base(d) {
     const f = find(d.pod, 'base'), lay = podLayout(d);
-    return head('Pod', 'Base plate', 'The floor of the pod.') + `
+    const inside = f.params.builtIn === true;
+    return head('Pod', 'Base plate', 'The floor of the pod, and how the motor mount is held.') + `
+      <label class="f">How the motor mount is held</label>
+      <div class="tiles t3" style="grid-template-columns:1fr 1fr">
+        <button class="tile ${inside ? '' : 'on'}" data-act="builtin" data-v="0"><svg viewBox="0 0 34 24"><rect x="3" y="5" width="28" height="14" rx="2"/><rect x="10" y="8" width="14" height="8" rx="1"/><circle cx="8" cy="8" r="1"/><circle cx="26" cy="16" r="1"/></svg>Separate pod</button>
+        <button class="tile ${inside ? 'on' : ''}" data-act="builtin" data-v="1"><svg viewBox="0 0 34 24"><rect x="3" y="5" width="28" height="14" rx="2"/><path d="M12 8v8M22 8v8M12 12h10"/></svg>Built into the chassis</button>
+      </div>
+      ${inside ? '<div class="note">One part, as on Plafit- and Schöler-style metal chassis: the motor seat and the rear bearing uprights stand on the chassis plate. Mount lugs, pod mounts and the opening\'s gap are not used, and Export gives one STL. Everything else in Pod works as before.</div>' : '<div class="note">A pod of its own, in an opening in the chassis, screwed on with its lugs and free to float.</div>'}
       <div class="g2">${num('Width', P(f, 'width'), 'mm', { min: 8 })}${num('Thickness', P(f, 'thickness'), 'mm', { min: 0.6 })}${num('Move the pod sideways', P(f, 'sideways'), 'mm', { min: -15, max: 15 })}</div>
       ${(() => { const want = podSideways(d); return Math.abs(want - (f.params.sideways || 0)) > 0.05 ? `<div class="note warn">The gear runs free of the rear tyre with the pod moved <b>${f1(Math.abs(want))} mm to the ${want < 0 ? 'left' : 'right'}</b>${want === 0 ? ' (back on the centre line)' : ''}. <button class="btn sm ghost" data-act="podfit">Move it there</button></div>` : ''; })()}
-      ${chk('The pod sits on top of the chassis', P(f, 'onTop'))}
-      ${f.params.onTop ? `<div class="g2">${num('Rests on the chassis by', P(f, 'rest'), 'mm', { min: 0, max: 10 })}${num('Motor and axle, up or down in the pod', P(f, 'drop'), 'mm', { min: -10, max: 10 })}</div>
+      ${inside ? '' : chk('The pod sits on top of the chassis', P(f, 'onTop'))}
+      ${f.params.onTop && !inside ? `<div class="g2">${num('Rests on the chassis by', P(f, 'rest'), 'mm', { min: 0, max: 10 })}${num('Motor and axle, up or down in the pod', P(f, 'drop'), 'mm', { min: -10, max: 10 })}</div>
       ${kv([['The chassis rides above the track', f2(rideClearance(d))], ['Ground clearance asked for', f2(d.car.clearance)]])}
       ${Math.abs(podRide(d)) > 0.005 ? `<div class="note warn">With the motor and axle at <b>${f2(f.params.drop)} mm</b> the chassis rides ${f2(Math.abs(podRide(d)))} mm ${podRide(d) > 0 ? 'lower' : 'higher'} than the ground clearance you asked for. Set them to <b>${f2(-find(d.chassis, 'outline').params.thickness)} mm</b> (the plate's thickness, downward) to keep it. <button class="btn sm ghost" data-act="podlevel">Do that</button></div>` : ''}
       <div class="note">On top, the pod rests on the chassis rails instead of dropping into its opening, as on the makers' chassis: the rails beside and behind the pod are wider by what it rests on. The motor and the axle then go down through the pod's floor by the plate's thickness, with the motor's screw holes and the bearing seats, so that they sit where they did.</div>` : ''}
@@ -1172,7 +1194,7 @@ const PANELS = {
   },
   lugs(d) {
     const f = find(d.pod, 'lugs');
-    return head('Pod', 'Mount lugs', 'The four screw points of the pod. The chassis takes its pod mounts from these.') + enable(f, 'Build the lugs') + `
+    return head('Pod', 'Mount lugs', 'The four screw points of the pod. The chassis takes its pod mounts from these.') + `${builtIn(d) ? '<div class="note warn">Not used: the motor mount is built into the chassis (Pod › Base plate).</div>' : ''}` + enable(f, 'Build the lugs') + `
       <div class="g2">${num('Pattern, along', P(f, 'patternX'), 'mm', { min: 10 })}${num('Pattern, across', P(f, 'patternY'), 'mm', { min: 4 })}${num('Rear screws behind the axle', P(f, 'rearBehindAxle'))}${num('Lug diameter', P(f, 'lugD'), 'mm', { min: 2 })}${num('Lug thickness', P(f, 'lugT'), 'mm', { min: 0.8 })}${num('Screw hole', P(f, 'hole'), 'mm', { min: 0.5 })}</div>
       <div class="g2">${num('Float: play on the screws', P(f, 'float'), 'mm', { min: 0, max: 2 })}</div>
       <div class="note">Float makes the pod's screw holes that much larger, so a pod on loosened screws can move. The pod opening's gap must leave half of it all round.</div>
@@ -1429,11 +1451,11 @@ function describe(f, d) {
   const p = f.params;
   switch (f.type) {
     case 'outline': return `${p.points.length} points · plate ${f2(p.thickness)}`;
-    case 'podOpening': return `from pod · gap ${f2(p.gap)}`;
+    case 'podOpening': return builtIn(d) ? 'closed round the built-in mount' : `from pod · gap ${f2(p.gap)}`;
     case 'fill': return p.style === 'frame' ? `frame · ${p.cross.length} cross · ${p.length.length} length` : p.style;
     case 'guide': return `${guideOf(d, p.guide)?.name ?? ''} · hole ${f2(p.hole)}`;
-    case 'frontAxle': return `spread ${f2(p.spread)}`;
-    case 'podMounts': return `4 screws · hole ${f2(p.hole)}`;
+    case 'frontAxle': return `${p.mount === 'bearing' ? `bearings Ø${f2(p.seat)} · ` : ''}spread ${f2(p.spread)}`;
+    case 'podMounts': return builtIn(d) ? 'not used: built in' : `4 screws · hole ${f2(p.hole)}`;
     case 'bodyMounts': return `${p.posts.length} spot${p.posts.length === 1 ? '' : 's'}`;
     case 'kickup':
     case 'kickfront': return `${f2(p.angle)}° · ${p.zone === 'full' ? 'full width' : p.zone === 'centre' ? 'centre only' : 'sides only'} · ${p.strakes} strakes`;
@@ -1442,7 +1464,7 @@ function describe(f, d) {
     case 'base': return `width ${f2(p.width)} · ${f2(p.thickness)} thick`;
     case 'motorSeat': return motorOf(d).name;
     case 'uprights': return `${p.form === 'sphere' ? `spherical · ball ${f2(p.ballD)} × ${f2(p.ballW)}` : `${p.holder} · seat ${f2(p.seat)}`}${p.flange && p.form !== 'sphere' && !p.tube ? ` · flange ${f2(p.flangeD)}` : ''}${p.tube ? ` · tube ${f2(p.tubeLen)}` : ''}`;
-    case 'lugs': return `${f2(p.patternX)} × ${f2(p.patternY)}`;
+    case 'lugs': return builtIn(d) ? 'not used: built in' : `${f2(p.patternX)} × ${f2(p.patternY)}`;
     case 'rib': return `${p.side === 'under' ? 'underneath' : 'on top'} · ${f2(p.h0)} to ${f2(p.h1)} high`;
     case 'wall': return `points ${Math.min(p.from, p.to) + 1} to ${Math.max(p.from, p.to) + 1} · ${f2(p.height)} high`;
     case 'tunnel': return `${f2(Math.abs(p.x1 - p.x0))} long · ${f2(p.width)} × ${f2(p.height)}`;
@@ -1549,8 +1571,9 @@ function topSVG() {
   if (on(axle)) {
     const p = axle.params;
     for (const sg of [1, -1]) {
-      out.push(`<rect data-pick="frontAxle" class="pad" x="${p.along - p.width / 2}" y="${(sg * p.spread) / 2 - p.thick / 2}" width="${p.width}" height="${p.thick}" rx=".5"/>`);
-      if (tool === 'frontAxle') out.push(`<rect class="selmark" x="${p.along - p.width / 2 - 0.8}" y="${(sg * p.spread) / 2 - p.thick / 2 - 0.8}" width="${p.width + 1.6}" height="${p.thick + 1.6}" rx=".8"/>`);
+      const bear = p.mount === 'bearing', w = bear ? p.seat + 2 * p.wall : p.width, t = bear ? p.bThick : p.thick;
+      out.push(`<rect data-pick="frontAxle" class="pad" x="${p.along - w / 2}" y="${(sg * p.spread) / 2 - t / 2}" width="${w}" height="${t}" rx=".5"/>`);
+      if (tool === 'frontAxle') out.push(`<rect class="selmark" x="${p.along - w / 2 - 0.8}" y="${(sg * p.spread) / 2 - t / 2 - 0.8}" width="${w + 1.6}" height="${t + 1.6}" rx=".8"/>`);
     }
   }
   if (on(posts)) for (const q of posts.params.posts) for (const sg of Math.abs(q.side) > 0.01 ? [1, -1] : [1]) {
@@ -1910,6 +1933,11 @@ const ACTIONS = {
       toast(`Exported the calibration ring: ${ring.pieces} discs, Ø${f2(ring.sizes[0])} to Ø${f2(ring.sizes.at(-1))}, numbered from the smallest.`);
     }, (e) => toast(e.message, true));
   },
+  // A pod of its own, or built into the chassis.
+  builtin(el) {
+    find(state.design.pod, 'base').params.builtIn = el.dataset.v === '1';
+    commit();
+  },
   newonepiece() {
     state.pop = null;
     replaceDesign(newOnePieceDesign());
@@ -2161,7 +2189,9 @@ function afterChange(path) {
   if (path.endsWith('.onTop')) { const b = find(d.pod, 'base').params; b.drop = b.onTop ? -find(d.chassis, 'outline').params.thickness : 0; }
   // A gear that would run into the rear tyre: the pod moves over as far as it takes to free it.
   // (An axle tube sets the spread of the uprights, and the gear sits outside them: it is placed again too.)
-  if (path.endsWith('.bearing')) { const f = find(d.pod, 'uprights'); useBearing(f.params, bearingOf(d, f.params.bearing)); }
+  const fa = find(d.chassis, 'frontAxle');
+  if (path === `f.${fa.id}.bearing` || (path === `f.${fa.id}.mount` && fa.params.mount === 'bearing')) useFrontBearing(fa.params, bearingOf(d, fa.params.bearing));
+  else if (path.endsWith('.bearing')) { const f = find(d.pod, 'uprights'); useBearing(f.params, bearingOf(d, f.params.bearing)); }
   // Things that move the gear out: a tube that sets the spread, or a flange standing out of the uprights.
   const upF = find(d.pod, 'uprights'), up = upF.params, ofUprights = path.startsWith(`f.${upF.id}.`);
   const tubeMoved = ofUprights && /\.(tube|tubeLen|form|ballW)$/.test(path) && up.tube;

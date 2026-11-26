@@ -2,7 +2,7 @@
 // Runs in the worker (engine.worker.js) and in Node tests.
 // All booleans are done by Manifold, as in SlotForge Foundry.
 
-import { find, on, heights, motorOf, gearOf, motorPlace, podLayout, uprightSpread, uprightInner, seatSize, holderSize, flanged, flangeProud, flangeSides, gearSide, asRight, podShift, unshifted, podRide, kickActive, activeKicks, profileOf, bearingOf, couponHoles } from '../model.js';
+import { builtIn, find, on, heights, motorOf, gearOf, motorPlace, podLayout, uprightSpread, uprightInner, seatSize, holderSize, flanged, flangeProud, flangeSides, gearSide, asRight, podShift, unshifted, podRide, kickActive, activeKicks, profileOf, bearingOf, couponHoles } from '../model.js';
 import { createAnalyser } from './mesh-measure.js';
 import { layerShape, mirrored, insertOf, insertChecks, ringSizes, modelOf, cutsOf, minDepth, modelScale } from '../inserts.js';
 import { MESHES, STEP } from './jivko-meshes.js';
@@ -242,8 +242,10 @@ export function createEngine(wasm) {
     const guide = find(c, 'guide'), axle = find(c, 'frontAxle'), mounts = find(c, 'podMounts'), posts = find(c, 'bodyMounts');
     if (on(guide)) pads.push(disc(guide.params.along, guide.params.side, guide.params.padD / 2));
     const uprightY = on(axle) ? [axle.params.spread / 2, -axle.params.spread / 2] : [];
-    if (on(axle)) for (const y of uprightY)
-      pads.push(rect(axle.params.along - axle.params.width / 2 - margin, y - axle.params.thick / 2 - margin, axle.params.along + axle.params.width / 2 + margin, y + axle.params.thick / 2 + margin));
+    if (on(axle)) for (const y of uprightY) {
+      const a = axle.params, bear = a.mount === 'bearing', hx = bear ? a.seat / 2 + a.wall : a.width / 2, hy = bear ? a.bThick / 2 : a.thick / 2;
+      pads.push(rect(a.along - hx - margin, y - hy - margin, a.along + hx + margin, y + hy + margin));
+    }
     if (on(mounts)) for (const [x, y] of lay.points) pads.push(disc(x, y, mounts.params.padD / 2));
     const postPts = on(posts) ? posts.params.posts.flatMap((p) => (Math.abs(p.side) > 0.01 ? [[p.along, p.side], [p.along, -p.side]] : [[p.along, 0]])) : [];
     for (const [x, y] of postPts) pads.push(disc(x, y, posts.params.padD / 2 + margin * 0.5));
@@ -419,7 +421,23 @@ export function createEngine(wasm) {
       add.push(cylZ(p.along, p.side, z0, top + p.bossH, p.bossD / 2));
       cut.push(cylZ(p.along, p.side, z0 - 1, top + p.bossH + 1, holeR(p.hole, fix)));
     }
-    if (on(axle)) {
+    if (on(axle) && axle.params.mount === 'bearing') {
+      // Bearing uprights, as on metal chassis: a block up to the axle with a round top, the bearing's seat through it.
+      // A flanged bearing rests against the outside face, in a recess as deep as its flange.
+      const p = axle.params, zc = z0 + h.frontAxle, R = p.seat / 2 + p.wall, half = p.bThick / 2, sr = holeR(p.seat, bfix);
+      for (const y of uprightY) {
+        add.push(box(p.along - R, y - half, z0, p.along + R, y + half, zc), cylY(p.along, zc, y - half, y + half, R));
+        cut.push(cylY(p.along, zc, y - half - 0.01, y + half + 0.01, sr));
+        if (p.flange && p.flangeD > p.seat) {
+          const out = Math.sign(y) || 1, face = y + out * half;
+          cut.push(cylY(p.along, zc, out > 0 ? face - p.flangeT : face - 0.01, out > 0 ? face + 0.01 : face + p.flangeT, holeR(p.flangeD, bfix)));
+        }
+      }
+      // The axle runs free between the uprights.
+      cut.push(cylY(p.along, zc, -p.spread / 2 + half, p.spread / 2 - half, holeR(d.car.axleD + 0.6, bfix)));
+      if (p.wall < d.printer.minWall) notes.push({ ok: false, title: 'Thin wall round the front bearings', text: `${p.wall} mm round each bearing; your printer's least wall is ${d.printer.minWall} mm.` });
+      if (zc - R < z0 - 0.01) notes.push({ ok: false, title: 'The front bearings reach below the chassis', text: `With these front tyres the bearing's upright goes ${(z0 - (zc - R)).toFixed(2)} mm below the plate. Use bigger front tyres, a smaller bearing or a thinner wall.` });
+    } else if (on(axle)) {
       const p = axle.params, zc = z0 + h.frontAxle, ad = d.car.axleD;
       // Room for the axle to move up and down, and a grub screw from above as well as from below to hold it.
       const travel = Math.max(0, p.travel || 0), up = travel / 2, fromTop = p.grubTop === true && p.grub > 0;
@@ -1118,10 +1136,31 @@ export function createEngine(wasm) {
     return { chassis: meshOf(solid), pod: null, split: null, top: { chassis: polysOf(K(solid.project())), pod: [], window: [] }, notes, volume: solid.volume() };
   }
 
+  // A pod built into the chassis: the pod's opening closes round it (overlapping it a little), there are no lugs
+  // and no screws, and the two are one part. The motor's and the gear's room is cut as for a pod.
+  function buildBuiltIn(design) {
+    const d = JSON.parse(JSON.stringify(design)), notes = [];
+    const opening = find(d.chassis, 'podOpening'), mounts = find(d.chassis, 'podMounts'), lugs = find(d.pod, 'lugs'), split = find(d.chassis, 'split');
+    opening.enabled = true;
+    opening.params.gap = -0.1;
+    mounts.enabled = false;
+    lugs.enabled = false;
+    if (on(split)) { split.enabled = false; notes.push({ ok: false, title: 'Not split', text: 'A chassis with its motor mount built in is printed in one piece: switch off Shape › Split part, or use a separate pod.', soft: true }); }
+    const chassis = buildChassis(d, notes, null), pod = buildPod(d, notes);
+    const solid = u3([chassis.solid, pod.solid]);
+    if (solid.status() !== 'NoError' || solid.isEmpty() || !(solid.volume() > 0.5)) throw Error('The chassis came out empty. One of its sizes leaves nothing to build; undo the last change.');
+    const pieces = solid.decompose().map(K).filter((p) => p.volume() > 0.05).length;
+    notes.push(pieces > 1
+      ? { ok: false, title: 'The motor mount does not join the chassis', text: `It comes out in ${pieces} pieces. Make the base plate wider, or the fill closed round the mount.` }
+      : { ok: true, title: 'Motor mount built in', text: 'The chassis and its motor mount are one part.' });
+    return { chassis: meshOf(solid), pod: null, split: null, top: { chassis: chassis.top, pod: pod.top, window: pod.window }, notes, volume: solid.volume() };
+  }
+
   function build(design) {
     bin = [];
     try {
       if (design.onePiece) return buildOnePiece(design);
+      if (builtIn(design)) return buildBuiltIn(design);
       const notes = [];
       const chassis = buildChassis(design, notes, podFootprint(design));
       const pod = buildPod(design, notes);

@@ -1071,6 +1071,35 @@ export const checks = [
     assert.equal(await app.state(() => window.slotforgeFrame.state.menu), 'onepiece');
   }],
 
+  ['built-in motor mount: one part with the front axle in bearings, and back to a separate pod', async (app) => {
+    const { page, assert } = app;
+    const settled = () => page.waitForFunction(() => { const s = window.slotforgeFrame.state; return s.built && !s.busy; }, null, { timeout: 30000 });
+    await page.click('[data-act=pop][data-pop=new]');
+    await page.click('.popmenu [data-act=new][data-scale="1/24"]');
+    await app.idle();
+    await app.tool('pod', 'base');
+    await page.click('#panel [data-act=builtin][data-v="1"]');
+    await settled();
+    assert.equal(await app.state(() => window.slotforgeFrame.state.built.pod), null);
+    assert.ok(await app.state(() => window.slotforgeFrame.state.built.notes.some((n) => n.title === 'Motor mount built in')));
+    await page.click('[data-act=pop][data-pop=export]');
+    assert.equal(await page.locator('.popmenu [data-act=export][data-what=pod]').count(), 0, 'one STL');
+    await page.click('[data-act=pop][data-pop=export]');
+    // Front axle in bearings: a flanged 3 mm one from the library.
+    await app.tool('features', 'frontAxle');
+    await page.click('#panel [data-act=tile][data-v=bearing]');
+    await page.selectOption('#panel select[data-path$=".bearing"]', 'mf63');
+    await settled();
+    const fa = await app.feature('frontAxle');
+    assert.deepEqual([fa.params.mount, fa.params.seat, fa.params.flange], ['bearing', 6, true]);
+    assert.ok(!(await app.state(() => window.slotforgeFrame.state.built.notes.some((n) => !n.ok && !n.soft))));
+    // And back to a separate pod.
+    await app.tool('pod', 'base');
+    await page.click('#panel [data-act=builtin][data-v="0"]');
+    await settled();
+    assert.ok(await app.state(() => !!window.slotforgeFrame.state.built.pod));
+  }],
+
   ['rear wings: a wing is picked, changed, given its own endplate, shown in 3D and exported with its template', async (app) => {
     const { page, assert } = app;
     const wing = () => page.evaluate(() => JSON.parse(JSON.stringify(window.slotforgeFrame.state.design.wing)));
