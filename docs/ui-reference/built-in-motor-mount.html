@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-tone="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Frame: built-in motor mount preview</title>
+<link rel="stylesheet" href="./theme.css">
+<link rel="stylesheet" href="./anvil-style.css">
+<style>
+/* Design preview: a motor mount built into the chassis (podless), and front axle bearings. Was: preview for the Wings workspace. Everything on the page is live: the wing really is drawn from the settings. */
+:root { --c-plate: color-mix(in srgb, var(--ink) 62%, var(--canvas)); --c-part: #6fb6ff; --c-body: color-mix(in srgb, var(--ink) 22%, var(--canvas)); }
+:root[data-tone='light'] { --c-part: #1f6fd6; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.4 var(--font-ui); }
+.brand-name { font: italic 700 27px/1 var(--font-title); text-transform: uppercase; letter-spacing: .02em; }
+.brand-name b { color: var(--accent-text); }
+.tools .end, .pb .end { margin-left: auto; display: flex; gap: 4px; align-items: center; }
+.sub { display: flex; gap: 4px; align-items: center; padding: 6px 14px; border-bottom: 1px solid var(--line); background: var(--panel-soft); }
+.sub .lab { font: 600 10.5px var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--accent-text); margin-right: 6px; }
+.new { font: 700 9px var(--font-ui); letter-spacing: .1em; text-transform: uppercase; padding: 1px 5px; border-radius: 6px; background: var(--accent); color: var(--on-accent); margin-left: 4px; }
+.work { display: grid; grid-template-columns: 1fr 340px; height: calc(100vh - 150px); min-height: 600px; }
+.view { position: relative; background: var(--canvas); overflow: hidden; border-right: 1px solid var(--line); }
+.view .grid { position: absolute; inset: 0; background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 24px 24px; }
+.stage { position: absolute; inset: 52px 14px 162px 14px; display: grid; grid-template-columns: 1fr 1.25fr; gap: 14px; }
+.card { position: relative; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--panel) 70%, transparent); display: flex; flex-direction: column; min-height: 0; }
+.card h4 { margin: 0; padding: 8px 12px 0; font: 600 10.5px var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+.card svg { flex: 1; width: 100%; min-height: 0; }
+.views { position: absolute; left: 14px; top: 12px; right: 14px; display: flex; gap: 6px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--panel); }
+.seg button { border: 0; background: none; color: var(--muted); padding: 4px 10px; font: 500 12px var(--font-ui); cursor: pointer; }
+.seg button.on { background: var(--sel, var(--hover)); color: var(--ink); }
+.presets { position: absolute; left: 14px; right: 14px; bottom: 14px; height: 136px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.presets .row { display: flex; gap: 8px; overflow-x: auto; }
+.pre { flex: 0 0 auto; width: 92px; border: 1px solid var(--line); border-radius: 10px; background: var(--canvas); padding: 4px; cursor: pointer; color: var(--muted); font-size: 11px; text-align: center; }
+.pre:hover, .pre.on { border-color: var(--accent); color: var(--ink); }
+.pre svg { width: 84px; height: 62px; display: block; margin: 0 auto 2px; }
+.side > * { flex-shrink: 0; }
+.side { background: var(--panel); overflow-y: auto; padding: 12px 14px 30px; }
+.side h3 { margin: 0 0 2px; font: italic 700 18px var(--font-title); text-transform: uppercase; }
+.eb { font: 600 10.5px var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--accent-text); }
+.side p.d { color: var(--muted); margin: 2px 0 10px; font-size: 12px; }
+.tabs { display: flex; gap: 4px; margin: 8px 0; flex-wrap: wrap; }
+.tabs button { border: 1px solid var(--line); background: var(--canvas); color: var(--muted); border-radius: 8px; padding: 4px 9px; font: 500 12px var(--font-ui); cursor: pointer; }
+.tabs button.on { border-color: var(--accent); color: var(--ink); box-shadow: inset 0 0 0 1px var(--accent); }
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; margin: 6px 0; }
+label.f { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: var(--muted); }
+label.f input { background: var(--box, var(--canvas)); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 5px 7px; font: 500 12.5px var(--font-mono); width: 100%; box-sizing: border-box; }
+.chk { display: flex; gap: 7px; align-items: center; margin: 5px 0; font-size: 12.5px; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 6px 0; }
+.tiles.t2 { grid-template-columns: repeat(2, 1fr); }
+.tiles.t4 { grid-template-columns: repeat(4, 1fr); }
+.tile { border: 1px solid var(--line); border-radius: 9px; background: var(--canvas); color: var(--muted); padding: 6px 4px; text-align: center; font-size: 11.5px; cursor: pointer; }
+.tile.on { border-color: var(--accent); color: var(--ink); box-shadow: inset 0 0 0 1px var(--accent); }
+.note { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-left: 3px solid var(--c-part); border-radius: 8px; padding: 7px 9px; margin: 8px 0; background: var(--canvas); }
+.note.warn { border-left-color: var(--warn); }
+.note b { color: var(--ink); }
+.checks { position: absolute; right: 14px; top: 12px; display: flex; gap: 8px; font-size: 12px; flex-wrap: wrap; justify-content: flex-end; max-width: 60%; }
+.checks span { display: inline-flex; gap: 5px; align-items: center; padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
+.dot.w { background: var(--warn); }
+.explain { max-width: 1200px; margin: 0 auto; padding: 18px 20px 40px; color: var(--muted); font-size: 13px; }
+.explain h2 { color: var(--ink); font: italic 700 20px var(--font-title); text-transform: uppercase; margin: 14px 0 8px; }
+.explain li { margin: 3px 0; }
+.explain b { color: var(--ink); }
+/* drawing */
+.wing { fill: var(--c-plate); stroke: color-mix(in srgb, var(--ink) 75%, var(--canvas)); stroke-width: .08; stroke-linejoin: round; }
+.plate { fill: color-mix(in srgb, var(--c-plate) 70%, var(--canvas)); stroke: color-mix(in srgb, var(--ink) 75%, var(--canvas)); stroke-width: .08; stroke-linejoin: round; }
+.leg { fill: var(--accent); opacity: .9; }
+.pin { fill: var(--accent); }
+.stake { fill: color-mix(in srgb, var(--accent) 60%, var(--canvas)); }
+.glue { fill: #e6c14a; opacity: .8; }
+.bodyw { fill: var(--c-body); stroke: color-mix(in srgb, var(--ink) 35%, var(--canvas)); stroke-width: .06; }
+.dim { stroke: var(--muted); stroke-width: .06; fill: none; }
+.dimt { fill: var(--muted); font: 500 1.05px var(--font-mono); font-size: var(--fs, 1.05px); text-anchor: middle; }
+.lbl { fill: var(--muted); font: 600 .9px var(--font-ui); font-size: calc(var(--fs, 1.05px) * .85); letter-spacing: .08em; text-transform: uppercase; }
+@media (max-width: 900px) { .work { grid-template-columns: 1fr; height: auto; } .view { height: 760px; } .stage { grid-template-columns: 1fr; } }
+
+.pstage { inset: 52px 14px 14px 14px; grid-template-columns: 1fr; grid-template-rows: 1.4fr 1fr; }
+.plate { fill: color-mix(in srgb, var(--ink) 55%, var(--canvas)); stroke: color-mix(in srgb, var(--ink) 40%, transparent); stroke-width: .2; }
+.pod { fill: color-mix(in srgb, var(--accent) 35%, var(--canvas)); stroke: var(--accent); stroke-width: .3; }
+.mountin { fill: color-mix(in srgb, var(--ink) 70%, var(--canvas)); stroke: color-mix(in srgb, var(--ink) 50%, transparent); stroke-width: .2; }
+.up { fill: color-mix(in srgb, var(--accent) 55%, var(--canvas)); stroke: var(--accent); stroke-width: .3; }
+.upin { fill: color-mix(in srgb, var(--ink) 82%, var(--canvas)); stroke: color-mix(in srgb, var(--ink) 50%, transparent); stroke-width: .2; }
+.sel { fill: color-mix(in srgb, var(--c-part) 55%, var(--canvas)); stroke: var(--c-part); stroke-width: .35; }
+.lug { fill: color-mix(in srgb, var(--accent) 45%, var(--canvas)); stroke: var(--accent); stroke-width: .25; }
+.hole { fill: var(--canvas); }
+.bear { fill: none; stroke: var(--c-part); stroke-width: .3; }
+.flange { fill: var(--c-part); }
+.tyre { fill: color-mix(in srgb, var(--ink) 12%, transparent); stroke: var(--muted); stroke-width: .3; }
+.motorshape { fill: none; stroke: var(--warn); stroke-width: .35; stroke-dasharray: 1.2 .7; }
+.gearshape { fill: none; stroke: var(--muted); stroke-width: .3; }
+.axle { stroke: var(--muted); stroke-width: .25; stroke-dasharray: 1.4 .8; fill: none; }
+.track { stroke: var(--line); stroke-width: .4; }
+.dimt { fill: var(--muted); font: 3.2px var(--font-ui); text-anchor: middle; }
+.tbtn.off { opacity: .4; text-decoration: line-through; }
+label.f select, .side > select { background: var(--canvas); color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 4px 6px; font: 12px var(--font-ui); width: 100%; }
+</style>
+</head>
+<body>
+<header class="pb" style="display:flex;align-items:center;gap:14px;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--panel)">
+  <span class="brand-name"><b>F</b>rame</span>
+  <div><div style="font:600 10.5px var(--font-ui);letter-spacing:.12em;color:var(--muted)" id="eyebrow">1/24 · CHASSIS, MOTOR MOUNT BUILT IN</div><div style="font:italic 700 18px var(--font-title);text-transform:uppercase">New chassis</div></div>
+  <div class="end"><span class="seg"><button data-tone-set="light">Light</button><button data-tone-set="dark" class="on">Dark</button></span></div>
+</header>
+<nav class="tools" style="display:flex;gap:4px;align-items:center;padding:6px 14px;border-bottom:1px solid var(--line);background:var(--panel)">
+  <button class="tbtn">Car</button><button class="tbtn">Outline</button><button class="tbtn">Shape</button><button class="tbtn">Fill</button><button class="tbtn" data-go="front">Features</button>
+  <button class="tbtn on" data-go="base">Pod</button><button class="tbtn">Body</button><button class="tbtn">Inserts</button><button class="tbtn">Wings</button>
+  <button class="tbtn">Print</button>
+</nav>
+<div class="sub" id="sub"></div>
+
+<div class="work">
+  <div class="view">
+    <div class="grid"></div>
+    <div class="views">
+      <span class="seg"><button class="on">Top</button><button title="Not drawn in this preview">3D</button></span>
+      <span class="seg" id="mountSeg"><button data-mount="pod">Separate pod</button><button data-mount="built" class="on">Built in</button></span>
+      <span class="seg" id="laySeg"><button data-lay="inline">Inline</button><button data-lay="sidewinder">Sidewinder</button><button data-lay="anglewinder" class="on">Anglewinder</button></span>
+    </div>
+    <div class="stage pstage">
+      <div class="card"><h4><span>From above · front to the left</span><span id="topInfo"></span></h4><svg id="top"></svg></div>
+      <div class="card"><h4><span>From the side · through the axles</span><span id="sideInfo"></span></h4><svg id="side"></svg></div>
+    </div>
+  </div>
+  <aside class="side" id="panel"></aside>
+</div>
+
+<div class="explain">
+  <h2>How it is put together</h2>
+  <ul>
+    <li><b>One new choice, in Pod › Base plate: how the motor mount is held.</b> <b>Separate pod</b> is what Frame makes now: a pod in an opening, screwed to the chassis, free to float. <b>Built into the chassis</b> makes one part, as on Plafit- and Schöler-style metal chassis: the motor bracket and the rear bearing uprights stand on the plate itself.</li>
+    <li><b>Everything else stays as it is.</b> The Pod menu still sets the layout (inline, sidewinder, anglewinder and its angle), the motor, the gears, the motor seat and the bearing uprights, with every bearing in the library (6 mm for 3 mm axles, flanged, eccentric, shoulder seats). Only the mount lugs and the screw holes go, as there is nothing to screw on, and the export is one STL.</li>
+    <li><b>The chassis stays closed round the motor and the gear,</b> as it is now: the plate is carried round them, and the motor and the gear keep their room where they come through it.</li>
+    <li><b>Front axle in bearings:</b> Features › Front axle gets a second kind of upright beside the bracket: two uprights with a bearing seat, picked from the same bearing library as the rear (a 6 mm bearing for a 3 mm axle on a 1/24 car). Flanged bearings rest against the outside face. The axle height follows the front tyres.</li>
+    <li><b>Checks</b> as now, and two more: a built-in mount needs the plate under the motor and the uprights to be solid (the fill leaves pads there), and a front bearing must fit in its upright with a wall round it.</li>
+  </ul>
+  <h2>Ideas beyond the brief</h2>
+  <ul>
+    <li>A switch back and forth costs nothing: draw the car with a separate pod, then print it in one piece, or the other way round.</li>
+    <li>Front bearing uprights can also take the eccentric bushings already in the library, to set the front ride height.</li>
+  </ul>
+  <p>This page is a design preview: the drawing changes with the choices, but 3D, export and checks are not wired up here. Sizes shown are Frame's 1/24 starting values; the research will set them.</p>
+</div>
+<script>
+// A 1/24 car with Frame's starting values. x along the car (front axle at 0), y across, mm.
+const S = {
+  mount: 'built', layout: 'anglewinder', angle: 12, tab: 'base',
+  wb: 100, plateW: 62, front: -30, rear: 128,
+  motor: { length: 32.1, width: 20.4, height: 15.4 },
+  rearUp: { spread: 36, thick: 3, wall: 2, bearing: 'ball3' },
+  frontAx: { style: 'bearing', spread: 46, thick: 3, wall: 2, bearing: 'ball3', along: 0 },
+  axleH: 7.75, tyreF: 25.5, tyreR: 27.5, plateT: 2,
+};
+const BEARINGS = {
+  ball3: ['Ball bearing 3 mm axle · seat Ø6', 6, 2.5, 0],
+  mf63: ['Flanged ball bearing 3 mm (NSK MF63ZZ) · seat Ø6', 6, 2.5, 7.2],
+  ball: ['Ball bearing 3/32" · seat Ø4.75', 4.75, 2.4, 0],
+  fr133zz: ['Flanged ball bearing 3/32" (NSK FR133ZZ) · seat Ø4.76', 4.76, 2.38, 5.94],
+};
+const $ = (s) => document.querySelector(s), r2 = (v) => Math.round(v * 100) / 100;
+
+function sub() {
+  const tabs = S.tab === 'front'
+    ? [['guide', 'Guide holder'], ['front', 'Front axle'], ['mounts', 'Body mounts']]
+    : [['drive', 'Drivetrain'], ['base', 'Base plate'], ['seat', 'Motor seat'], ['up', 'Axle uprights'], ['lugs', 'Mount lugs']];
+  $('#sub').innerHTML = `<span class="lab">${S.tab === 'front' ? 'Features' : 'Pod'}</span>` + tabs.map(([id, t]) => `<button class="tbtn ${(S.tab === 'front' ? 'front' : 'base') === id ? 'on' : ''} ${id === 'lugs' && S.mount === 'built' ? 'off' : ''}" ${id === 'lugs' && S.mount === 'built' ? 'title="Not used: the mount is part of the chassis"' : ''}>${t}${id === 'base' || id === 'front' ? '<span class="new">new</span>' : ''}</button>`).join('');
+}
+
+function drawTop() {
+  const built = S.mount === 'built', m = S.motor, ang = S.layout === 'anglewinder' ? S.angle : S.layout === 'sidewinder' ? 90 : 0;
+  const ry = S.rearUp.spread / 2, fb = BEARINGS[S.frontAx.bearing], rb = BEARINGS[S.rearUp.bearing];
+  // Where the motor sits: inline ahead of the axle; side- and anglewinders across the car, ahead of the axle.
+  const mx = S.layout === 'inline' ? S.wb - 30 : S.wb - 15, my = S.layout === 'inline' ? 0 : -2;
+  const pod = { x0: S.wb - 52, x1: S.wb + 8, w: 2 * ry + 6 };
+  let s = '';
+  // tyres
+  for (const [x, d, half] of [[0, S.tyreF, 33.5], [S.wb, S.tyreR, 33]]) for (const sg of [1, -1]) s += `<rect class="tyre" x="${x - d / 2}" y="${sg * half - 5}" width="${d}" height="10" rx="2"/>`;
+  // plate, with the pod's opening when the pod is separate
+  s += `<path class="plate" fill-rule="evenodd" d="M${S.front} -18 Q${S.front - 6} 0 ${S.front} 18 L${S.wb - 60} ${S.plateW / 2} H${S.rear} V${-S.plateW / 2} H${S.wb - 60} Z${built ? '' : `M${pod.x0 - 0.5} ${-pod.w / 2 - 0.5}V${pod.w / 2 + 0.5}H${pod.x1 + 0.5}V${-pod.w / 2 - 0.5}Z`}"/>`;
+  // the pod or the built-in mount
+  s += `<rect class="${built ? 'mountin' : 'pod'}" x="${pod.x0}" y="${-pod.w / 2}" width="${pod.x1 - pod.x0}" height="${pod.w}" rx="1.5"/>`;
+  if (!built) for (const [x, y] of [[pod.x0 + 3, pod.w / 2 + 4], [pod.x0 + 3, -pod.w / 2 - 4], [pod.x1 - 2, pod.w / 2 + 4], [pod.x1 - 2, -pod.w / 2 - 4]]) s += `<circle class="lug" cx="${x}" cy="${y}" r="2.8"/><circle class="hole" cx="${x}" cy="${y}" r="1.1"/>`;
+  // motor and gear
+  s += `<g transform="rotate(${ang} ${mx} ${my})"><rect class="motorshape" x="${mx - m.length / 2}" y="${my - m.width / 2}" width="${m.length}" height="${m.width}" rx="2"/></g>`;
+  s += S.layout === 'inline' ? `<rect class="gearshape" x="${S.wb - 7}" y="2" width="14" height="3"/>` : `<rect class="gearshape" x="${S.wb - 13}" y="${ry + 1}" width="26" height="2.5"/>`;
+  // rear bearing uprights
+  for (const sg of [1, -1]) s += `<rect class="${built ? 'upin' : 'up'}" x="${S.wb - rb[1] / 2 - S.rearUp.wall}" y="${sg * ry - S.rearUp.thick / 2}" width="${rb[1] + 2 * S.rearUp.wall}" height="${S.rearUp.thick}"/>`;
+  // front axle: bracket or bearing uprights
+  const fa = S.frontAx, fwide = fa.style === 'bearing' ? fb[1] + 2 * fa.wall : 5;
+  for (const sg of [1, -1]) {
+    s += `<rect class="${S.tab === 'front' ? 'sel' : 'upin'}" x="${fa.along - fwide / 2}" y="${sg * fa.spread / 2 - fa.thick / 2}" width="${fwide}" height="${fa.thick}"/>`;
+    if (fa.style === 'bearing' && fb[3]) s += `<rect class="flange" x="${fa.along - fb[3] / 2}" y="${sg > 0 ? fa.spread / 2 + fa.thick / 2 : -fa.spread / 2 - fa.thick / 2 - 0.6}" width="${fb[3]}" height="0.6"/>`;
+  }
+  s += `<path class="axle" d="M0 -38V38M${S.wb} -38V38"/>`;
+  // guide
+  s += `<circle class="up" cx="-24" cy="0" r="4"/><circle class="hole" cx="-24" cy="0" r="1.9"/>`;
+  s += `<text class="dimt" x="${S.wb / 2}" y="${S.plateW / 2 + 8}">wheelbase ${S.wb}</text>`;
+  $('#top').setAttribute('viewBox', `-40 -44 ${S.rear + 50} 92`);
+  $('#top').innerHTML = s;
+  $('#topInfo').textContent = built ? 'one part: the mount is the chassis' : 'two parts: a pod screwed in';
+}
+function drawSide() {
+  const built = S.mount === 'built', fb = BEARINGS[S.frontAx.bearing], rb = BEARINGS[S.rearUp.bearing], z0 = S.tyreR / 2 - S.axleH;
+  const Z = (z) => -z;
+  let s = `<path class="track" d="M-40 0H${S.rear + 10}"/>`;
+  for (const [x, d] of [[0, S.tyreF], [S.wb, S.tyreR]]) s += `<circle class="tyre" cx="${x}" cy="${Z(d / 2)}" r="${d / 2}"/>`;
+  s += `<rect class="plate" x="${S.front}" y="${Z(z0 + S.plateT)}" width="${S.rear - S.front}" height="${S.plateT}"/>`;
+  if (!built) s += `<rect class="pod" x="${S.wb - 52}" y="${Z(z0 + 1.5)}" width="60" height="1.5"/>`;
+  // uprights, with the bearing in each
+  const fz = S.tyreF / 2, rz = S.tyreR / 2;
+  for (const [x, z, b, wall, cls] of [[0, fz, fb, S.frontAx.wall, S.tab === 'front' ? 'sel' : 'upin'], [S.wb, rz, rb, S.rearUp.wall, built ? 'upin' : 'up']]) {
+    const w = b[1] + 2 * wall;
+    s += `<path class="${cls}" d="M${x - w / 2} ${Z(z0)}V${Z(z)}A${w / 2} ${w / 2} 0 0 1 ${x + w / 2} ${Z(z)}V${Z(z0)}Z"/><circle class="bear" cx="${x}" cy="${Z(z)}" r="${b[1] / 2}"/><circle class="hole" cx="${x}" cy="${Z(z)}" r="1.5"/>`;
+  }
+  const m = S.motor;
+  s += `<rect class="motorshape" x="${S.wb - 15 - m.length / 2}" y="${Z(z0 + m.height + 0.3)}" width="${m.length}" height="${m.height}" rx="2"/>`;
+  $('#side').setAttribute('viewBox', `-40 ${Z(32)} ${S.rear + 50} 36`);
+  $('#side').innerHTML = s;
+  $('#sideInfo').textContent = `axles ${r2(fz)} / ${r2(rz)} above the track · bearings Ø${fb[1]} / Ø${rb[1]}`;
+}
+function panel() {
+  let h;
+  if (S.tab === 'front') {
+    const fa = S.frontAx, b = BEARINGS[fa.bearing];
+    h = `<span class="eb">Features</span><h3>Front axle</h3><p class="d">Two uprights that carry the front axle: in a hole or slot of their own, or in bearings.</p>
+      <div class="tiles t2"><div class="tile ${fa.style === 'bracket' ? 'on' : ''}" data-fstyle="bracket">Bracket<br><small>axle in a hole or slot</small></div><div class="tile ${fa.style === 'bearing' ? 'on' : ''}" data-fstyle="bearing">Bearings<br><small>as on metal chassis</small></div></div>`;
+    if (fa.style === 'bearing') h += `<label class="f">Bearing<select data-k="frontAx.bearing">${Object.entries(BEARINGS).map(([id, v]) => `<option value="${id}" ${id === fa.bearing ? 'selected' : ''}>${v[0]}</option>`).join('')}</select></label>
+      <div class="g2"><label class="f">Spread, centre to centre<span class="num"><input data-k="frontAx.spread" value="${fa.spread}"><small>mm</small></span></label><label class="f">Upright thickness<span class="num"><input data-k="frontAx.thick" value="${fa.thick}"><small>mm</small></span></label><label class="f">Wall round the bearing<span class="num"><input data-k="frontAx.wall" value="${fa.wall}"><small>mm</small></span></label><label class="f">Along, from front axle<span class="num"><input data-k="frontAx.along" value="${fa.along}"><small>mm</small></span></label></div>
+      <div class="note">Seat Ø${b[1]}, ${b[2]} mm wide${b[3] ? `; the flange (Ø${b[3]}) rests against the outside face` : ''}. The axle stands at the middle of the front tyres.</div>`;
+    else h += `<div class="note">As now: the axle runs in a hole or an open slot, with a grub screw to set the height.</div>`;
+  } else {
+    const built = S.mount === 'built';
+    h = `<span class="eb">Pod</span><h3>Base plate</h3><p class="d">What the motor and the rear axle stand on.</p>
+      <label class="f">How the motor mount is held</label>
+      <div class="tiles t2"><div class="tile ${!built ? 'on' : ''}" data-mount="pod">Separate pod<br><small>screwed in, can float</small></div><div class="tile ${built ? 'on' : ''}" data-mount="built">Built into the chassis<br><small>one part, as on metal chassis</small></div></div>
+      ${built ? `<div class="note">The motor seat and the bearing uprights stand on the chassis plate; it prints as one part. <b>Mount lugs</b> and <b>Pod mounts</b> are not used, and Export gives one STL.</div>` : `<div class="note">A pod in its own opening, screwed to the chassis with its lugs.</div>`}
+      <div class="g2"><label class="f">Width<span class="num"><input value="30"><small>mm</small></span></label><label class="f">Thickness<span class="num"><input value="1.5"><small>mm</small></span></label>${built ? '' : '<label class="f">Move sideways<span class="num"><input value="0"><small>mm</small></span></label>'}</div>
+      <label class="f">Layout (Drivetrain)</label><div class="seg wide">${['inline', 'sidewinder', 'anglewinder'].map((l) => `<button class="${S.layout === l ? 'on' : ''}" data-lay="${l}">${l[0].toUpperCase() + l.slice(1)}</button>`).join('')}</div>
+      ${S.layout === 'anglewinder' ? `<div class="g2"><label class="f">Angle to the rear axle<span class="num"><input data-k="angle" value="${S.angle}"><small>°</small></span></label></div>` : ''}
+      <label class="f">Rear bearings (Axle uprights)</label><select data-k="rearUp.bearing">${Object.entries(BEARINGS).map(([id, v]) => `<option value="${id}" ${id === S.rearUp.bearing ? 'selected' : ''}>${v[0]}</option>`).join('')}</select>`;
+  }
+  $('#panel').innerHTML = h + `<div class="row" style="margin-top:10px"><button class="tbtn" data-go="${S.tab === 'front' ? 'base' : 'front'}">${S.tab === 'front' ? 'Pod › Base plate' : 'Features › Front axle'} →</button></div>`;
+}
+function draw() { sub(); drawTop(); drawSide(); panel(); $('#eyebrow').textContent = `1/24 · ${S.mount === 'built' ? 'CHASSIS, MOTOR MOUNT BUILT IN' : 'CHASSIS + POD'}`;
+  document.querySelectorAll('#mountSeg button').forEach((b) => b.classList.toggle('on', b.dataset.mount === S.mount));
+  document.querySelectorAll('#laySeg button').forEach((b) => b.classList.toggle('on', b.dataset.lay === S.layout)); }
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-mount],[data-lay],[data-fstyle],[data-go],[data-tone-set]');
+  if (!t) return;
+  if (t.dataset.toneSet) { document.documentElement.dataset.tone = t.dataset.toneSet; document.documentElement.dataset.theme = t.dataset.toneSet; document.querySelectorAll('[data-tone-set]').forEach((b) => b.classList.toggle('on', b === t)); return; }
+  if (t.dataset.mount) S.mount = t.dataset.mount;
+  if (t.dataset.lay) S.layout = t.dataset.lay;
+  if (t.dataset.fstyle) S.frontAx.style = t.dataset.fstyle;
+  if (t.dataset.go) S.tab = t.dataset.go;
+  draw();
+});
+document.addEventListener('change', (e) => {
+  const k = e.target.dataset.k; if (!k) return;
+  const path = k.split('.'), v = e.target.tagName === 'SELECT' ? e.target.value : parseFloat(e.target.value);
+  if (typeof v === 'number' && !Number.isFinite(v)) return;
+  let o = S; for (const p of path.slice(0, -1)) o = o[p]; o[path.at(-1)] = v;
+  draw();
+});
+draw();
+</script>
+</body>
+</html>
