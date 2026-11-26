@@ -1030,6 +1030,47 @@ export const checks = [
     assert.equal(used.mirror, false, 'the mirroring stays');
   }],
 
+  ["one-piece chassis: Peter's 1:43 Chassis is started, changed, put back, exported and used from the library", async (app) => {
+    const { page, assert } = app;
+    const built = () => page.waitForFunction(() => { const s = window.slotforgeFrame.state; return s.built && !s.busy && s.design.onePiece; }, null, { timeout: 30000 });
+    const notes = () => app.state(() => window.slotforgeFrame.state.built.notes.map((n) => n.title));
+    await page.click('[data-act=pop][data-pop=new]');
+    await page.click('.popmenu [data-act=newonepiece]');
+    await built();
+    assert.equal(await app.state(() => window.slotforgeFrame.state.design.scale), '1/43');
+    // The chassis and pod menus give way to One piece.
+    assert.deepEqual(await page.locator('#menus [data-act=menu]').evaluateAll((b) => b.map((x) => x.dataset.menu)), ['car', 'onepiece', 'body', 'inserts', 'wings', 'print']);
+    assert.ok((await notes()).includes("Exactly Peter's design"));
+    assert.equal(await page.locator('#steps .sp').count(), 7);
+    // The wheelbase, in One piece, moves the car's too; then back to Peter's.
+    await page.click('#sub [data-act=tool][data-tool="op-rear"]');
+    await app.set('onePiece.rear.wheelbase', 60);
+    await built();
+    assert.equal(await app.state(() => window.slotforgeFrame.state.design.car.wheelbase), 60);
+    assert.ok((await notes()).some((t) => t.startsWith("Changed from Peter's design")));
+    await page.click('#panel [data-act=opreset]:not([data-part])');
+    await built();
+    assert.equal(await app.state(() => window.slotforgeFrame.state.design.car.wheelbase), 55.02);
+    assert.ok((await notes()).includes("Exactly Peter's design"));
+    // One file: the chassis. There is no pod to export.
+    await page.click('[data-act=pop][data-pop=export]');
+    assert.equal(await page.locator('.popmenu [data-act=export][data-what=pod]').count(), 0);
+    const [stl] = await app.downloads(() => page.click('.popmenu [data-act=export][data-what=chassis]'));
+    assert.ok(stl.name.endsWith(' chassis.stl'), stl.name);
+    assert.ok(stl.bytes.length > 50000);
+    // From a 1/32 design, the library's built-in chassis makes it one piece again.
+    await page.click('[data-act=pop][data-pop=new]');
+    await page.click('.popmenu [data-act=new][data-scale="1/32"]');
+    await app.idle();
+    await page.click('#menus [data-act=library]');
+    await page.click('#dialog [data-d=kind][data-kind=chassis]');
+    await page.click('#dialog .card2:has-text("1:43 Chassis")');
+    await page.click('#dialog [data-d=use]');
+    await built();
+    assert.equal(await app.state(() => window.slotforgeFrame.state.design.scale), '1/43');
+    assert.equal(await app.state(() => window.slotforgeFrame.state.menu), 'onepiece');
+  }],
+
   ['rear wings: a wing is picked, changed, given its own endplate, shown in 3D and exported with its template', async (app) => {
     const { page, assert } = app;
     const wing = () => page.evaluate(() => JSON.parse(JSON.stringify(window.slotforgeFrame.state.design.wing)));

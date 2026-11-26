@@ -113,3 +113,6 @@
 .wg-presets { grid-template-columns: repeat(3, 1fr); }
 .wg-presets .ins-pre svg { max-width: 76px; aspect-ratio: 1.4; }
 .wg-presets .ins-pre .wg-body { display: none; }
+
+/* One-piece chassis: the part chosen in the panel, marked on the drawing. */
+.op-sel { fill: color-mix(in srgb, var(--accent) 28%, transparent); stroke: var(--accent); stroke-width: .35; pointer-events: none; }

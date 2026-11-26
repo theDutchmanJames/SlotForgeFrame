@@ -6,6 +6,7 @@ import { find, on, heights, motorOf, gearOf, motorPlace, podLayout, uprightSprea
 import { createAnalyser } from './mesh-measure.js';
 import { layerShape, mirrored, insertOf, insertChecks, ringSizes, modelOf, cutsOf, minDepth, modelScale } from '../inserts.js';
 import { MESHES, STEP } from './jivko-meshes.js';
+import { onePieceSolid, onePieceChecks, rideHeight } from '../onepiece.js';
 import { base64ToBytes } from '../library-core.js';
 import { wingSide, legYs, pinsOf, wingChecks, deckZ } from '../wings.js';
 
@@ -1102,9 +1103,25 @@ export function createEngine(wasm) {
     }
   }
 
+  // A one-piece chassis, as it stands on the car: turned so it runs along x with the front axle at x = 0,
+  // its underside as high above the track as the rear tyres and its axle height make it.
+  function onePieceOnCar(d) {
+    const P = d.onePiece, solid = onePieceSolid({ Manifold, CrossSection, K }, P);
+    return K(K(solid.rotate([0, 0, -90])).translate([-P.front.at, 0, rideHeight(P, d.car.rear.tyreD)]));
+  }
+  function buildOnePiece(design) {
+    const solid = onePieceOnCar(design);
+    if (solid.status() !== 'NoError' || solid.isEmpty() || !(solid.volume() > 0.5)) throw Error('The chassis came out empty. One of its sizes leaves nothing to build; undo the last change.');
+    const notes = onePieceChecks(design.onePiece, { nozzle: design.printer.nozzle, rearTyreD: design.car.rear.tyreD, minClearance: design.rules.minClearance, maxWidth: design.rules.maxWidth });
+    const pieces = solid.decompose().map(K).filter((p) => p.volume() > 0.05).length;
+    if (pieces > 1) notes.push({ ok: false, title: 'The chassis falls apart', text: `It comes out in ${pieces} pieces: a part no longer touches the rest.` });
+    return { chassis: meshOf(solid), pod: null, split: null, top: { chassis: polysOf(K(solid.project())), pod: [], window: [] }, notes, volume: solid.volume() };
+  }
+
   function build(design) {
     bin = [];
     try {
+      if (design.onePiece) return buildOnePiece(design);
       const notes = [];
       const chassis = buildChassis(design, notes, podFootprint(design));
       const pod = buildPod(design, notes);

@@ -16,13 +16,17 @@ export const newId = () => `f${Date.now().toString(36)}${(counter++).toString(36
 import { MOTORS, GEARS, BEARINGS, GUIDES, MATERIALS, DESIGN_KINDS, COMPONENT_KINDS, cleanComponent } from './components.js';
 import { newInserts, cleanInserts, cleanInsert } from './inserts.js';
 import { newWing, cleanWing } from './wings.js';
+import { newOnePiece, cleanOnePiece, PETER, rideHeight, layout as onePieceLayout } from './onepiece.js';
 export { MOTORS, GEARS, BEARINGS, GUIDES, MATERIALS };
 
 // What a scale sets as a starting point. Every value stays editable.
 export const PROFILES = {
   '1/32': { axleD: 2.38, bearing: 'ball', guide: 'slotit', maxWidth: 64, guideLeadMax: 105, minClearance: 0.75, plate: 1.5 },
   '1/24': { axleD: 3.0, bearing: 'ball3', guide: 'g24', maxWidth: 83, guideLeadMax: 130, minClearance: 1.0, plate: 2.0 },
+  // 1/43: nobody's published rules; sized down from 1/32 (32/43) and to Peter's 1:43 chassis. Measure your own car.
+  '1/43': { axleD: 2.0, bearing: 'ball', guide: 'slotit', maxWidth: 46, guideLeadMax: 75, minClearance: 0.5, plate: 1.2 },
 };
+export const SCALES = Object.keys(PROFILES);
 
 export const FEATURE_NAMES = {
   outline: 'Outline',
@@ -91,7 +95,7 @@ const feature = (type, params, extra = {}) => ({ id: newId(), type, enabled: tru
 // The half outline: points from the nose to the tail on the +Y side.
 // The other side is its mirror image.
 function defaultOutline(wb, scale) {
-  const k = scale === '1/24' ? 1.3 : 1;
+  const k = scale === '1/24' ? 1.3 : scale === '1/43' ? 32 / 43 : 1;
   const w = 30.5 * k;
   return [
     [-30 * k, 0],
@@ -113,8 +117,10 @@ function defaultOutline(wb, scale) {
 
 export function newDesign(scale = '1/32') {
   const p = PROFILES[scale];
-  const big = scale === '1/24';
-  const wb = big ? 100 : 83.4;
+  const big = scale === '1/24', small = scale === '1/43';
+  // 1/43 sizes are the 1/32 ones scaled down, except where Peter's 1:43 chassis gives them.
+  const S = (v32, v24, v43 = round(v32 * 32 / 43, 1)) => (big ? v24 : small ? v43 : v32);
+  const wb = S(83.4, 100, PETER.rear.wheelbase);
   const design = {
     format: FORMAT,
     version: VERSION,
@@ -130,14 +136,14 @@ export function newDesign(scale = '1/32') {
     rules: { maxWidth: p.maxWidth, guideLeadMax: p.guideLeadMax, minClearance: p.minClearance },
     car: {
       wheelbase: wb,
-      clearance: big ? 2.5 : 2.0,
+      clearance: S(2.0, 2.5, 1.5),
       axleD: p.axleD,
-      front: { tyreD: big ? 25.5 : 19.5, tyreW: big ? 8 : 9, inOut: big ? 33.5 : 25.5 },
-      rear: { tyreD: big ? 27.5 : 20.5, tyreW: big ? 13 : 10.5, inOut: big ? 33 : 25.75 },
+      front: { tyreD: S(19.5, 25.5, 16.5), tyreW: S(9, 8, 6), inOut: S(25.5, 33.5, 17) },
+      rear: { tyreD: S(20.5, 27.5, 17), tyreW: S(10.5, 13, 7), inOut: S(25.75, 33, 17.5) },
     },
     drivetrain: {
       layout: 'inline',
-      motor: big ? 'fk180' : 'fc130',
+      motor: big ? 'fk180' : small ? 'ff030' : 'fc130',
       gear: 'si-in-27-9',
       offset: 0.75,
       faceGap: 12.0, // inline: motor face to rear axle centre (unconfirmed)
@@ -154,30 +160,30 @@ export function newDesign(scale = '1/32') {
   design.chassis.features = [
     feature('outline', { points: defaultOutline(wb, scale), thickness: p.plate, round: 1.0, bevelTop: 0, bevelBottom: 0 }),
     feature('podOpening', { gap: 0.5 }),
-    feature('fill', { style: 'frame', railWidth: 1.6, outerRail: 2.4, pad: 1.6, cross: proposeCross(design, 2, wb), length: [big ? 30 : 23], spine: true, axleRail: true, guideRail: true, tail: true, struts: 'fan', latticeCell: 7 }),
-    feature('guide', { guide: p.guide, along: big ? -24 : -19, side: 0, hole: GUIDES[p.guide].hole, bossD: big ? 8 : 6.3, bossH: 5.8, padD: 11 }),
+    feature('fill', { style: 'frame', railWidth: 1.6, outerRail: 2.4, pad: 1.6, cross: proposeCross(design, 2, wb), length: [S(23, 30)], spine: true, axleRail: true, guideRail: true, tail: true, struts: 'fan', latticeCell: 7 }),
+    feature('guide', { guide: p.guide, along: S(-19, -24, -5.5), side: 0, hole: GUIDES[p.guide].hole, bossD: S(6.3, 8), bossH: 5.8, padD: 11 }),
     // travel: how far the axle can move up and down in its slot; grubTop: a second grub screw from above; independent: a stub axle per wheel.
-    feature('frontAxle', { along: 0, spread: big ? 46 : 34.5, width: 5, thick: 3, slot: true, grub: 1.6, travel: 0, grubTop: false, independent: false }),
+    feature('frontAxle', { along: 0, spread: S(34.5, 46), width: 5, thick: 3, slot: true, grub: 1.6, travel: 0, grubTop: false, independent: false }),
     feature('podMounts', { hole: 1.8, padD: 5.8 }),
     // One mount on the centre line between the guide and the front axle, one on it behind the rear axle.
-    feature('bodyMounts', { posts: [{ along: big ? -12 : -9.5, side: 0 }, { along: wb + 16.6, side: 0 }], padD: 6.6, hole: 2.5, recessD: 4.5, recessDepth: 1.0, height: 4 }),
-    feature('kickup', { fold: wb + 12.1, angle: 12, strakes: 7, strakeT: 0.8, fillFloor: true, zone: 'full', zoneHalf: big ? 16 : 12 }),
+    feature('bodyMounts', { posts: [{ along: S(-9.5, -12), side: 0 }, { along: wb + 16.6, side: 0 }], padD: 6.6, hole: 2.5, recessD: 4.5, recessDepth: 1.0, height: 4 }),
+    feature('kickup', { fold: wb + 12.1, angle: 12, strakes: 7, strakeT: 0.8, fillFloor: true, zone: 'full', zoneHalf: S(12, 16) }),
     // Off until asked for:
     feature('profile', { points: [[round(wb * 0.3), 0], [round(wb * 0.6), 0]] }, { enabled: false }),
-    feature('kickfront', { fold: big ? -18 : -14, angle: 8, strakes: 0, strakeT: 0.8, fillFloor: false, zone: 'full', zoneHalf: big ? 16 : 12 }, { enabled: false }),
-    feature('split', { along: round(wb * 0.36), tabs: 2, spread: big ? 30 : 23, depth: 4, neck: 3.5, head: 6, play: 0.15 }, { enabled: false }),
+    feature('kickfront', { fold: S(-14, -18), angle: 8, strakes: 0, strakeT: 0.8, fillFloor: false, zone: 'full', zoneHalf: S(12, 16) }, { enabled: false }),
+    feature('split', { along: round(wb * 0.36), tabs: 2, spread: S(23, 30), depth: 4, neck: 3.5, head: 6, play: 0.15 }, { enabled: false }),
   ];
   design.pod.features = [
     // onTop: the pod sits on top of the chassis, resting on it by `rest` all round, where otherwise it drops into its opening.
     // drop: the motor and the axle moved up (+) or down (−) in the pod, through its floor.
-    feature('base', { width: big ? 30 : 25.4, thickness: 1.5, sideways: 0, onTop: false, rest: 2, drop: 0 }),
+    feature('base', { width: S(25.4, 30), thickness: 1.5, sideways: 0, onTop: false, rest: 2, drop: 0 }),
     feature('motorSeat', { wall: 2.0, clear: 0.3 }),
     // form: a straight seat for a bearing or bushing, or a round socket for a spherical bushing (a ball with flat sides,
     // ballD x ballW) that snaps in past a lip (`opening`) and can tilt; `slits` let the lip give.
     // tube: one axle tube through both uprights (tubeLen end to end): its length sets how far apart they stand.
     // flange: a flanged bearing or bushing (flangeD x flangeT) whose flange rests against the wheel side or the
     // motor side of each upright (flangeAt), sunk into a recess or standing proud of the face (flangeRecess).
-    feature('uprights', { bearing: p.bearing, seat: BEARINGS[p.bearing].seat, holder: 'closed', spread: big ? 36 : 29, wall: 2.0, thick: 3.0, brace: true, buttress: true, lube: false,
+    feature('uprights', { bearing: p.bearing, seat: BEARINGS[p.bearing].seat, holder: 'closed', spread: S(29, 36), wall: 2.0, thick: 3.0, brace: true, buttress: true, lube: false,
       form: 'straight', ballD: 3.8, ballW: 2.0, opening: 3.2, slits: 4, slitW: 0.6, tube: false, tubeLen: 29, tubeD: 3.0,
       flange: false, flangeD: 6.0, flangeT: 0.6, flangeAt: 'out', flangeRecess: true,
       // ecc: an eccentric bushing's offset (it turns in its seat to set the axle's height), with a mark on the
@@ -187,6 +193,40 @@ export function newDesign(scale = '1/32') {
     feature('lugs', { patternX: 63.2, patternY: 20, rearBehindAxle: 6.6, lugD: 4.6, lugT: 2.0, hole: 2.3, float: 0 }),
   ];
   return design;
+}
+
+// The parts in a one-piece car, for the 3D view: the wheels and axles, the motor in its cradle, the gears and the guide.
+function onePieceParts(d) {
+  const P = d.onePiece, L = onePieceLayout(P), ride = rideHeight(P, d.car.rear.tyreD), wb = d.car.wheelbase, m = motorOf(d), g = gearOf(d);
+  const at = (y) => y - P.front.at, z = ride + P.motor.shaftH, x = at(L.bayTo) - m.length / 2;
+  const out = {
+    wheels: [],
+    axles: [
+      { x: 0, z: ride + P.front.height, half: d.car.front.inOut + d.car.front.tyreW / 2, d: d.car.axleD, inner: null },
+      { x: wb, z: ride + P.rear.height, half: d.car.rear.inOut + d.car.rear.tyreW / 2, d: d.car.axleD },
+    ],
+    motor: { x, y: 0, angle: 0, z, length: m.length, width: m.width, height: m.height },
+    shaft: { x0: x, y0: 0, x1: x + m.length / 2 + m.shaftOut, y1: 0, z, d: m.shaftD },
+    pinion: { x: x + m.length / 2 + m.shaftOut - 2.5, y: 0, z, angle: 0, d: g.pinionD, length: 5 },
+    gear: { x: wb, y: g.pinionD / 2 + 1.9, z: ride + P.rear.height, d: g.gearD, width: 4 },
+    guide: { x: at(P.guide.at), y: 0, length: 12 },
+    bushes: [],
+    gearBoss: null,
+  };
+  for (const [x, w] of [[0, d.car.front], [wb, d.car.rear]])
+    for (const s of [1, -1]) out.wheels.push({ x, y: s * w.inOut, z: w.tyreD / 2, d: w.tyreD, w: w.tyreW });
+  for (const [x, e] of [[0, P.front], [wb, P.rear]])
+    for (const s of [1, -1]) out.bushes.push({ x, y: s * (e.inner + e.thick / 2), z: ride + e.height, d: e.hole, w: e.thick });
+  return out;
+}
+
+// A one-piece design: the chassis and the motor bay in one part (onepiece.js). It starts as Peter's 1:43 chassis.
+export function newOnePieceDesign() {
+  const d = newDesign('1/43');
+  d.name = PETER.name;
+  d.onePiece = newOnePiece();
+  d.car.wheelbase = d.onePiece.rear.wheelbase;
+  return d;
 }
 
 // Cross rail positions spread over the pod opening's length.
@@ -273,8 +313,9 @@ export function podRide(d) {
   const base = find(d.pod, 'base')?.params ?? {};
   return (base.onTop === true ? find(d.chassis, 'outline').params.thickness : 0) + (base.drop || 0);
 }
-export const rideClearance = (d) => round(d.car.clearance - podRide(d), 3);
+export const rideClearance = (d) => round(d.onePiece ? rideHeight(d.onePiece, d.car.rear.tyreD) : d.car.clearance - podRide(d), 3);
 export function heights(d) {
+  if (d.onePiece) { const P = d.onePiece; return { frontAxle: P.front.height, axle: P.rear.height, shaft: P.motor.shaftH }; }
   const axle = d.car.rear.tyreD / 2 - d.car.clearance;
   const shaft = axle - d.drivetrain.offset;
   const m = motorOf(d);
@@ -525,6 +566,7 @@ export function balance(d, built) {
 // The bought parts shown as a preview: wheels, axles, motor, gears and guide.
 // Boxes and cylinders in the car frame; `z` values are above the track.
 export function partsLayout(d) {
+  if (d.onePiece) return onePieceParts(d);
   const h = heights(d), z0 = d.car.clearance, wb = d.car.wheelbase, m = motorOf(d), g = gearOf(d), place = motorPlace(d);
   const guide = find(d.chassis, 'guide'), up = find(d.pod, 'uprights');
   const rad = (place.angle * Math.PI) / 180, ux = Math.cos(rad), uy = Math.sin(rad);
@@ -571,6 +613,10 @@ export function partsLayout(d) {
 }
 
 export function summary(d) {
+  if (d.onePiece) {
+    const P = d.onePiece, tyres = Math.max(d.car.front.inOut + d.car.front.tyreW / 2, d.car.rear.inOut + d.car.rear.tyreW / 2) * 2;
+    return { wheelbase: d.car.wheelbase, guideLead: d.car.wheelbase + P.front.at - P.guide.at, minX: -P.front.at, maxX: P.plate.length - P.front.at, length: P.plate.length, plateWidth: P.plate.panW, width: Math.max(P.plate.panW, tyres), clearance: rideClearance(d) };
+  }
   const guide = find(d.chassis, 'guide');
   const outline = find(d.chassis, 'outline').params, imp = d.chassis.imported;
   const xs = imp ? [-imp.frontX, imp.size[0] - imp.frontX] : outline.points.map((p) => p[0]);
@@ -590,6 +636,8 @@ export function summary(d) {
 
 // Values this design leans on that nobody has confirmed.
 export function unconfirmed(d) {
+  // A one-piece chassis brings its own sizes (Peter's are measured from Peter's model); only the motor may be a guess.
+  if (d.onePiece) return motorOf(d).confirmed === false ? ['Motor sizes'] : [];
   const out = [];
   const guide = find(d.chassis, 'guide');
   if (on(guide) && guideOf(d, guide.params.guide)?.confirmed === false) out.push('Guide hole');
@@ -709,6 +757,12 @@ export function checks(d) {
   const s = summary(d), h = heights(d), g = gearOf(d), out = [];
   const add = (ok, title, text) => out.push({ ok, title, text });
   add(true, `Gear ratio ${(g.gearT / g.pinionT).toFixed(2)} : 1`, `${g.gearT} / ${g.pinionT} · gear Ø${g.gearD} with pinion Ø${g.pinionD}`);
+  // A one-piece chassis is checked by its own rules (onepiece.js, with the build); the car's limits still apply.
+  if (d.onePiece) {
+    add(s.width <= d.rules.maxWidth, `Width ${s.width.toFixed(1)} mm`, `Limit: ${d.rules.maxWidth} mm.`);
+    add(s.guideLead <= d.rules.guideLeadMax, `Guide lead ${s.guideLead.toFixed(1)} mm`, `Limit: ${d.rules.guideLeadMax} mm.`);
+    return out;
+  }
   // A can that is flush with the underside, give or take 0.1 mm, is how bought pods are made.
   // (Measured from the chassis's underside as it really rides: see podRide.)
   const under = h.motorBottom + podRide(d), flush = under >= -0.1;
@@ -871,6 +925,10 @@ export function cleanDesign(raw) {
   d.units = raw.units === 'in' ? 'in' : 'mm';
   d.inserts = cleanInserts(raw.inserts, scale);
   d.wing = cleanWing(raw.wing, scale);
+  if (raw.onePiece && typeof raw.onePiece === 'object') {
+    d.onePiece = cleanOnePiece(raw.onePiece);
+    d.car.wheelbase = d.onePiece.rear.wheelbase;
+  }
   d.drivetrain.drives = raw.drivetrain?.drives === 'left' ? 'left' : 'right';
   d.drivetrain.reverse = raw.drivetrain?.reverse === true;
   const angle = raw.drivetrain?.angle;
@@ -922,8 +980,8 @@ export function cleanPart(kind, data, hasMesh) {
     return { drivetrain: d.drivetrain, features: d.pod.features, ...extra(d, 'pod') };
   }
   const imported = hasMesh ? cleanImported('chassis', data.imported) : null;
-  const d = cleanDesign({ scale: data.scale, car: data.car, rules: data.rules, custom: data.custom, chassis: { features: data.features } });
-  return { ...(imported ? { imported } : {}), car: d.car, rules: d.rules, features: d.chassis.features, ...extra(d, 'chassis') };
+  const d = cleanDesign({ scale: data.scale, car: data.car, rules: data.rules, custom: data.custom, chassis: { features: data.features }, onePiece: imported ? undefined : data.onePiece });
+  return { ...(imported ? { imported } : {}), car: d.car, rules: d.rules, features: d.chassis.features, ...(d.onePiece ? { onePiece: d.onePiece } : {}), ...extra(d, 'chassis') };
 }
 
 export function createHistory(limit = 80) {

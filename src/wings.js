@@ -26,7 +26,7 @@ export const WING_PRESETS = {
 };
 // Sizes that grow with the scale; angles, percentages and the body's wall do not.
 const LENGTHS = ['span', 'chord', 'chord2', 'gap', 'gurney', 'plateT', 'above', 'below', 'fwd', 'aft', 'spacing', 'height', 'legW', 'legD', 'pinD'];
-const scaleOf = (scale) => (scale === '1/24' ? 32 / 24 : 1);
+const scaleOf = (scale) => (scale === '1/24' ? 32 / 24 : scale === '1/43' ? 32 / 43 : 1);
 export function wingPreset(name, scale = '1/32') {
   const p = WING_PRESETS[name];
   if (!p) throw Error('Not a wing this app knows.');

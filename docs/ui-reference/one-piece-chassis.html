@@ -137,10 +137,10 @@ label.f select { background: var(--canvas); color: var(--ink); border: 1px solid
   <ul>
     <li><b>A new scale, 1/43,</b> beside 1/32 and 1/24: smaller wheels and tyres, slimline motors, and the rules and checks sized to match.</li>
     <li><b>A new kind of chassis: one piece.</b> Choosing it in <b>New</b> (or in Car) swaps the drawn chassis and the separate pod for one menu, <b>One piece</b> (Outline, Shape, Fill, Features and Pod step aside while it is chosen), with its parts on the right: plate and side pans, guide post, front axle, motor bay, gear well, rear axle and body mounts. Body, Inserts, Wings and Print work as they do now.</li>
-    <li><b>Peter's 1:43 Chassis is where it starts:</b> built in, in New and in the library, with every size taken from Peter's model. Untouched, it builds the very same solid as his STL; a test in the app checks that it stays so. The bar above says whether it still is, and <b>Back to Peter's</b> undoes your changes.</li>
+    <li><b>Peter's 1:43 Chassis is where it starts:</b> built in, in New and in the library, with every size taken from Peter's model. Untouched, it builds the very same solid as Peter's STL; a test in the app checks that it stays so. The bar above says whether it still is, and <b>Back to Peter's</b> undoes your changes.</li>
     <li><b>Linked sizes move together:</b> the wheelbase moves the rear axle, the gear well and the end of the plate; the motor moves its bay and the walls round it; the track of the eyes follows the axle width.</li>
     <li><b>Checks</b> as for the other chassis: walls and eyes thinner than your nozzle, a motor that does not fit its bay, a crown gear that hits the floor, an axle too low for the tyres, a guide too close to the front axle.</li>
-    <li><b>Credit:</b> designed by Peter (SlotForum), included with his permission.</li>
+    <li><b>Credit:</b> designed by Peter (SlotForum), included with the designer's permission.</li>
   </ul>
   <h2>Ideas beyond the brief</h2>
   <ul>
@@ -150,7 +150,7 @@ label.f select { background: var(--canvas); color: var(--ink); border: 1px solid
   <p>This page is a design preview: the drawings are made live from the settings, but 3D, export and the library are not wired up here.</p>
 </div>
 <script>
-// Every size is Peter's, in mm, measured from his STL. y runs from the front of the guide (0) to the rear; x across.
+// Every size is Peter's, in mm, measured from Peter's STL. y runs from the front of the guide (0) to the rear; x across.
 const PETER = {
   plate: { length: 72.52, frontW: 19, rearW: 19, frontT: 1, rearT: 1, panFrom: 19.52, panLen: 35, panW: 32, panT: 2, arcR: 10 },
   guide: { at: 3, d: 6, hole: 3, h: 5, spineW: 4, spineH: 5 },
@@ -247,7 +247,7 @@ function panel() {
   if (k === 'rear') h += `<div class="note">The gear well and the end of the plate move with the rear axle. At 1/43 a ${r2(P.rear.wheelbase)} mm wheelbase is ${r2(P.rear.wheelbase * 43 / 1000)} m on the real car.</div>`;
   if (k === 'motor') h += `<div class="note">Changing the motor resizes the bay round it. Peter's bay fits a slimline can lying flat: the floor is open under it and the cradle holds its round sides, so the can's underside is level with the bottom of the chassis and the car sits low.</div>`;
   if (ch.length) h += `<button class="tbtn" data-resetpart="${k}">Back to Peter's for this part</button>`;
-  h += `<div class="note">Designed by Peter (SlotForum), included with his permission.</div>`;
+  h += `<div class="note">Designed by Peter (SlotForum), included with the designer's permission.</div>`;
   $('#panel').innerHTML = h;
 }
 function exactBar() {

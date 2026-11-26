@@ -85,7 +85,7 @@ export function cleanItem(raw, cleanData) {
     kind: raw.kind,
     // A component's name lives with its values.
     name: part ? text(raw.name, { pod: 'Pod', chassis: 'Chassis', insert: 'Wheel insert', wing: 'Rear wing' }[raw.kind]) : data.name,
-    scale: raw.scale === '1/24' ? '1/24' : '1/32',
+    scale: ['1/24', '1/43'].includes(raw.scale) ? raw.scale : '1/32',
     source: data.imported ? 'imported' : 'made',
     note: text(raw.note, ''),
     updated: Number.isFinite(raw.updated) ? raw.updated : Date.now(),

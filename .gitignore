@@ -5,6 +5,8 @@ dist/
 *.STL
 # ...except Jivko's wheel inserts, which ship with the app (tools/jivko-pack.mjs packs them)
 !assets/jivko-design/*.stl
+# ...and Peter's 1:43 chassis, which the one-piece chassis is checked against (tests/onepiece.test.js)
+!assets/peter-143/*.stl
 *.frame
 # Local agent workspace
 .claude/

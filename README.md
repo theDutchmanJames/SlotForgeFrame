@@ -60,7 +60,7 @@ Frame works along eight menus, roughly in the order you build a car: **Car, Outl
 
 ### Start from your car
 
-- **1/32 and 1/24:** start a new chassis in either scale, with matching starting values.
+- **1/32 and 1/24:** start a new chassis in either scale, with matching starting values. **1/43:** start from Peter's 1:43 Chassis, a one-piece chassis (see below).
 - **Wheels and axles:** wheelbase, ground clearance, axle diameter, and tyre diameter, width and track for the front and the rear.
 - **Rules:** the widest car, the longest guide lead and the least clearance your club allows. The final check compares the design with them.
 - **Car presets and rule sets** come from the library, and you can add your own. A car preset sets the wheelbase, and the tyres and the track where its maker publishes them (Policar, BRM, Carrera Digital 124 and more); length, width and weight are there to compare with.
@@ -101,6 +101,13 @@ Frame works along eight menus, roughly in the order you build a car: **Car, Outl
 - **Bearing holders:** closed, snap-in or clamp, with a buttress on the motor side, a brace between them and room to oil the bearing.
 - **Motor seat, base plate and mount lugs,** each with its own sizes.
 - **Live preview:** axles, wheels, tyres, motor, pinion and gear are drawn in place in the top view and in 3D.
+
+### One-piece chassis (1/43)
+
+- **Peter's 1:43 Chassis:** a one-piece 1/43 chassis with the motor in the chassis itself, built in (New, and the library). Untouched, it builds the very same part as Peter's own model; a test in the app keeps it so.
+- **Every size is yours:** the plate and side pans, the guide post, the front and rear axle eyes (with keyed seats, so a bushing cannot turn), the motor cradle, the gear well and the body mounts each have their own settings in the **One piece** menu, which takes the place of the chassis and pod menus. The wheelbase moves the rear axle, the gear well and the end of the plate together. The app says how many settings differ from Peter's, and **Back to Peter's** puts them back.
+- **Checks:** axle eyes and key slots too thin to print, a chassis or a motor cradle that reaches the track on your tyres, and a chassis wider than your rules allow.
+- Designed by Peter (SlotForum), included with the designer's permission.
 
 ### Wheel inserts
 

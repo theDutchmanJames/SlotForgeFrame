@@ -16,6 +16,11 @@ src/geometry/jivko-meshes.js). They are included with the designer's
 permission and remain the designer's work; the SlotForge license does not
 apply to them.
 
+It also includes Peter's 1:43 Chassis, designed by Peter (SlotForum): the
+model in assets/peter-143, and its sizes in src/onepiece.js, from which the
+app builds it. It is included with the designer's permission and remains the
+designer's work; the SlotForge license does not apply to it.
+
 The desktop app is built on Electron 45.1.0 (MIT License), which includes
 Chromium and Node.js. Their notices are in the files LICENSE.electron.txt and
 LICENSES.chromium.html next to the program.

@@ -210,7 +210,7 @@ export const KINDS = {
   },
   car: {
     one: 'Car preset', many: 'Car presets', group: 'Setup',
-    choices: { scale: { '1/32': '1/32', '1/24': '1/24' } },
+    choices: { scale: { '1/32': '1/32', '1/24': '1/24', '1/43': '1/43' } },
     fields: [['wheelbase', 'Wheelbase', [20, 300], 'mm'], ['length', 'Length (0: not known)', [0, 600], 'mm'], ['width', 'Width (0: not known)', [0, 300], 'mm'],
       ['trackF', 'Front track, tyre centres', [0, 300], 'mm'], ['trackR', 'Rear track, tyre centres', [0, 300], 'mm'],
       ['tyreFD', 'Front tyre diameter', [0, 100], 'mm'], ['tyreFW', 'Front tyre width', [0, 60], 'mm'], ['tyreRD', 'Rear tyre diameter', [0, 100], 'mm'], ['tyreRW', 'Rear tyre width', [0, 60], 'mm'],

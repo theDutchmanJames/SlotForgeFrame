@@ -15,6 +15,7 @@ export const MODE_NAMES = { cut: 'Cut through', recess: 'Sunk', raise: 'Raised' 
 const WHEELS = {
   '1/32': { wheelD: 15.8, pocketD: 12.0, pocketDepth: 1.6 },
   '1/24': { wheelD: 21.0, pocketD: 16.0, pocketDepth: 2.0 },
+  '1/43': { wheelD: 11.5, pocketD: 8.5, pocketDepth: 1.2 },
 };
 export function newBase(scale = '1/32') {
   const w = WHEELS[scale] ?? WHEELS['1/32'], clear = 0.1;
