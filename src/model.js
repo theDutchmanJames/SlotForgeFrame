@@ -572,9 +572,10 @@ export function centroidOf(mesh) {
 // (The bought parts are not in it: motor, wheels, axles, gears, guide, body.)
 export function balance(d, built) {
   const density = MATERIALS[d.printer.material]?.density ?? 1.24, items = [];
-  for (const mesh of [built.chassis, built.pod]) { const c = centroidOf(mesh); items.push({ g: (c.volume / 1000) * density, x: c.x, y: c.y, z: c.z }); }
-  const printed = items[0].g + items[1].g, zTop = rideClearance(d) + find(d.chassis, 'outline').params.thickness;
-  for (const f of d.chassis.features.filter((x) => x.type === 'holder' && on(x) && x.params.mass > 0))
+  // A one-piece chassis, or one with its motor mount built in, has no pod of its own.
+  for (const mesh of [built.chassis, built.pod].filter(Boolean)) { const c = centroidOf(mesh); items.push({ g: (c.volume / 1000) * density, x: c.x, y: c.y, z: c.z }); }
+  const printed = items.reduce((t, i) => t + i.g, 0), zTop = rideClearance(d) + (d.onePiece ? d.onePiece.plate.panT : find(d.chassis, 'outline').params.thickness);
+  for (const f of d.onePiece ? [] : d.chassis.features.filter((x) => x.type === 'holder' && on(x) && x.params.mass > 0))
     for (const s of f.params.mirror && Math.abs(f.params.side) > 0.01 ? [1, -1] : [1]) items.push({ g: f.params.mass, x: f.params.along, y: s * f.params.side, z: zTop });
   const total = items.reduce((t, i) => t + i.g, 0) || 1, at = (k) => items.reduce((t, i) => t + i.g * i[k], 0) / total;
   return { printed, added: total - printed, total, x: at('x'), y: at('y'), z: at('z'), share: (at('x') / d.car.wheelbase) * 100 };

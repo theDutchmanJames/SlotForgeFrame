@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import Module from 'manifold-3d';
 import { createEngine } from '../src/geometry/engine.js';
-import { newDesign, find, gearsFor, builtIn, frontBearings, useFrontBearing, partsLayout, BEARINGS, cleanDesign, encodeProject, decodeProject } from '../src/model.js';
+import { newDesign, newOnePieceDesign, find, gearsFor, builtIn, frontBearings, useFrontBearing, partsLayout, balance, BEARINGS, cleanDesign, encodeProject, decodeProject } from '../src/model.js';
 
 const wasm = await Module();
 wasm.setup();
@@ -52,6 +52,13 @@ test('the front axle runs in bearings: a seat from the library, a flange recess,
   // In bearings, the front axle is always a through axle.
   fa.wall = 1.5; fa.independent = true;
   assert.equal(partsLayout(d).axles[0].inner, null);
+});
+
+test('the weight and its balance work without a pod: built in, and one piece', () => {
+  for (const d of [podless('1/24', 'anglewinder'), newOnePieceDesign()]) {
+    const b = balance(d, engine.build(d));
+    assert.ok(b.printed > 1 && b.total >= b.printed && b.share > 0 && b.share < 100, JSON.stringify(b));
+  }
 });
 
 function volumeOf(mesh) {
