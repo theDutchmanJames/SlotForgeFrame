@@ -138,7 +138,7 @@ label.f select, .side > select { background: var(--canvas); color: var(--ink); b
     <li>A switch back and forth costs nothing: draw the car with a separate pod, then print it in one piece, or the other way round.</li>
     <li>Front bearing uprights can also take the eccentric bushings already in the library, to set the front ride height.</li>
   </ul>
-  <p>This page is a design preview: the drawing changes with the choices, but 3D, export and checks are not wired up here. Sizes shown are Frame's 1/24 starting values; the research will set them.</p>
+  <p>This page is a design preview: the drawing changes with the choices, but 3D, export and checks are not wired up here. Starting values follow the makers' published parts: 3 mm axles in 6 mm bearings front and rear (Plafit Super24, Schöler Intruder), a front holder like Plafit's 9 × 9 × 6 mm block, a wheelbase of 100 mm in the usual 91–120 mm range. Nobody publishes an anglewinder angle, so 12° is only where it starts.</p>
 </div>
 <script>
 // A 1/24 car with Frame's starting values. x along the car (front axle at 0), y across, mm.
@@ -147,7 +147,7 @@ const S = {
   wb: 100, plateW: 62, front: -30, rear: 128,
   motor: { length: 32.1, width: 20.4, height: 15.4 },
   rearUp: { spread: 36, thick: 3, wall: 2, bearing: 'ball3' },
-  frontAx: { style: 'bearing', spread: 46, thick: 3, wall: 2, bearing: 'ball3', along: 0 },
+  frontAx: { style: 'bearing', spread: 46, thick: 6, wall: 1.5, bearing: 'ball3', along: 0 }, // Plafit's front holder PF1704B: a 9 × 9 × 6 mm block with a 6 mm bore
   axleH: 7.75, tyreF: 25.5, tyreR: 27.5, plateT: 2,
 };
 const BEARINGS = {
