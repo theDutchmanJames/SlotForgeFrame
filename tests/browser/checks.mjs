@@ -1100,6 +1100,26 @@ export const checks = [
     assert.ok(await app.state(() => !!window.slotforgeFrame.state.built.pod));
   }],
 
+  ['inserts on the car: the inserts in the wheels in 3D, changed with the insert, and switched off', async (app) => {
+    const { page, assert } = app;
+    await app.tool('inserts', 'insertRear');
+    await page.click('#panel [data-act=inscar]');
+    await page.waitForFunction(() => window.slotforgeFrame.state.carIns?.meshes?.rear, null, { timeout: 30000 });
+    assert.equal(await app.state(() => window.slotforgeFrame.state.view), '3d');
+    assert.equal(await page.locator('#viewbar [data-act=insview][data-k=car][data-v="1"].on').count(), 1, 'on the car');
+    // Another design: the wheels get it.
+    const before = await app.state(() => window.slotforgeFrame.state.carIns.key);
+    await page.click('#panel [data-act=tile][data-v=model]');
+    await page.waitForFunction((k) => { const c = window.slotforgeFrame.state.carIns; return c?.meshes?.rear && c.key !== k; }, before, { timeout: 30000 });
+    // In the car's own 3D view there is a switch for them.
+    await app.tool('car', 'wheels');
+    assert.equal(await page.locator('#viewbar [data-act=show][data-show=inserts].on').count(), 1);
+    await page.click('#viewbar [data-act=show][data-show=inserts]');
+    assert.equal(await app.state(() => window.slotforgeFrame.state.show.inserts), false);
+    await page.click('#viewbar [data-act=show][data-show=inserts]');
+    await page.click('#viewbar [data-act=view][data-view=top]');
+  }],
+
   ['rear wings: a wing is picked, changed, given its own endplate, shown in 3D and exported with its template', async (app) => {
     const { page, assert } = app;
     const wing = () => page.evaluate(() => JSON.parse(JSON.stringify(window.slotforgeFrame.state.design.wing)));

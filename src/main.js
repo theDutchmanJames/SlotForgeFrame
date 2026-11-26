@@ -19,7 +19,7 @@ import {
 } from './model.js';
 import { WING_PRESETS, ENDPLATES, FLAT_SIDES, wingPreset, wingSide, legYs, pinsOf, deckZ, cleanWing } from './wings.js';
 import { ONE_PIECE_PARTS, ONE_PIECE_NAMES, ONE_PIECE_FIELDS, PETER, changedFromPeter, moveRearAxle, rideHeight, layout as opLayout } from './onepiece.js';
-import { newInserts, ringSizes, RING_COUNT, PRESETS as INSERT_PRESETS, LAYER_TYPES, LAYER_NAMES, MODES, MODE_NAMES, presetFor, newLayer, layerShape, circle as insCircle, directional, fitToSegment, cleanInsert, MODELS, MODEL_IDS, modelOf, modelInsert, minDepth, modelScale } from './inserts.js';
+import { newInserts, ringSizes, RING_COUNT, PRESETS as INSERT_PRESETS, LAYER_TYPES, LAYER_NAMES, MODES, MODE_NAMES, presetFor, newLayer, layerShape, circle as insCircle, directional, mirrored, insertOf, fitToSegment, cleanInsert, MODELS, MODEL_IDS, modelOf, modelInsert, minDepth, modelScale } from './inserts.js';
 // ?inline: the pictures are built into the page, which is the only file the desktop app ships.
 import iconUrl from './assets/slotforge-frame.svg?inline';
 import wordmarkDark from './assets/frame-dark.svg?inline';
@@ -54,11 +54,11 @@ const state = {
   tool: 'fill',
   view: 'top',
   focus: 'both',
-  show: { parts: true, track: true, body: true, solid: false },
+  show: { parts: true, track: true, body: true, solid: false, inserts: true },
   tab: 'chassis',
   insSel: 0, // the chosen layer of the insert being edited
   insPt: null, // the chosen point of a drawn layer
-  insView: { wedge: false, wheel: true },
+  insView: { wedge: false, wheel: true, car: false },
   insBuilt: null, // the insert as built: { key, data } or { key, error }
   wingBuilt: null, // the rear wing as built: { key, data } or { key, error }
   wingPt: null, // the chosen point of your own endplate
@@ -657,7 +657,7 @@ const PANEL_INSERT = (d) => {
   h += `<label class="f">Print</label>${b.form === 'model' ? '<div class="note">Printed as it stands: the flat back on the bed, the face up.</div>' : chk('Print face down (the face needs to be flat)', IP('faceDown'))}
     ${directional(ins) ? chk('Mirror the left-hand pair', IP('mirror')) : ''}
     <div class="note">${!directional(ins) ? 'The set is two rear and two front inserts on one plate.' : ins.mirror !== false ? 'This pattern turns one way, so the set has two of it and two mirrored, one for each side of the car.' : 'This pattern turns one way; all four are the same, so the two sides of the car turn opposite ways.'} Small details print best with a 0.25 mm nozzle, or on a resin printer.</div>
-    <div class="row"><button class="btn primary" data-act="exportinserts">${ico('export')}Export the set of 4</button><button class="btn sm ghost" data-act="tool" data-tool="insertRing">${ico('coupon')}Calibration ring</button><button class="btn sm ghost" data-act="library" data-kind="insert">${ico('library')}Library</button></div>`;
+    <div class="row"><button class="btn primary" data-act="exportinserts">${ico('export')}Export the set of 4</button><button class="btn sm ghost" data-act="inscar">${ico('car')}See it on the car</button><button class="btn sm ghost" data-act="tool" data-tool="insertRing">${ico('coupon')}Calibration ring</button><button class="btn sm ghost" data-act="library" data-kind="insert">${ico('library')}Library</button></div>`;
   return h;
 };
 // The ready-made part of the insert panel: the designs to choose from, and their size.
@@ -1693,14 +1693,18 @@ function renderView() {
   if (top) topSVG();
   else viewport.resize();
   $('#insec').hidden = !((insMode() || opMode()) && top);
-  viewport.mode(partMode() ? 'insert' : 'car');
+  // In Inserts the 3D view shows the insert alone, or the car with the inserts in its wheels.
+  const onCar = insMode() && state.insView.car;
+  viewport.mode(partMode() && !onCar ? 'insert' : 'car');
   // The camera frames the part shown: an insert close in, a wing from further away.
-  const part = insMode() ? 'insert' : wingMode() ? 'wing' : null;
+  const part = insMode() && !onCar ? 'insert' : wingMode() ? 'wing' : null;
   if (part !== state.framed) {
     state.framed = part;
     if (part === 'insert') viewport.frame(6, [0, 0, 0.6]);
     if (part === 'wing') viewport.frame(state.design.wing.span * 0.55, [state.design.wing.chord / 2, 0, state.design.wing.height * 0.7]);
   }
+  viewport.showWheels(state.show.inserts);
+  if (onCar) viewport.show({ chassis: true, pod: true, parts: state.show.parts, track: state.show.track, body: state.show.body, solid: state.show.solid });
   if (partMode()) return insViewbar(top);
   viewport.show({ chassis: state.focus !== 'pod', pod: state.focus !== 'chassis', parts: state.show.parts, track: state.show.track, body: state.show.body, solid: state.show.solid });
   const placedBody = bodyPlaced();
@@ -1714,7 +1718,9 @@ function renderView() {
     <div class="seg"><button class="${top ? 'on' : ''}" data-act="view" data-view="top">${wingMode() ? 'Views' : 'Face'}</button><button class="${top ? '' : 'on'}" data-act="view" data-view="3d">${ico('cube')}3D</button></div>
     ${top && insMode() ? `<div class="seg"><button class="${v.wedge ? '' : 'on'}" data-act="insview" data-k="wedge" data-v="">Whole face</button><button class="${v.wedge ? 'on' : ''}" data-act="insview" data-k="wedge" data-v="1">One segment</button></div>
     <div class="seg"><button class="${v.wheel ? 'on' : ''}" data-act="insview" data-k="wheel" data-v="1">In the wheel</button><button class="${v.wheel ? '' : 'on'}" data-act="insview" data-k="wheel" data-v="">Insert alone</button></div>` : ''}
-    <span class="gap"></span>`;
+    ${!top && insMode() ? `<div class="seg"><button class="${v.car ? '' : 'on'}" data-act="insview" data-k="car" data-v="">Insert alone</button><button class="${v.car ? 'on' : ''}" data-act="insview" data-k="car" data-v="1">On the car</button></div>` : ''}
+    <span class="gap"></span>
+    ${!top && insMode() && v.car && state.design.body ? `<div class="seg"><button class="${state.show.body ? 'on' : ''}" data-act="show" data-show="body">Body</button>${state.show.body ? `<button class="${state.show.solid ? 'on' : ''}" data-act="show" data-show="solid" title="Show the body solid, not see-through">Solid</button>` : ''}</div>` : ''}`;
   }
   $('#viewbar').innerHTML = `
     <div class="seg"><button class="${top ? 'on' : ''}" data-act="view" data-view="top">Top</button><button class="${top ? '' : 'on'}" data-act="view" data-view="3d">${ico('cube')}3D</button></div>
@@ -1723,7 +1729,7 @@ function renderView() {
     ${state.busy ? '<span class="pill">Building…</span>' : ''}
     ${top && state.measure.on ? `<span class="pill" id="measured">${measuredText()}</span>` : ''}
     ${top ? `<div class="seg"><button class="${state.measure.on ? 'on' : ''}" data-act="measure" title="Measure a distance in the top view: click two places">${ico('ruler')}Measure</button></div>` : ''}
-    <div class="seg"><button class="${state.show.parts ? 'on' : ''}" data-act="show" data-show="parts">${ico('eye')}Parts</button>${state.design.body ? `<button class="${state.show.body ? 'on' : ''}" data-act="show" data-show="body">Body</button>${state.view === '3d' && state.show.body ? `<button class="${state.show.solid ? 'on' : ''}" data-act="show" data-show="solid" title="Show the body solid, not see-through">Solid</button>` : ''}` : ''}${top ? '' : `<button class="${state.show.track ? 'on' : ''}" data-act="show" data-show="track">Track</button>`}</div>`;
+    <div class="seg"><button class="${state.show.parts ? 'on' : ''}" data-act="show" data-show="parts">${ico('eye')}Parts</button>${state.design.body ? `<button class="${state.show.body ? 'on' : ''}" data-act="show" data-show="body">Body</button>${state.view === '3d' && state.show.body ? `<button class="${state.show.solid ? 'on' : ''}" data-act="show" data-show="solid" title="Show the body solid, not see-through">Solid</button>` : ''}` : ''}${top ? '' : `<button class="${state.show.inserts ? 'on' : ''}" data-act="show" data-show="inserts" title="The wheel inserts in the wheels">Inserts</button><button class="${state.show.track ? 'on' : ''}" data-act="show" data-show="track">Track</button>`}</div>`;
 }
 // What the measuring tool has, in words.
 function measuredText() {
@@ -1736,6 +1742,32 @@ function syncViewport() {
   viewport.setInsert((insMode() ? state.insBuilt?.data?.mesh : wingMode() ? state.wingBuilt?.data?.mesh : null) ?? null);
   if (!state.built) return;
   viewport.set({ chassis: state.built.chassis, pod: state.built.pod, parts: partsLayout(state.design), target: state.design.car.wheelbase / 2 });
+  carWheels();
+}
+// The wheels on the car with their inserts: the rear insert in the rear wheels and the front one in the front,
+// the left-hand ones mirrored where the pattern turns one way, as the set is printed.
+let carToken = 0;
+function carWheels() {
+  if (!state.show.inserts || state.view !== '3d') return;
+  const d = state.design, ins = { rear: insertOf(d, 'rear'), front: insertOf(d, 'front') };
+  const key = JSON.stringify([ins.rear, ins.front, d.printer.nozzle, d.car.axleD]), wheels = partsLayout(d).wheels;
+  const place = (meshes) => {
+    const list = wheels.map((w) => {
+      const which = w.x === 0 ? 'front' : 'rear', b = ins[which].base, side = w.y >= 0 ? 1 : -1;
+      return { x: w.x, y: w.y, z: w.z, side, tyreW: w.w, wheelD: Math.min(b.wheelD, w.d - 1), pocketD: b.pocketD, pocketDepth: b.pocketDepth, mesh: meshes?.[which] ?? null, mirror: side < 0 && mirrored(ins[which]) };
+    });
+    const wkey = JSON.stringify([key, wheels]);
+    if (viewport.wheelsKey !== wkey || !meshes) { viewport.wheelsKey = meshes ? wkey : null; viewport.setWheels(list); }
+  };
+  if (state.carIns?.key === key) return place(state.carIns.meshes);
+  place(null);
+  const token = ++carToken;
+  Promise.all(['rear', 'front'].map((w) => (w === 'front' && JSON.stringify(ins.front) === JSON.stringify(ins.rear) ? null : call('insert', { insert: ins[w], nozzle: d.printer.nozzle, axleD: d.car.axleD }).catch(() => null))))
+    .then(([rear, front]) => {
+      if (token !== carToken) return;
+      state.carIns = { key, meshes: { rear: rear?.mesh ?? null, front: (front ?? rear)?.mesh ?? null } };
+      place(state.carIns.meshes);
+    });
 }
 
 function render() {
@@ -1828,7 +1860,7 @@ const ACTIONS = {
     }, (e) => toast(e.message, true));
   },
   inssel(el) { state.insSel = +el.dataset.i; state.insPt = null; render(); },
-  insview(el) { state.insView[el.dataset.k] = !!el.dataset.v; renderView(); },
+  insview(el) { state.insView[el.dataset.k] = !!el.dataset.v; renderView(); if (el.dataset.k === 'car') syncViewport(); },
   insadd(el) {
     const ins = insCur();
     ins.layers.push(newLayer(el.dataset.t, ins.base.od / 2));
@@ -2078,9 +2110,17 @@ const ACTIONS = {
     commit();
   },
   tab(el) { state.tab = el.dataset.tab; renderSteps(); },
-  view(el) { state.view = el.dataset.view; renderView(); },
+  view(el) { state.view = el.dataset.view; renderView(); if (state.view === '3d') carWheels(); },
   focus(el) { state.focus = el.dataset.focus; renderView(); },
-  show(el) { state.show[el.dataset.show] = !state.show[el.dataset.show]; renderView(); },
+  show(el) { state.show[el.dataset.show] = !state.show[el.dataset.show]; renderView(); if (el.dataset.show === 'inserts') syncViewport(); },
+  // From Inserts: the car in 3D, with the inserts in its wheels (and the body, if there is one).
+  inscar() {
+    Object.assign(state, { view: '3d' });
+    state.insView.car = true;
+    state.show.inserts = true;
+    render();
+    syncViewport();
+  },
   pop(el) { state.pop = state.pop === el.dataset.pop ? null : el.dataset.pop; renderTop(); },
   tone(el) {
     state.theme = { ...state.theme, theme: el.dataset.tone };

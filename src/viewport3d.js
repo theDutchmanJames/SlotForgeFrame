@@ -47,8 +47,11 @@ export function createViewport(host) {
     part: new THREE.MeshStandardMaterial({ roughness: 0.5, transparent: true, opacity: 0.34, depthWrite: false }),
     body: new THREE.MeshStandardMaterial({ roughness: 0.7, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide }),
     insert: new THREE.MeshStandardMaterial({ roughness: 0.45, metalness: 0.15 }),
+    // On the car: the inserts in their wheels, and the aluminium wheels round them.
+    carInsert: new THREE.MeshStandardMaterial({ roughness: 0.45, metalness: 0.15, side: THREE.DoubleSide }),
+    rim: new THREE.MeshStandardMaterial({ roughness: 0.32, metalness: 0.75, side: THREE.DoubleSide }),
   };
-  const groups = { chassis: new THREE.Group(), pod: new THREE.Group(), parts: new THREE.Group(), body: new THREE.Group(), track: new THREE.Group(), insert: new THREE.Group() };
+  const groups = { chassis: new THREE.Group(), pod: new THREE.Group(), parts: new THREE.Group(), body: new THREE.Group(), track: new THREE.Group(), insert: new THREE.Group(), wheels: new THREE.Group() };
   for (const g of Object.values(groups)) scene.add(g);
   let grid = null;
   let shown = 'car', saved = null;
@@ -58,6 +61,8 @@ export function createViewport(host) {
     mats.chassis.color = resolve(css('--c-plate', '#9aa3ad'));
     mats.pod.color = resolve(css('--accent', '#e5484d'));
     mats.insert.color = resolve(css('--c-plate', '#9aa3ad'));
+    mats.carInsert.color = resolve(css('--accent', '#e5484d'));
+    mats.rim.color = new THREE.Color('#b9bec6');
     mats.part.color = resolve(css('--c-part', '#6fb6ff'));
     mats.body.color = resolve(css('--ink', '#e8e6e1'));
     if (grid) { groups.track.remove(grid); grid.geometry.dispose(); }
@@ -122,6 +127,33 @@ export function createViewport(host) {
     }
   }
 
+  // The wheels with their inserts, as they stand on the car. Each: { x, y, z, side (+1 right, -1 left), tyreW,
+  // wheelD, pocketD, pocketDepth, mesh (the insert, back at z = 0 and face up), mirror }.
+  function setWheels(list) {
+    clear(groups.wheels);
+    for (const w of list ?? []) {
+      // The aluminium wheel: a disc as wide as the tyre with a pocket in its outer face, turned about the axle (three's Y).
+      const R = w.wheelD / 2, P = Math.min(w.pocketD / 2, R - 0.1), half = w.tyreW / 2, pd = Math.min(w.pocketDepth, w.tyreW - 0.2);
+      const prof = [[0.01, -half], [R, -half], [R, half], [P, half], [P, half - pd], [0.01, half - pd]].map(([r, y]) => new THREE.Vector2(r, y));
+      const rim = new THREE.Mesh(new THREE.LatheGeometry(prof, 48), mats.rim);
+      rim.scale.y = w.side;
+      rim.position.set(w.x, w.y, w.z);
+      groups.wheels.add(rim);
+      if (!w.mesh) continue;
+      // The insert: its back on the bottom of the pocket, its face out.
+      let geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(w.mesh.positions, 3));
+      geo.setIndex(new THREE.BufferAttribute(w.mesh.indices, 1));
+      geo = toCreasedNormals(geo, (32 * Math.PI) / 180);
+      const ins = new THREE.Mesh(geo, mats.carInsert);
+      if (w.mirror) ins.scale.x = -1;
+      ins.rotation.x = w.side > 0 ? -Math.PI / 2 : Math.PI / 2;
+      ins.position.set(w.x, w.y + w.side * (half - pd), w.z);
+      groups.wheels.add(ins);
+    }
+    draw();
+  }
+
   function resize() {
     const w = host.clientWidth, h = host.clientHeight;
     if (!w || !h) return;
@@ -167,6 +199,8 @@ export function createViewport(host) {
       groups.track.visible = track;
       draw();
     },
+    setWheels,
+    showWheels(on) { groups.wheels.visible = on && shown === 'car'; draw(); },
     // A wheel insert, shown on its own (mode 'insert') with the camera close in; 'car' brings the car back.
     setInsert(mesh) {
       setMesh(groups.insert, mesh, mats.insert);
