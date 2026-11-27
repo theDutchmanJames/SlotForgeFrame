@@ -70,6 +70,7 @@ Frame works along eight menus, roughly in the order you build a car: **Car, Outl
 - **Draw:** shape one side as points in the top view; the other side mirrors it. Drag the points or type them in. Mark a point as curved and the outline bends past it; round the corners and bevel the top or bottom edge.
 - **From body:** load the body you made in SlotForge Anvil and trace it. The chassis goes inside the body, a gap from its walls, sills and bumpers, or under it, with the body standing on the plate and the plate reaching out by an amount you set. The trace follows the body's lower edge, not a bumper or exhaust that sticks out, and leaves the wheel arches open. The result is an outline you go on shaping by hand.
 - **Plate thickness** and every other size in millimetres.
+- **Measure from the front or the rear axle:** the **From** switch at the bottom of the window sets where positions along the car count from. With **Rear axle** chosen, every along position in the panels, the lists and the readouts counts forward from the rear axle (behind it is negative), a red 0 marks it in the top view, and new shaping features keep their place from the rear axle when the wheelbase changes. The choice is saved with the design; the design itself does not change.
 
 ### Shape it
 

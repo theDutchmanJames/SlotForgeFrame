@@ -130,6 +130,8 @@ export function newDesign(scale = '1/32') {
     name: 'New chassis',
     scale,
     units: 'mm',
+    // Where along-the-car positions are counted from in the panels: the front axle, or the rear axle. Saved positions always count from the front axle.
+    zero: 'front',
     mirror: true,
     // Wheel inserts for the car's aluminium wheels (inserts.js): one for the rear, and one for the front.
     inserts: newInserts(scale),
@@ -948,6 +950,7 @@ export function cleanDesign(raw) {
   section(d.drivetrain, raw.drivetrain, { offset: [-5, 5], faceGap: [2, 80], centre: [2, 80], shiftX: [-80, 80], shiftY: [-80, 80] });
   // The motor angle is a number you set, or nothing (then it follows the gear set).
   d.units = raw.units === 'in' ? 'in' : 'mm';
+  d.zero = raw.zero === 'rear' ? 'rear' : 'front';
   d.inserts = cleanInserts(raw.inserts, scale);
   d.wing = cleanWing(raw.wing, scale);
   if (raw.onePiece && typeof raw.onePiece === 'object') {

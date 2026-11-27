@@ -245,6 +245,7 @@ select.num { font: 500 12.5px var(--font-ui); color: var(--ink); }
 .mirror { stroke: var(--focus); stroke-width: .45; stroke-dasharray: 2.5 2; opacity: .8; }
 .dim { stroke: var(--c-dim); stroke-width: .4; fill: none; }
 .dimt { fill: var(--muted); font: 500 3.1px var(--font-mono); text-anchor: middle; }
+.dimt.zero { fill: var(--accent-text); font-weight: 700; }
 .lbl { fill: var(--muted); font: 600 2.6px var(--font-ui); letter-spacing: .12em; text-transform: uppercase; }
 .sel { stroke: var(--accent); stroke-width: 2; }
 .sel2 { stroke: var(--accent); stroke-width: 1.6; opacity: .45; }

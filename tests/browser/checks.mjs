@@ -1221,4 +1221,33 @@ export const checks = [
     assert.deepEqual((await app.notes()).filter((n) => !n.ok && !/Lowest point/.test(n.title)), [], 'with one of everything the design still builds cleanly');
     assert.match(await page.locator('#panel .verdict').innerText(), /ready to print|to fix/i);
   }],
+  ['positions can be measured from the rear axle, and are still kept from the front axle', async (app) => {
+    const { page, assert } = app;
+    const wb = (await app.design()).car.wheelbase;
+    await page.click('[data-act=zero][data-v=rear]');
+    await app.idle();
+    assert.equal((await app.design()).zero, 'rear');
+    await app.tool('features', 'guide');
+    const along = (await app.feature('guide')).params.along;
+    assert.ok(Math.abs(parseFloat(await app.field('along').inputValue()) - (wb - along)) < 0.01, 'the guide shows its distance ahead of the rear axle');
+    assert.match(await page.locator('#panel').innerText(), /Along, from rear axle/);
+    await app.set('along', wb + 20);
+    assert.ok(Math.abs((await app.feature('guide')).params.along + 20) < 0.001, 'typed from the rear axle, kept 20 mm ahead of the front axle');
+    await app.tool('features', 'bodyMounts');
+    const post = (await app.feature('bodyMounts')).params.posts[0];
+    assert.ok(Math.abs(parseFloat(await app.field('posts.0.along').inputValue()) - (wb - post.along)) < 0.01);
+    await app.set('posts.0.along', 10);
+    assert.ok(Math.abs((await app.feature('bodyMounts')).params.posts[0].along - (wb - 10)) < 0.001);
+    // A new shape keeps its place from the rear axle when the wheelbase changes.
+    await app.tool('shape', 'rib');
+    await page.click('#panel [data-act=addshape][data-type=rib]');
+    await app.idle();
+    const rib = (await app.features('rib')).at(-1);
+    assert.equal(rib.editor?.anchor?.reference, 'rear');
+    // And back: the fields count from the front axle again.
+    await page.click('[data-act=zero][data-v=front]');
+    await app.idle();
+    await app.tool('features', 'guide');
+    assert.ok(Math.abs(parseFloat(await app.field('along').inputValue()) - 20) < 0.01, 'shown as 20 ahead of the front axle');
+  }],
 ];

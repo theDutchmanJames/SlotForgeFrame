@@ -1,22 +1,22 @@
 import { ANCHOR_TYPES, COPY_TYPES, REFERENCES } from './feature-tools.js';
 import { FEATURE_NAMES } from './model.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-export function referencePanel(f) {
+export function referencePanel(f,rear=false) {
   if(!f||!ANCHOR_TYPES.includes(f.type))return '';
   const a=f.editor?.anchor;
   return `<div class="editor-card"><h3>Position reference</h3><label class="f">Feature name<input data-editor-name="${f.id}" maxlength="60" value="${esc(f.editor?.name||'')}"></label>
     <label class="f">Position along the car<select data-editor-ref="${f.id}"><option value="legacy" ${!a?'selected':''}>Existing resize behaviour</option>${Object.entries(REFERENCES).map(([id,name])=>`<option value="${id}" ${a?.reference===id?'selected':''}>${name}</option>`).join('')}</select></label>
-    ${a?`<label class="f">Feature centre from reference (mm)<input type="number" step="0.1" min="-2000" max="2000" data-editor-offset="${f.id}" value="${a.offset}"></label>`:''}
+    ${a?`<label class="f">Feature centre from reference (mm, ${rear?'forward':'rearward'} +)<input type="number" step="0.1" min="-2000" max="2000" data-editor-offset="${f.id}" value="${rear?-a.offset:a.offset}"></label>`:''}
     <div class="note">An explicit reference keeps the feature's size and offset when the wheelbase changes. Editing its position updates the offset. Paths use their bounding centre; body mounts use their mean position. In 3D, orange handles move along or across the car. Shift-click adds features to Arrange.</div></div>`;
 }
-export function arrangePanel(d,ids,form={dx:10,dy:0,name:'My assembly'}) {
+export function arrangePanel(d,ids,form={dx:10,dy:0,name:'My assembly'},rear=false) {
   if(d.onePiece||d.chassis.imported)return '<div class="head"><div class="cond">Arrange features</div></div><p>Open an editable drawn chassis to arrange its features.</p>';
   const features=d.chassis.features.filter(f=>COPY_TYPES.includes(f.type)),groups=[...new Map(features.filter(f=>f.editor?.group).map(f=>[f.editor.group,f.editor.groupName])).entries()];
   return `<div class="head"><div class="cond">Arrange features</div></div><p>Select features below, or Shift-click features in 3D. All distances here are in millimetres.</p>
     <div class="editor-list">${features.map((f,i)=>`<label><input type="checkbox" data-editor-check="${f.id}" ${ids.includes(f.id)?'checked':''}>${esc(f.editor?.name||FEATURE_NAMES[f.type]+' '+(i+1))}${f.editor?.group?` <small>· ${esc(f.editor.groupName)}</small>`:''}</label>`).join('')||'<p>Add ribs, rails, pockets or other shaping features first.</p>'}</div>
     <p data-editor-count>${ids.filter(id=>features.some(f=>f.id===id)).length} selected</p>
     <div class="row">${groups.map(([id,name])=>`<button class="btn sm" data-act="editorgroupselect" data-group="${esc(id)}">${esc(name)}</button>`).join('')}</div>
-    <div class="g2"><label class="f">Along Δ (mm)<input id="editor-dx" data-arrange="dx" type="number" value="${form.dx}" step="0.1"></label><label class="f">Side Δ (mm)<input id="editor-dy" data-arrange="dy" type="number" value="${form.dy}" step="0.1"></label></div>
+    <div class="g2"><label class="f">Along Δ (mm, ${rear?'forward':'rearward'} +)<input id="editor-dx" data-arrange="dx" type="number" value="${form.dx}" step="0.1"></label><label class="f">Side Δ (mm)<input id="editor-dy" data-arrange="dy" type="number" value="${form.dy}" step="0.1"></label></div>
     <div class="row"><button class="btn" data-act="editorop" data-op="move">Move selected</button><button class="btn" data-act="editorop" data-op="copy">Duplicate</button><button class="btn" data-act="editorop" data-op="mirror">Mirror copy</button></div>
     <div class="row"><button class="btn sm" data-act="editorop" data-op="align">Align along centres</button><button class="btn sm" data-act="editorop" data-op="distribute">Space along evenly</button></div>
     <label class="f">Group name<input id="editor-group-name" data-arrange="name" value="${esc(form.name)}" maxlength="60"></label><div class="row"><button class="btn" data-act="editorop" data-op="group">Group selected</button><button class="btn" data-act="editorop" data-op="ungroup">Ungroup selected</button></div>

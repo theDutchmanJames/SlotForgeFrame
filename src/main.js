@@ -46,6 +46,17 @@ const inches = () => state.design.units === 'in';
 const inch3 = (v) => (Number.isFinite(v) ? String(round(v / 25.4, 3)) : '–');
 const len = (v, f = f1) => (inches() ? inch3(v) : f(v));
 const lenUnit = () => (inches() ? 'in' : 'mm');
+// Along-the-car positions are kept from the front axle. With the rear axle chosen as zero they are shown, and typed,
+// counting forward from the rear axle: the front axle then reads +wheelbase. `origin` is where the rear axle stands
+// in the field's own frame (the wheelbase, or for a one-piece chassis its distance from the plate's front).
+const rearZero = () => state.design.zero === 'rear';
+const zeroAt = (origin = true) => (origin === true ? state.design.car.wheelbase : origin);
+const zl = (label) => (!rearZero() ? label : label.replace(/^Ahead of the front axle$/, 'Along, from rear axle').replace(/from (the )?front axle/, 'from $1rear axle').replace(/from the front$/, 'from the rear axle'));
+// A length field for an along position, not built by num().
+const axv = (v, origin = true) => (rearZero() ? `data-ax="${zeroAt(origin)}" ${lv(zeroAt(origin) - v)}` : lv(v));
+const axf = (v, origin = true) => (rearZero() ? `data-ax="${zeroAt(origin)}" value="${f2(zeroAt(origin) - v)}"` : `value="${f2(v)}"`);
+// An along position in a readout: from the front axle (behind it is positive) or from the rear axle (ahead of it is positive).
+const alongText = (x) => (rearZero() ? `${f1(Math.abs(state.design.car.wheelbase - x))} mm ${x <= state.design.car.wheelbase ? 'ahead of' : 'behind'} the rear axle` : `${f1(Math.abs(x))} mm ${x < 0 ? 'ahead of' : 'behind'} the front axle`);
 // A length field that is not built by num(): its value, marked when it is in inches.
 const lv = (v) => (inches() ? `data-in="1" value="${inch3(v)}"` : `value="${f2(v)}"`);
 
@@ -325,11 +336,14 @@ function setPath(path, value) {
 const P = (feat, key) => `f.${feat.id}.${key}`;
 function num(label, path, unit = 'mm', o = {}) {
   let v = getPath(path);
+  const ax = rearZero() && o.ax !== undefined ? zeroAt(o.ax) : undefined;
+  if (ax !== undefined) { label = zl(label); v = ax - v; o = { ...o, neg: 0 }; }
+  const axa = ax !== undefined ? `data-ax="${ax}" ` : '';
   if (o.neg) v = -v;
   if (o.one) v += 1; // shown counting from 1, kept counting from 0
   const inch = inches() && (unit === 'mm' || o.len);
-  if (inch) return `<label class="fx">${label}${o.tag ?? ''}<span class="num"><input data-path="${path}" data-in="1" ${o.neg ? 'data-neg="1"' : ''} ${o.max !== undefined ? `data-max="${o.max}"` : ''} ${o.min !== undefined ? `data-min="${o.min}"` : ''} value="${inch3(v)}" inputmode="decimal" spellcheck="false">${unit ? '<small>in</small>' : ''}</span></label>`;
-  return `<label class="fx">${label}${o.tag ?? ''}<span class="num"><input data-path="${path}" ${o.neg ? 'data-neg="1"' : ''} ${o.int ? 'data-int="1"' : ''} ${o.one ? 'data-one="1"' : ''} ${o.max !== undefined ? `data-max="${o.max}"` : ''} ${o.min !== undefined ? `data-min="${o.min}"` : ''} value="${f2(v)}" inputmode="decimal" spellcheck="false">${unit ? `<small>${unit}</small>` : ''}</span></label>`;
+  if (inch) return `<label class="fx">${label}${o.tag ?? ''}<span class="num"><input data-path="${path}" ${axa}data-in="1" ${o.neg ? 'data-neg="1"' : ''} ${o.max !== undefined ? `data-max="${o.max}"` : ''} ${o.min !== undefined ? `data-min="${o.min}"` : ''} value="${inch3(v)}" inputmode="decimal" spellcheck="false">${unit ? '<small>in</small>' : ''}</span></label>`;
+  return `<label class="fx">${label}${o.tag ?? ''}<span class="num"><input data-path="${path}" ${axa}${o.neg ? 'data-neg="1"' : ''} ${o.int ? 'data-int="1"' : ''} ${o.one ? 'data-one="1"' : ''} ${o.max !== undefined ? `data-max="${o.max}"` : ''} ${o.min !== undefined ? `data-min="${o.min}"` : ''} value="${f2(v)}" inputmode="decimal" spellcheck="false">${unit ? `<small>${unit}</small>` : ''}</span></label>`;
 }
 const chk = (label, path) => `<label class="chk"><input type="checkbox" data-path="${path}" ${getPath(path) ? 'checked' : ''}>${label}</label>`;
 function sel(label, path, options) {
@@ -368,7 +382,7 @@ const bodyNotes = () => {
   // A body that stands on the chassis is meant to have the plate under its edge, or beyond it.
   const fit = bodyFit(hull, state.built.top.chassis, state.design).filter((r) => !(state.design.body?.onPlate && /^The chassis (sticks out of|stays inside) the body/.test(r.title)));
   if (state.design.body?.onPlate) fit.unshift({ ok: true, title: 'The body stands on the chassis', text: 'The plate was traced to lie under the body. Its edge may show beside the body, as you set it.' });
-  const hit = state.clash, where = hit?.at ? `${f1(Math.abs(hit.at[0]))} mm ${hit.at[0] < 0 ? 'ahead of' : 'behind'} the front axle, ${f1(Math.abs(hit.at[1]))} mm ${Math.abs(hit.at[1]) < 0.3 ? 'from' : hit.at[1] > 0 ? 'right of' : 'left of'} the centre line, ${f1(hit.at[2])} mm above the track` : '';
+  const hit = state.clash, where = hit?.at ? `${alongText(hit.at[0])}, ${f1(Math.abs(hit.at[1]))} mm ${Math.abs(hit.at[1]) < 0.3 ? 'from' : hit.at[1] > 0 ? 'right of' : 'left of'} the centre line, ${f1(hit.at[2])} mm above the track` : '';
   const solid = !hit ? [] : hit.area >= 1
     ? [{ ok: false, title: 'The body runs into the chassis', text: `Body and chassis are in each other's way over ${f1(hit.area)} mm², by up to ${f1(hit.depth)} mm. The worst place is ${where}. Lower or switch off what stands there (a kick-up, a post, a wall), pull the outline in, or raise the body.` }]
     : [{ ok: true, title: 'The body clears the chassis', text: 'Checked in 3D: nothing of the chassis or the pod reaches into the body.' }];
@@ -699,9 +713,11 @@ const PANEL_ONEPIECE = (d) => {
   const part = opPart(), changed = changedFromPeter(P), mine = changed.filter((c) => c.startsWith(part + '.'));
   let h = head('One piece', ONE_PIECE_NAMES[part], OP_TEXT[part]);
   h += `<div class="note ${changed.length ? 'warn' : 'ok'}">${changed.length ? `Changed from Peter's design: ${changed.length} setting${changed.length > 1 ? 's' : ''}.` : "Exactly Peter's design."} <button class="btn sm ghost" data-act="opreset" ${changed.length ? '' : 'disabled'}>Back to Peter's</button></div>`;
-  h += `<div class="g2">${ONE_PIECE_FIELDS[part].map(([k, label]) => num(label, `onePiece.${part}.${k}`, 'mm', { min: 0 })).join('')}</div>`;
+  // Settings measured from the plate's front turn to the rear axle with it chosen as zero (the rear axle stands at front.at + wheelbase).
+  const opAx = P.front.at + P.rear.wheelbase, opAlong = (k, label) => (/from the front$/.test(label) && part !== 'front') || (part === 'motor' && k === 'from');
+  h += `<div class="g2">${ONE_PIECE_FIELDS[part].map(([k, label]) => num(part === 'motor' && k === 'from' && rearZero() ? 'Cradle starts, from the rear axle' : label, `onePiece.${part}.${k}`, 'mm', opAlong(k, label) ? { ax: opAx } : { min: 0 })).join('')}</div>`;
   if (part === 'mounts') {
-    h += `<label class="f">Holes, from the front</label><div class="g2">${P.mounts.at.map((_, i) => num(`Hole ${i + 1}`, `onePiece.mounts.at.${i}`, 'mm', { min: 0 })).join('')}</div>
+    h += `<label class="f">${zl('Holes, from the front')}</label><div class="g2">${P.mounts.at.map((_, i) => num(`Hole ${i + 1}`, `onePiece.mounts.at.${i}`, 'mm', { ax: opAx })).join('')}</div>
       <div class="row"><button class="btn sm ghost" data-act="opmount" data-v="1" ${P.mounts.at.length < 6 ? '' : 'disabled'}>${ico('plus')}Add a hole</button><button class="btn sm ghost" data-act="opmount" data-v="-1" ${P.mounts.at.length ? '' : 'disabled'}>${ico('trash')}Remove the last</button></div>
       <label class="f">Boss under</label><div class="seg wide"><button class="${P.mounts.boss < 0 ? 'on' : ''}" data-act="setfix" data-path="onePiece.mounts.boss" data-v="-1">None</button>${P.mounts.at.map((_, i) => `<button class="${P.mounts.boss === i ? 'on' : ''}" data-act="setfix" data-path="onePiece.mounts.boss" data-v="${i}">Hole ${i + 1}</button>`).join('')}</div>`;
   }
@@ -973,9 +989,9 @@ const PANELS = {
     const f = find(d.chassis, 'outline'), s = summary(d), pts = f.params.points;
     return head('Outline', 'Draw the outline', 'Top view. You shape one side; the other side mirrors it. Drag the points, or type them in.') + `
       <div class="g2">${num('Plate thickness', P(f, 'thickness'), 'mm', { min: 0.6 })}${num('Corner round', P(f, 'round'), 'mm', { min: 0 })}${num('Bevel, top edge', P(f, 'bevelTop'), 'mm', { min: 0, max: 1.5 })}${num('Bevel, bottom edge', P(f, 'bevelBottom'), 'mm', { min: 0, max: 1.5 })}</div>
-      <div class="lst"><div class="hdr pt"><span></span><span>Along, from front axle</span><span>Side, from centre</span><span></span><span></span></div>
+      <div class="lst"><div class="hdr pt"><span></span><span>${zl('Along, from front axle')}</span><span>Side, from centre</span><span></span><span></span></div>
       ${pts.map((p, i) => `<div class="li pt ${i === state.selPoint ? 'sel' : ''}"><span class="n">${i + 1}</span>
-        <span class="num"><input data-path="${P(f, `points.${i}.0`)}" data-point="${i}" ${lv(p[0])}></span>
+        <span class="num"><input data-path="${P(f, `points.${i}.0`)}" data-point="${i}" ${axv(p[0])}></span>
         <span class="num"><input data-path="${P(f, `points.${i}.1`)}" data-point="${i}" data-min="0" ${lv(p[1])}></span>
         <button class="iconbtn ${p[2] ? 'on' : ''}" data-act="curvepoint" data-i="${i}" title="${p[2] ? 'Curved: the outline bends past this point. Click for a corner.' : 'A corner. Click to curve the outline past this point.'}" aria-pressed="${p[2] ? 'true' : 'false'}">${ico('round')}</button>
         <button class="iconbtn" data-act="delpoint" data-i="${i}" title="Remove this point" ${pts.length <= 3 ? 'disabled' : ''}>${ico('x')}</button></div>`).join('')}</div>
@@ -1021,7 +1037,7 @@ const PANELS = {
     const f = find(d.chassis, 'split'), parts = state.built?.split;
     const grams = (m) => (m ? `${((m.volume / 1000) * MATERIALS[d.printer.material].density).toFixed(1)} g` : '–');
     return head('Shape', 'Split part', 'Cuts the chassis across into two print parts that key together with dovetails. Each part can then print in its own best position.') + enable(f, 'Split the chassis for printing') + `
-      <div class="g2">${num('Cut, from front axle', P(f, 'along'))}${num('Keys', P(f, 'tabs'), '', { int: 1, min: 1, max: 8 })}${num('Keys spread, each side of centre', P(f, 'spread'), 'mm', { min: 0 })}${num('Key depth', P(f, 'depth'), 'mm', { min: 1 })}
+      <div class="g2">${num('Cut, from front axle', P(f, 'along'), 'mm', { ax: true })}${num('Keys', P(f, 'tabs'), '', { int: 1, min: 1, max: 8 })}${num('Keys spread, each side of centre', P(f, 'spread'), 'mm', { min: 0 })}${num('Key depth', P(f, 'depth'), 'mm', { min: 1 })}
         ${num('Key width at the cut', P(f, 'neck'), 'mm', { min: 1 })}${num('Key width at its head', P(f, 'head'), 'mm', { min: 1 })}${num('Play in the joint', P(f, 'play'), 'mm', { min: 0, max: 1 })}</div>
       ${on(f) ? kv([['Front part', grams(parts?.front)], ['Rear part', grams(parts?.rear)]]) : ''}
       <div class="note">The rear part carries the keys; the front part has the sockets. A frame or lattice gets a closed band at the cut to hold them. <b>Export › Chassis STL</b> then writes two files. Glue the joint.</div>
@@ -1041,8 +1057,8 @@ const PANELS = {
       ${chk('Rail across the nose, from the guide holder to both sides', P(f, 'guideRail'))}
       ${chk('Closed plate behind the rear wheels', P(f, 'tail'))}
       ${sel('Nose struts, from the guide', P(f, 'struts'), { none: 'None', axle: 'To the front axle brackets', fan: 'To the brackets and the pod opening' })}
-      <div class="lst"><div class="hdr" style="grid-template-columns:18px 1fr 26px"><span></span><span>Cross rails: along, from front axle</span><span></span></div>
-        ${p.cross.map((x, i) => `<div class="li one"><span class="n">${i + 1}</span><span class="num"><input data-path="${P(f, `cross.${i}`)}" value="${f2(x)}"><small>mm</small></span><button class="iconbtn" data-act="dellist" data-path="${P(f, 'cross')}" data-i="${i}" title="Remove">${ico('x')}</button></div>`).join('')}</div>
+      <div class="lst"><div class="hdr" style="grid-template-columns:18px 1fr 26px"><span></span><span>${zl('Cross rails: along, from front axle')}</span><span></span></div>
+        ${p.cross.map((x, i) => `<div class="li one"><span class="n">${i + 1}</span><span class="num"><input data-path="${P(f, `cross.${i}`)}" ${axf(x)}><small>mm</small></span><button class="iconbtn" data-act="dellist" data-path="${P(f, 'cross')}" data-i="${i}" title="Remove">${ico('x')}</button></div>`).join('')}</div>
       <div class="row"><button class="btn sm ghost" data-act="addcross">${ico('plus')}Cross rail</button><button class="btn sm ghost" data-act="propose">${ico('fill')}Propose again</button></div>
       <div class="lst"><div class="hdr" style="grid-template-columns:18px 1fr 26px"><span></span><span>Length rails: side, from centre (both sides)</span><span></span></div>
         ${p.length.map((y, i) => `<div class="li one"><span class="n">${i + 1}</span><span class="num"><input data-path="${P(f, `length.${i}`)}" data-min="0" value="${f2(y)}"><small>mm</small></span><button class="iconbtn" data-act="dellist" data-path="${P(f, 'length')}" data-i="${i}" title="Remove">${ico('x')}</button></div>`).join('')}</div>
@@ -1054,7 +1070,7 @@ const PANELS = {
     const f = find(d.chassis, 'guide'), p = f.params, s = summary(d);
     return head('Features', 'Guide holder', 'Where the guide turns. Every value is yours to set.') + enable(f, 'Use a guide holder') +
       sel('Guide', P(f, 'guide'), choicesFor(d, 'guide')) + `
-      <div class="g2">${num('Ahead of the front axle', P(f, 'along'), 'mm', { neg: 1 })}${num('Side, from centre', P(f, 'side'))}
+      <div class="g2">${num('Ahead of the front axle', P(f, 'along'), 'mm', { neg: 1, ax: true })}${num('Side, from centre', P(f, 'side'))}
         ${num('Hole', P(f, 'hole'), 'mm', { min: 1, tag: ' ' + srcTag(guideOf(d, p.guide)?.confirmed !== false) })}${num('Boss diameter', P(f, 'bossD'), 'mm', { min: 2 })}
         ${num('Boss height', P(f, 'bossH'), 'mm', { min: 0 })}${num('Pad diameter', P(f, 'padD'), 'mm', { min: 2 })}</div>
       ${kv([['Guide lead', f1(s.guideLead)], ['Limit', f1(d.rules.guideLeadMax)]])}
@@ -1071,7 +1087,7 @@ const PANELS = {
       const b = bearingOf(d, p.bearing);
       return head('Features', 'Front axle', 'Two uprights with a bearing each, as on metal chassis.') + enable(f, 'Use front axle uprights') + kind +
         sel('Bearing', P(f, 'bearing'), choicesFor(d, 'bearing')) + `
-        <div class="g2">${num('Along, from front axle', P(f, 'along'))}${num('Spread, centre to centre', P(f, 'spread'), 'mm', { min: 4 })}${num('Bearing seat', P(f, 'seat'), 'mm', { min: 1 })}${num('Upright thickness', P(f, 'bThick'), 'mm', { min: 0.5 })}${num('Wall round the bearing', P(f, 'wall'), 'mm', { min: 0.2 })}</div>
+        <div class="g2">${num('Along, from front axle', P(f, 'along'), 'mm', { ax: true })}${num('Spread, centre to centre', P(f, 'spread'), 'mm', { min: 4 })}${num('Bearing seat', P(f, 'seat'), 'mm', { min: 1 })}${num('Upright thickness', P(f, 'bThick'), 'mm', { min: 0.5 })}${num('Wall round the bearing', P(f, 'wall'), 'mm', { min: 0.2 })}</div>
         ${chk('Flanged: the flange rests in a recess in the outside face', P(f, 'flange'))}
         ${p.flange ? `<div class="g2">${num('Flange diameter', P(f, 'flangeD'), 'mm', { min: 1 })}${num('Flange thickness', P(f, 'flangeT'), 'mm', { min: 0.1 })}</div>` : ''}
         ${kv([['Axle above underside', f2(h.frontAxle)], ['Axle diameter', f2(d.car.axleD)], ['Bearing', b ? `${b.name}` : '–']])}
@@ -1079,7 +1095,7 @@ const PANELS = {
         <div class="row"><button class="btn sm ghost" data-act="library" data-kind="bearing">${ico('library')}Bearings in the library</button></div>`;
     }
     return head('Features', 'Front axle bracket', 'Two uprights that carry the front axle.') + enable(f, 'Use front axle brackets') + kind + `
-      <div class="g2">${num('Along, from front axle', P(f, 'along'))}${num('Spread, centre to centre', P(f, 'spread'), 'mm', { min: 4 })}${num('Upright length', P(f, 'width'), 'mm', { min: 2 })}${num('Upright thickness', P(f, 'thick'), 'mm', { min: 1 })}${num('Grub screw hole', P(f, 'grub'), 'mm', { min: 0 })}</div>
+      <div class="g2">${num('Along, from front axle', P(f, 'along'), 'mm', { ax: true })}${num('Spread, centre to centre', P(f, 'spread'), 'mm', { min: 4 })}${num('Upright length', P(f, 'width'), 'mm', { min: 2 })}${num('Upright thickness', P(f, 'thick'), 'mm', { min: 1 })}${num('Grub screw hole', P(f, 'grub'), 'mm', { min: 0 })}</div>
       ${chk('Open slot, so the axle drops in from above', P(f, 'slot'))}
       <div class="g2">${num('Axle travel, up and down', P(f, 'travel'), 'mm', { min: 0, max: 6 })}</div>
       ${chk('A second grub screw from above (closes the slot)', P(f, 'grubTop'))}
@@ -1092,8 +1108,8 @@ const PANELS = {
   bodyMounts(d) {
     const f = find(d.chassis, 'bodyMounts'), p = f.params;
     return head('Features', 'Body mounts', 'Where the body screws on. A spot off the centre line makes a pair.') + enable(f, 'Use body mounts') + `
-      <div class="lst"><div class="hdr"><span></span><span>Along, from front axle</span><span>Side, from centre</span><span></span></div>
-      ${p.posts.map((q, i) => `<div class="li"><span class="n">${i + 1}</span><span class="num"><input data-path="${P(f, `posts.${i}.along`)}" value="${f2(q.along)}"></span><span class="num"><input data-path="${P(f, `posts.${i}.side`)}" data-min="0" value="${f2(q.side)}"></span><button class="iconbtn" data-act="dellist" data-path="${P(f, 'posts')}" data-i="${i}" title="Remove">${ico('x')}</button></div>`).join('')}</div>
+      <div class="lst"><div class="hdr"><span></span><span>${zl('Along, from front axle')}</span><span>Side, from centre</span><span></span></div>
+      ${p.posts.map((q, i) => `<div class="li"><span class="n">${i + 1}</span><span class="num"><input data-path="${P(f, `posts.${i}.along`)}" ${axf(q.along)}></span><span class="num"><input data-path="${P(f, `posts.${i}.side`)}" data-min="0" value="${f2(q.side)}"></span><button class="iconbtn" data-act="dellist" data-path="${P(f, 'posts')}" data-i="${i}" title="Remove">${ico('x')}</button></div>`).join('')}</div>
       <div class="row"><button class="btn sm ghost" data-act="addpost">${ico('plus')}Add a mount</button><button class="btn sm ghost" data-act="centreposts" title="One mount between the guide and the front axle, one behind the rear axle">${ico('post')}Two on the centre line</button></div>
       <div class="g2">${num('Post diameter', P(f, 'padD'), 'mm', { min: 2 })}${num('Post height above plate', P(f, 'height'), 'mm', { min: 0 })}${num('Screw hole', P(f, 'hole'), 'mm', { min: 0.5 })}${num('Head recess', P(f, 'recessD'), 'mm', { min: 0 })}${num('Recess depth', P(f, 'recessDepth'), 'mm', { min: 0 })}</div>
       <div class="note">Drag the handles in the top view to move a mount. These spots are what SlotForge Anvil will build its body posts on.</div>`;
@@ -1228,13 +1244,13 @@ const PANELS = {
   },
   tunnel() {
     return multi('tunnel', 'Shape', 'Tunnels', 'A hollow box duct along the car, open at both ends.', (f) => `
-      <div class="g2">${num('Starts, from front axle', P(f, 'x0'))}${num('Ends, from front axle', P(f, 'x1'))}${num('Side, from centre', P(f, 'side'), 'mm', { min: 0 })}${num('Width', P(f, 'width'), 'mm', { min: 2 })}${num('Height', P(f, 'height'), 'mm', { min: 2 })}${num('Wall', P(f, 'wall'), 'mm', { min: 0.4 })}</div>
+      <div class="g2">${num('Starts, from front axle', P(f, 'x0'), 'mm', { ax: true })}${num('Ends, from front axle', P(f, 'x1'), 'mm', { ax: true })}${num('Side, from centre', P(f, 'side'), 'mm', { min: 0 })}${num('Width', P(f, 'width'), 'mm', { min: 2 })}${num('Height', P(f, 'height'), 'mm', { min: 2 })}${num('Wall', P(f, 'wall'), 'mm', { min: 0.4 })}</div>
       ${chk('Open floor (cut the plate away inside)', P(f, 'openFloor'))}${chk('Mirrored to the other side', P(f, 'mirror'))}
       <div class="note warn">The roof is a bridge of ${f2(Math.max(0, f.params.width - 2 * f.params.wall))} mm. Your printer's longest bridge is set to ${f2(state.design.printer.bridge)} mm.</div>`);
   },
   panel() {
     return multi('panel', 'Shape', 'Upright panels', 'A wall across the car with windows in it: a rear frame or a fence.', (f) => `
-      <div class="g2">${num('Along, from front axle', P(f, 'along'))}${num('Width across the car', P(f, 'width'), 'mm', { min: 2 })}${num('Height', P(f, 'height'), 'mm', { min: 1 })}${num('Thickness', P(f, 'thick'), 'mm', { min: 0.4 })}${num('Windows', P(f, 'windows'), '', { int: 1, min: 0, max: 20 })}${num('Bar width', P(f, 'bar'), 'mm', { min: 0.4 })}${num('Lean back', P(f, 'lean'), '°', { min: -45, max: 60 })}</div>
+      <div class="g2">${num('Along, from front axle', P(f, 'along'), 'mm', { ax: true })}${num('Width across the car', P(f, 'width'), 'mm', { min: 2 })}${num('Height', P(f, 'height'), 'mm', { min: 1 })}${num('Thickness', P(f, 'thick'), 'mm', { min: 0.4 })}${num('Windows', P(f, 'windows'), '', { int: 1, min: 0, max: 20 })}${num('Bar width', P(f, 'bar'), 'mm', { min: 0.4 })}${num('Lean back', P(f, 'lean'), '°', { min: -45, max: 60 })}</div>
       <div class="note">Print a chassis with a tall panel with supports, or lean the panel to ease the overhang.</div>`);
   },
   level() {
@@ -1248,7 +1264,7 @@ const PANELS = {
     const b = state.built ? balance(d, state.built) : null;
     return multi('holder', 'Features', 'Magnet and ballast holders', 'A walled pocket on the plate for a magnet or a weight.', (f) => `
       <div class="seg">${segBtn(P(f, 'shape'), 'round', 'Round')}${segBtn(P(f, 'shape'), 'bar', 'Bar')}</div>
-      <div class="g2">${num('Along, from front axle', P(f, 'along'))}${num('Side, from centre', P(f, 'side'))}
+      <div class="g2">${num('Along, from front axle', P(f, 'along'), 'mm', { ax: true })}${num('Side, from centre', P(f, 'side'))}
         ${f.params.shape === 'bar' ? num('Length', P(f, 'length'), 'mm', { min: 1 }) + num('Width', P(f, 'width'), 'mm', { min: 1 }) : num('Diameter', P(f, 'd'), 'mm', { min: 1 })}
         ${num('Height of the magnet or weight', P(f, 'deep'), 'mm', { min: 0.2 })}${num('Wall', P(f, 'wall'), 'mm', { min: 0.4 })}${num('Plate left under it (0 = open)', P(f, 'floor'), 'mm', { min: 0, max: 5 })}${num('What goes in it weighs', P(f, 'mass'), 'g', { min: 0, max: 200 })}</div>
       ${chk('Mirrored to the other side', P(f, 'mirror'))}
@@ -1256,17 +1272,17 @@ const PANELS = {
   },
   wire(d) {
     return multi('wire', 'Features', 'Wire guides', 'Two small posts that hold a lead wire between them.', (f) => `
-      <div class="g2">${num('Along, from front axle', P(f, 'along'))}${num('Side, from centre', P(f, 'side'))}${num('Gap for the wire', P(f, 'gap'), 'mm', { min: 0.5 })}${num('Height', P(f, 'height'), 'mm', { min: 0.5 })}${num('Length', P(f, 'length'), 'mm', { min: 1 })}${num('Post thickness', P(f, 'wall'), 'mm', { min: 0.4 })}</div>
+      <div class="g2">${num('Along, from front axle', P(f, 'along'), 'mm', { ax: true })}${num('Side, from centre', P(f, 'side'))}${num('Gap for the wire', P(f, 'gap'), 'mm', { min: 0.5 })}${num('Height', P(f, 'height'), 'mm', { min: 0.5 })}${num('Length', P(f, 'length'), 'mm', { min: 1 })}${num('Post thickness', P(f, 'wall'), 'mm', { min: 0.4 })}</div>
       ${chk('Mirrored to the other side', P(f, 'mirror'))}`);
   },
   chip(d) {
     return multi('chip', 'Features', 'Chip mounts', 'A low tray that a digital chip lies in, open at the sides for its wires.', (f) => `
-      <div class="g2">${num('Along, from front axle', P(f, 'along'))}${num('Side, from centre', P(f, 'side'))}${num('Chip length', P(f, 'length'), 'mm', { min: 4 })}${num('Chip width', P(f, 'width'), 'mm', { min: 4 })}${num('Wall height', P(f, 'height'), 'mm', { min: 0.5 })}${num('Wall thickness', P(f, 'wall'), 'mm', { min: 0.4 })}${num('Play round the chip', P(f, 'clear'), 'mm', { min: 0 })}</div>
+      <div class="g2">${num('Along, from front axle', P(f, 'along'), 'mm', { ax: true })}${num('Side, from centre', P(f, 'side'))}${num('Chip length', P(f, 'length'), 'mm', { min: 4 })}${num('Chip width', P(f, 'width'), 'mm', { min: 4 })}${num('Wall height', P(f, 'height'), 'mm', { min: 0.5 })}${num('Wall thickness', P(f, 'wall'), 'mm', { min: 0.4 })}${num('Play round the chip', P(f, 'clear'), 'mm', { min: 0 })}</div>
       <div class="note">Type in the size of your own chip; none is built in, because the makers' sizes differ.</div>`);
   },
   tab(d) {
     return multi('tab', 'Features', 'Body supports', 'A tab that reaches out from the edge of the plate for the body to rest on.', (f) => `
-      <div class="g2">${num('Along, from front axle', P(f, 'along'))}${num('Length', P(f, 'length'), 'mm', { min: 1 })}${num('Reaches past the edge by', P(f, 'reach'), 'mm', { min: 0, max: 20 })}${num('Block on it, high', P(f, 'rise'), 'mm', { min: 0, max: 30 })}</div>
+      <div class="g2">${num('Along, from front axle', P(f, 'along'), 'mm', { ax: true })}${num('Length', P(f, 'length'), 'mm', { min: 1 })}${num('Reaches past the edge by', P(f, 'reach'), 'mm', { min: 0, max: 20 })}${num('Block on it, high', P(f, 'rise'), 'mm', { min: 0, max: 30 })}</div>
       ${chk('Mirrored to the other side', P(f, 'mirror'))}
       <div class="note">The tab follows the edge of the plate where you put it. Keep it clear of the tyres: the tyre check covers it.</div>`);
   },
@@ -1373,7 +1389,7 @@ function kickPanel(d, type) {
   const reach = front ? p.fold - s2.minX : s2.maxX - p.fold;
   const rise = Math.max(0, reach) * Math.sin((Math.min(80, p.angle) * Math.PI) / 180);
   return head('Shape', front ? 'Front kick-up' : 'Kick-up', front ? 'Tilts what lies ahead of a fold line upward: a raised nose or splitter.' : 'Tilts what lies behind a fold line upward: a raised rear or diffuser.') + enable(f, front ? 'Use a front kick-up' : 'Use a kick-up') + `
-    <div class="g2">${num('Fold line, from front axle', P(f, 'fold'))}${num('Angle', P(f, 'angle'), '°', { min: 0, max: 80 })}</div>
+    <div class="g2">${num('Fold line, from front axle', P(f, 'fold'), 'mm', { ax: true })}${num('Angle', P(f, 'angle'), '°', { min: 0, max: 80 })}</div>
     <label class="f">What rises</label>
     <div class="seg">${segBtn(P(f, 'zone'), 'full', 'Full width')}${segBtn(P(f, 'zone'), 'centre', 'Centre only')}${segBtn(P(f, 'zone'), 'sides', 'Sides only')}</div>
     ${p.zone === 'full' ? '' : `<div class="g2">${num('Centre zone, each side of centre', P(f, 'zoneHalf'), 'mm', { min: 0.5 })}</div>`}
@@ -1434,14 +1450,14 @@ function multi(type, eyebrow, title, text, body) {
 }
 function pointList(f, a, b) {
   const pts = f.params.points;
-  return `<div class="lst"><div class="hdr"><span></span><span>${a}</span><span>${b}</span><span></span></div>
-    ${pts.map((p, i) => `<div class="li"><span class="n">${i + 1}</span><span class="num"><input data-path="${P(f, `points.${i}.0`)}" ${lv(p[0])}></span><span class="num"><input data-path="${P(f, `points.${i}.1`)}" ${lv(p[1])}></span><button class="iconbtn" data-act="dellist" data-path="${P(f, 'points')}" data-i="${i}" title="Remove this point" ${pts.length <= 2 ? 'disabled' : ''}>${ico('x')}</button></div>`).join('')}</div>
+  return `<div class="lst"><div class="hdr"><span></span><span>${zl(a)}</span><span>${b}</span><span></span></div>
+    ${pts.map((p, i) => `<div class="li"><span class="n">${i + 1}</span><span class="num"><input data-path="${P(f, `points.${i}.0`)}" ${axv(p[0])}></span><span class="num"><input data-path="${P(f, `points.${i}.1`)}" ${lv(p[1])}></span><button class="iconbtn" data-act="dellist" data-path="${P(f, 'points')}" data-i="${i}" title="Remove this point" ${pts.length <= 2 ? 'disabled' : ''}>${ico('x')}</button></div>`).join('')}</div>
     <button class="btn sm ghost" data-act="addshapept" data-id="${f.id}">${ico('plus')}Add a point at the end</button>`;
 }
 // Weight of the printed parts, and where the centre of gravity lies.
-const balanceRows = (d, b) => kv([['Printed parts', `${b.printed.toFixed(1)} g`], ...(b.added > 0 ? [['Magnets and weights', `${b.added.toFixed(1)} g`]] : []), ['Centre of gravity, behind the front axle', `${f1(b.x)} mm · ${b.share.toFixed(0)} % of the wheelbase`], ['Centre of gravity, above the track', `${f1(b.z)} mm`], ...(Math.abs(b.y) > 0.05 ? [['Centre of gravity, to the side', `${f1(Math.abs(b.y))} mm ${b.y > 0 ? 'right' : 'left'}`]] : [])]) +
+const balanceRows = (d, b) => kv([['Printed parts', `${b.printed.toFixed(1)} g`], ...(b.added > 0 ? [['Magnets and weights', `${b.added.toFixed(1)} g`]] : []), [rearZero() ? 'Centre of gravity, ahead of the rear axle' : 'Centre of gravity, behind the front axle', `${f1(rearZero() ? d.car.wheelbase - b.x : b.x)} mm · ${(rearZero() ? 100 - b.share : b.share).toFixed(0)} % of the wheelbase`], ['Centre of gravity, above the track', `${f1(b.z)} mm`], ...(Math.abs(b.y) > 0.05 ? [['Centre of gravity, to the side', `${f1(Math.abs(b.y))} mm ${b.y > 0 ? 'right' : 'left'}`]] : [])]) +
   '<div class="note">Counts the chassis, the pod and the weights you give. The bought parts are not in it: motor, wheels, axles, gears, guide and body.</div>';
-const boxFields = (f) => `<div class="g2">${num('From, along', P(f, 'x0'))}${num('To, along', P(f, 'x1'))}${num('From, side', P(f, 'y0'))}${num('To, side', P(f, 'y1'))}</div>`;
+const boxFields = (f) => `<div class="g2">${num('From, along', P(f, 'x0'), 'mm', { ax: true })}${num('To, along', P(f, 'x1'), 'mm', { ax: true })}${num('From, side', P(f, 'y0'))}${num('To, side', P(f, 'y1'))}</div>`;
 const segBtn = (path, v, label) => `<button class="${getPath(path) === v ? 'on' : ''}" data-act="tile" data-path="${path}" data-v="${v}">${label}</button>`;
 
 function renderPanel() {
@@ -1451,7 +1467,7 @@ function renderPanel() {
   const panel = d.pod.imported && POD_TOOLS.has(state.tool) ? importedPodPanel
     : d.chassis.imported && FIXED_TOOLS.has(state.tool) ? importedChassisPanel
     : PANELS[state.tool] ?? PANELS.check;
-  $('#panel').innerHTML = `<section>${state.tool==='arrange'?arrangePanel(d,state.editorSelection,state.arrange):state.tool==='inspect'?inspectPanel(state,d):panel(d)+(!partMode()&&!d.onePiece&&!d.chassis.imported?referencePanel(featureOf(state.tool)):'')}</section>`;
+  $('#panel').innerHTML = `<section>${state.tool==='arrange'?arrangePanel(d,state.editorSelection,state.arrange,rearZero()):state.tool==='inspect'?inspectPanel(state,d):panel(d)+(!partMode()&&!d.onePiece&&!d.chassis.imported?referencePanel(featureOf(state.tool),rearZero()):'')}</section>`;
   if (active) $(`#panel [data-path="${active}"]`)?.focus();
 }
 
@@ -1470,7 +1486,7 @@ function describe(f, d) {
     case 'kickup':
     case 'kickfront': return `${f2(p.angle)}° · ${p.zone === 'full' ? 'full width' : p.zone === 'centre' ? 'centre only' : 'sides only'} · ${p.strakes} strakes`;
     case 'profile': return `${p.points.length} points · up to ${f2(Math.max(...p.points.map((q) => q[1])))} lift`;
-    case 'split': return `cut at ${f2(p.along)} · ${p.tabs} key${p.tabs === 1 ? '' : 's'}`;
+    case 'split': return `cut at ${f2(rearZero() ? d.car.wheelbase - p.along : p.along)} · ${p.tabs} key${p.tabs === 1 ? '' : 's'}`;
     case 'base': return `width ${f2(p.width)} · ${f2(p.thickness)} thick`;
     case 'motorSeat': return motorOf(d).name;
     case 'uprights': return `${p.form === 'sphere' ? `spherical · ball ${f2(p.ballD)} × ${f2(p.ballW)}` : `${p.holder} · seat ${f2(p.seat)}`}${p.flange && p.form !== 'sphere' && !p.tube ? ` · flange ${f2(p.flangeD)}` : ''}${p.tube ? ` · tube ${f2(p.tubeLen)}` : ''}`;
@@ -1514,7 +1530,7 @@ function renderStatus() {
     <span class="sb">Clearance <b class="mono">${len(s.clearance, f2)}</b></span>
     <span class="sb"><i class="dot ${state.error ? 'bad' : bad ? 'w' : 'ok'}"></i>${state.error ? 'Cannot be built' : state.busy ? 'Building…' : bad ? `${bad} note${bad > 1 ? 's' : ''}` : 'All checks pass'}</span>
     <span class="sb">${MATERIALS[d.printer.material].name} · ${f2(d.printer.nozzle)} nozzle</span>
-    <span class="sb end units" role="group" aria-label="Units"><button class="${inches() ? '' : 'on'}" data-act="units" data-v="mm">mm</button><button class="${inches() ? 'on' : ''}" data-act="units" data-v="in">in</button></span>
+    <span class="sb end units" role="group" aria-label="Measure along the car from" title="Where positions along the car are measured from"><small class="zl">From</small><button class="${rearZero() ? '' : 'on'}" data-act="zero" data-v="front">Front axle</button><button class="${rearZero() ? 'on' : ''}" data-act="zero" data-v="rear">Rear axle</button></span><span class="sb units" role="group" aria-label="Units"><button class="${inches() ? '' : 'on'}" data-act="units" data-v="mm">mm</button><button class="${inches() ? 'on' : ''}" data-act="units" data-v="in">in</button></span>
     <span class="sb end">v${VERSION}</span>
     <span class="sf-footer-brand"><img class="wm-dark" src="${markDark}" alt="SlotForge"><img class="wm-light" src="${markLight}" alt="SlotForge"></span>`;
   const notes = state.built?.notes ?? [];
@@ -1656,7 +1672,7 @@ function topSVG() {
   // centre line and dimensions
   out.push(`<line class="mirror" x1="${vb[0]}" y1="0" x2="${vb[0] + vb[2]}" y2="0"/>`);
   const dy = half + 9;
-  out.push(`<path class="dim" d="M0 ${dy - 2}V${dy + 2}M${wb} ${dy - 2}V${dy + 2}M0 ${dy}H${wb}"/><text class="dimt" x="${wb / 2}" y="${dy + 5}">wheelbase ${len(wb)}${inches() ? ' in' : ''}</text>`);
+  out.push(`<path class="dim" d="M0 ${dy - 2}V${dy + 2}M${wb} ${dy - 2}V${dy + 2}M0 ${dy}H${wb}"/><text class="dimt" x="${wb / 2}" y="${dy + 5}">wheelbase ${len(wb)}${inches() ? ' in' : ''}</text><text class="dimt zero" x="${rearZero() ? wb : 0}" y="${dy - 3}">0</text>`);
   if (on(guide)) out.push(`<path class="dim" d="M${guide.params.along} ${-dy - 2}V${-dy + 2}M${wb} ${-dy - 2}V${-dy + 2}M${guide.params.along} ${-dy}H${wb}"/><text class="dimt" x="${(guide.params.along + wb) / 2}" y="${-dy - 2.5}">guide lead ${f1(s.guideLead)}</text>`);
 
   // handles for the active tool
@@ -1827,7 +1843,7 @@ function setTool(tool) {
 const ACTIONS = {
   editorop(el) {
     try {
-      state.editorSelection=operateSelection(state.design,state.editorSelection,el.dataset.op,{dx:Number($('#editor-dx').value),dy:Number($('#editor-dy').value),name:$('#editor-group-name').value,newId});
+      state.editorSelection=operateSelection(state.design,state.editorSelection,el.dataset.op,{dx:(rearZero()?-1:1)*Number($('#editor-dx').value),dy:Number($('#editor-dy').value),name:$('#editor-group-name').value,newId});
       commit();
     }catch(e){toast(e.message,true);}
   },
@@ -2144,6 +2160,7 @@ const ACTIONS = {
   addshape(el) {
     const f = newShape(el.dataset.type, state.design);
     state.design.chassis.features.push(f);
+    if (rearZero() && ANCHOR_TYPES.includes(f.type)) setReference(state.design, f, 'rear');
     state.sel[f.type] = f.id;
     commit();
   },
@@ -2249,6 +2266,7 @@ const ACTIONS = {
   addlength() { const p = find(state.design.chassis, 'fill').params; p.length.push(round((p.length.at(-1) ?? 12) + 4)); commit(); },
   propose() { const p = find(state.design.chassis, 'fill').params; p.cross = proposeCross(state.design, Math.max(2, p.cross.length)); commit(); },
   measure() { Object.assign(state.measure, { on: !state.measure.on, a: null, b: null }); renderView(); },
+  zero(el) { const v = el.dataset.v === 'rear' ? 'rear' : 'front'; if (state.design.zero === v) return; state.design.zero = v; commit(); render(); },
   units(el) { if (state.design.units === el.dataset.v) return; state.design.units = el.dataset.v === 'in' ? 'in' : 'mm'; commit(); render(); },
   podlevel() { find(state.design.pod, 'base').params.drop = -find(state.design.chassis, 'outline').params.thickness; commit(); },
   podfit() { find(state.design.pod, 'base').params.sideways = podSideways(state.design); commit(); },
@@ -2320,7 +2338,7 @@ function onChange(e) {
   if(el.dataset.editorCheck){const ids=new Set(state.editorSelection);el.checked?ids.add(el.dataset.editorCheck):ids.delete(el.dataset.editorCheck);state.editorSelection=[...ids];renderPanel();return;}
   if(el.dataset.editorRef||el.dataset.editorOffset||el.dataset.editorName){
     const f=featuresOf(state.design).find(f=>f.id===(el.dataset.editorRef||el.dataset.editorOffset||el.dataset.editorName));if(!f)return;
-    try{if(el.dataset.editorName){f.editor??={};f.editor.name=el.value.trim().slice(0,60);}else setReference(state.design,f,el.dataset.editorRef?el.value:f.editor.anchor.reference,el.dataset.editorOffset?(el.value.trim()===''?NaN:Number(el.value)):undefined);commit();}catch(e){toast(e.message,true);renderPanel();}return;
+    try{if(el.dataset.editorName){f.editor??={};f.editor.name=el.value.trim().slice(0,60);}else setReference(state.design,f,el.dataset.editorRef?el.value:f.editor.anchor.reference,el.dataset.editorOffset?(el.value.trim()===''?NaN:(rearZero()?-1:1)*Number(el.value)):undefined);commit();}catch(e){toast(e.message,true);renderPanel();}return;
   }
   if(el.dataset.inspect){
     const k=el.dataset.inspect;let v=el.type==='checkbox'?el.checked:el.type==='number'?Number(el.value):el.value;
@@ -2340,6 +2358,7 @@ function onChange(e) {
     if (el.dataset.in) v = round(v * 25.4, 3); // typed in inches, kept in millimetres
     if (el.dataset.int) v = Math.round(v);
     if (el.dataset.neg) v = -v;
+    if (el.dataset.ax !== undefined) v = round(+el.dataset.ax - v, 3); // typed from the rear axle, kept from the front axle
     if (el.dataset.min !== undefined) v = Math.max(+el.dataset.min, v);
     if (el.dataset.max !== undefined) v = Math.min(+el.dataset.max, v);
     if (el.dataset.one) v -= 1;
