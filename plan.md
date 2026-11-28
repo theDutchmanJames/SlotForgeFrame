@@ -2,7 +2,7 @@
 
 Working name. Status: **agreed 24 November 2026; building**. The design reference is `docs/ui-reference/workspace.html`.
 
-Built so far (version 0.7.1): the app shell, the Manifold geometry engine, the chassis and pod model with every feature editable, top view with draggable handles, 3D view, checks, save/open, undo and STL export. See section 9 for what each milestone still needs.
+Built so far (version 0.7.2): the app shell, the Manifold geometry engine, the chassis and pod model with every feature editable, top view with draggable handles, 3D view, checks, save/open, undo and STL export. See section 9 for what each milestone still needs.
 
 Background facts and measurements are in [research.md](research.md).
 
@@ -260,7 +260,7 @@ Each milestone ends with tests on real shapes, including the seven example parts
 | `npm run test:ui` | 28 checks of the built app in a real browser (Edge or Chrome, headless, offline): editing, dragging, undo, export, library, import, the Anvil link, themes. Run `npm run build` first |
 | `npm run test:desktop` | Opens the desktop app and checks that it starts, builds and opens its library file |
 
-**Where the build stands (0.7.1)**
+**Where the build stands (0.7.2)**
 
 | Milestone | State |
 |---|---|
