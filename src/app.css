@@ -117,3 +117,12 @@
 
 /* One-piece chassis: the part chosen in the panel, marked on the drawing. */
 .op-sel { fill: color-mix(in srgb, var(--accent) 28%, transparent); stroke: var(--accent); stroke-width: .35; pointer-events: none; }
+
+/* One-piece chassis: a setting that follows another, and the folded More settings. */
+.fx .lt { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.linkbtn { flex: none; width: auto; display: inline-flex; vertical-align: middle; margin-left: 4px; padding: 1px; border: 1px solid transparent; border-radius: 5px; background: none; color: var(--muted); cursor: pointer; }
+.linkbtn .ico { width: 13px; height: 13px; }
+.linkbtn.on { color: var(--accent-text); border-color: var(--line); }
+.fx input:disabled { opacity: .55; cursor: not-allowed; }
+.more-btn { margin: 6px 0 4px; }
+.more-btn .ico.up { transform: rotate(180deg); }

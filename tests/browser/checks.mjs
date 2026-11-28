@@ -1041,7 +1041,23 @@ export const checks = [
     // The chassis and pod menus give way to One piece.
     assert.deepEqual(await page.locator('#menus [data-act=menu]').evaluateAll((b) => b.map((x) => x.dataset.menu)), ['car', 'onepiece', 'body', 'inserts', 'wings', 'print']);
     assert.ok((await notes()).includes("Exactly Peter's design"));
-    assert.equal(await page.locator('#steps .sp').count(), 7);
+    assert.equal(await page.locator('#steps .sp').count(), 8, 'the Chassis page and the seven parts');
+    // The main page: the axle height is the rear's too, until the rear one is unlinked.
+    assert.equal(await app.state(() => window.slotforgeFrame.state.tool), 'op-main');
+    await app.set('onePiece.front.height', 6);
+    await built();
+    assert.equal(await app.state(() => window.slotforgeFrame.state.design.onePiece.rear.height), 6);
+    await page.click('#sub [data-act=tool][data-tool="op-rear"]');
+    assert.ok(await app.field('onePiece.rear.height').isDisabled(), 'it follows the front, so it is not typed in');
+    await page.click('#panel [data-act=oplink][data-path="rear.height"]');
+    await app.idle();
+    await app.set('onePiece.rear.height', 5.5);
+    await built();
+    assert.equal(await app.state(() => window.slotforgeFrame.state.design.onePiece.rear.height), 5.5);
+    assert.equal(await page.locator('#panel [data-act=opmore]').count(), 1, 'the rest are folded away');
+    await page.click('#panel [data-act=opreset]:not([data-part])');
+    await built();
+    assert.ok(await app.state(() => window.slotforgeFrame.state.design.onePiece.links['rear.height']), "Back to Peter's links it again");
     // The wheelbase, in One piece, moves the car's too; then back to Peter's.
     await page.click('#sub [data-act=tool][data-tool="op-rear"]');
     await app.set('onePiece.rear.wheelbase', 60);

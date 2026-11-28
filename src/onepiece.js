@@ -135,7 +135,29 @@ const RANGE = [0, 200];
 const clamp = (v, def, [lo, hi] = RANGE) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def);
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const round = (v) => Math.round(v * 1000) / 1000;
-export const newOnePiece = () => clone(PETER);
+
+// The settings most chassis need, on the one Chassis page. Everything else stays on the part pages.
+export const MAIN_FIELDS = [['rear.wheelbase', 'Wheelbase'], ['plate.length', 'Length'], ['plate.frontW', 'Centre width, front and rear'],
+  ['plate.panW', 'Side pans: width'], ['plate.panLen', 'Side pans: length'], ['plate.panFrom', 'Side pans: from the front'],
+  ['front.height', 'Axle height, front and rear'], ['front.hole', 'Axle seats, front and rear: diameter'], ['front.key', 'Axle seats: key slots width (0: none)'],
+  ['motor.len', 'Motor cradle: length'], ['motor.width', 'Motor cradle: width'], ['motor.height', 'Motor cradle: height'],
+  ['guide.hole', 'Guide hole'], ['mounts.x', 'Body mounts: holes from the middle']];
+// Linked settings, as [setting, the one it follows]. A linked setting stays at Peter's distance from the one it follows
+// (so untouched, the build is still Peter's chassis), until it is unlinked and set by hand.
+export const LINKS = [['plate.wallFrom', 'plate.panFrom'], ['motor.from', 'plate.panFrom'], ['plate.rearW', 'plate.frontW'], ['plate.rearT', 'plate.frontT'],
+  ['rear.height', 'front.height'], ['rear.hole', 'front.hole'], ['rear.key', 'front.key'], ['rear.keyLen', 'front.keyLen'], ['guide.spineH', 'guide.h']];
+const valueAt = (P, path) => path.split('.').reduce((o, k) => o?.[k], P);
+const put = (P, path, v) => { const [part, k] = path.split('.'); P[part][k] = v; };
+export const linkOffset = (to, from) => round(valueAt(PETER, to) - valueAt(PETER, from));
+export const linkOf = (path) => LINKS.find(([to]) => to === path);
+export const isLinked = (P, path) => !!linkOf(path) && P.links?.[path] !== false;
+// Sets every linked setting from the one it follows.
+export function applyLinks(P) {
+  for (const [to, from] of LINKS) if (isLinked(P, to)) put(P, to, round(valueAt(P, from) + linkOffset(to, from)));
+  return P;
+}
+export const newOnePiece = () => ({ ...clone(PETER), links: Object.fromEntries(LINKS.map(([to]) => [to, true])) });
+
 
 // Checks what a file brings: every setting a number in range, the body mounts a short list.
 export function cleanOnePiece(raw) {
@@ -150,7 +172,12 @@ export function cleanOnePiece(raw) {
   if (at) out.mounts.at = at;
   const boss = raw.mounts?.boss;
   out.mounts.boss = Number.isInteger(boss) && boss >= -1 && boss < out.mounts.at.length ? boss : Math.min(PETER.mounts.boss, out.mounts.at.length - 1);
-  return out;
+  // Links: as saved; a file from before links existed is linked only where its sizes still keep Peter's distance.
+  for (const [to, from] of LINKS) {
+    const saved = raw.links?.[to];
+    out.links[to] = typeof saved === 'boolean' ? saved : Math.abs(valueAt(out, to) - (valueAt(out, from) + linkOffset(to, from))) < 1e-6;
+  }
+  return applyLinks(out);
 }
 
 // The settings that differ from Peter's, as "part.key".

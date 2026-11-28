@@ -22,7 +22,9 @@ import {
   encodeProject, decodeProject, createHistory, MATERIALS, FEATURE_NAMES, MULTI, newShape, shapesOf, gearsFor, bearingOf, guideOf, choicesFor, moveRear, couponHoles,
 } from './model.js';
 import { WING_PRESETS, ENDPLATES, FLAT_SIDES, wingPreset, wingSide, legYs, pinsOf, deckZ, cleanWing } from './wings.js';
-import { ONE_PIECE_PARTS, ONE_PIECE_NAMES, ONE_PIECE_FIELDS, PETER, changedFromPeter, moveRearAxle, rideHeight, layout as opLayout } from './onepiece.js';
+import { ONE_PIECE_PARTS, ONE_PIECE_NAMES, ONE_PIECE_FIELDS, PETER, changedFromPeter, moveRearAxle, rideHeight, layout as opLayout, MAIN_FIELDS, LINKS, linkOf, isLinked, applyLinks } from './onepiece.js';
+// The pages of a one-piece chassis: the main settings first, then each part with all of its own.
+const OP_PAGES = ['main', ...ONE_PIECE_PARTS], OP_NAMES = { main: 'Chassis', ...ONE_PIECE_NAMES };
 import { newInserts, ringSizes, RING_COUNT, PRESETS as INSERT_PRESETS, LAYER_TYPES, LAYER_NAMES, MODES, MODE_NAMES, presetFor, newLayer, layerShape, circle as insCircle, directional, mirrored, insertOf, fitToSegment, cleanInsert, MODELS, MODEL_IDS, modelOf, modelInsert, minDepth, modelScale } from './inserts.js';
 // ?inline: the pictures are built into the page, which is the only file the desktop app ships.
 import iconUrl from './assets/slotforge-frame.svg?inline';
@@ -105,7 +107,7 @@ const MENUS = [
   ['fill', 'Fill', 'fill', [['fill', 'Fill style', 'fill'], ['rail', 'Rail', 'pen'], ['window', 'Window', 'cut'], ['cutout', 'Cut-out', 'pen']]],
   ['features', 'Features', 'feature', [['guide', 'Guide holder', 'guide'], ['frontAxle', 'Front axle', 'axle'], ['bodyMounts', 'Body mounts', 'post'], ['tab', 'Body support', 'wall'], ['podMounts', 'Pod mounts', 'lug'], ['podOpening', 'Pod opening', 'cut'], ['holder', 'Magnet / ballast', 'pocket'], ['wire', 'Wire guide', 'wire'], ['chip', 'Chip mount', 'level'], ['arrange', 'Arrange features', 'feature']]],
   ['pod', 'Pod', 'pod', [['drivetrain', 'Drivetrain', 'gear'], ['base', 'Base plate', 'level'], ['motorSeat', 'Motor seat', 'motor'], ['uprights', 'Axle uprights', 'bearing'], ['lugs', 'Mount lugs', 'lug']]],
-  ['onepiece', 'One piece', 'pod', ONE_PIECE_PARTS.map((part) => [`op-${part}`, ONE_PIECE_NAMES[part], { plate: 'level', guide: 'guide', front: 'axle', motor: 'motor', gear: 'gear', rear: 'bearing', mounts: 'post' }[part]])],
+  ['onepiece', 'One piece', 'pod', OP_PAGES.map((part) => [`op-${part}`, OP_NAMES[part], { main: 'shape', plate: 'level', guide: 'guide', front: 'axle', motor: 'motor', gear: 'gear', rear: 'bearing', mounts: 'post' }[part]])],
   ['body', 'Body', 'body', [['body', 'Body and Anvil', 'body']]],
   ['inserts', 'Inserts', 'insert', [['insertRear', 'Rear insert', 'insert'], ['insertFront', 'Front insert', 'insert'], ['insertRing', 'Calibration ring', 'coupon']]],
   ['wings', 'Wings', 'wing', [['wing', 'Wing', 'wing'], ['wingPlates', 'Endplates', 'wing'], ['wingLegs', 'Legs and mounting', 'lug'], ['wingPrint', 'Print', 'print']]],
@@ -116,7 +118,7 @@ const POD_TOOLS = new Set(['drivetrain', 'base', 'motorSeat', 'uprights', 'lugs'
 const DRAWN_MENUS = new Set(['outline', 'shape', 'fill', 'features', 'pod']);
 const menusFor = (d) => MENUS.filter(([id]) => (d.onePiece ? !DRAWN_MENUS.has(id) : id !== 'onepiece'));
 const opMode = () => state.menu === 'onepiece' && !!state.design.onePiece;
-const opPart = () => (state.tool?.startsWith('op-') ? state.tool.slice(3) : 'plate');
+const opPart = () => (state.tool?.startsWith('op-') ? state.tool.slice(3) : 'main');
 // The shaping feature being edited: the chosen one, or the first of its kind.
 function chosen(type) {
   const list = shapesOf(state.design, type);
@@ -342,8 +344,10 @@ function num(label, path, unit = 'mm', o = {}) {
   if (o.neg) v = -v;
   if (o.one) v += 1; // shown counting from 1, kept counting from 0
   const inch = inches() && (unit === 'mm' || o.len);
-  if (inch) return `<label class="fx">${label}${o.tag ?? ''}<span class="num"><input data-path="${path}" ${axa}data-in="1" ${o.neg ? 'data-neg="1"' : ''} ${o.max !== undefined ? `data-max="${o.max}"` : ''} ${o.min !== undefined ? `data-min="${o.min}"` : ''} value="${inch3(v)}" inputmode="decimal" spellcheck="false">${unit ? '<small>in</small>' : ''}</span></label>`;
-  return `<label class="fx">${label}${o.tag ?? ''}<span class="num"><input data-path="${path}" ${axa}${o.neg ? 'data-neg="1"' : ''} ${o.int ? 'data-int="1"' : ''} ${o.one ? 'data-one="1"' : ''} ${o.max !== undefined ? `data-max="${o.max}"` : ''} ${o.min !== undefined ? `data-min="${o.min}"` : ''} value="${f2(v)}" inputmode="decimal" spellcheck="false">${unit ? `<small>${unit}</small>` : ''}</span></label>`;
+  // A link button stands beside the name, not on a row of its own.
+  if (o.link) { label = `<span class="lt">${label}${o.link}</span>`; }
+  if (inch) return `<label class="fx">${label}${o.tag ?? ''}<span class="num"><input data-path="${path}" ${axa}data-in="1" ${o.neg ? 'data-neg="1"' : ''} ${o.max !== undefined ? `data-max="${o.max}"` : ''} ${o.min !== undefined ? `data-min="${o.min}"` : ''} value="${inch3(v)}" inputmode="decimal" spellcheck="false" ${o.dis ? 'disabled' : ''}>${unit ? '<small>in</small>' : ''}</span></label>`;
+  return `<label class="fx">${label}${o.tag ?? ''}<span class="num"><input data-path="${path}" ${axa}${o.neg ? 'data-neg="1"' : ''} ${o.int ? 'data-int="1"' : ''} ${o.one ? 'data-one="1"' : ''} ${o.max !== undefined ? `data-max="${o.max}"` : ''} ${o.min !== undefined ? `data-min="${o.min}"` : ''} value="${f2(v)}" inputmode="decimal" spellcheck="false" ${o.dis ? 'disabled' : ''}>${unit ? `<small>${unit}</small>` : ''}</span></label>`;
 }
 const chk = (label, path) => `<label class="chk"><input type="checkbox" data-path="${path}" ${getPath(path) ? 'checked' : ''}>${label}</label>`;
 function sel(label, path, options) {
@@ -481,7 +485,7 @@ function weight(part) {
 
 function renderMenus() {
   // A menu the design does not have (the chassis menus of a one-piece design, or the other way round) gives way.
-  if (state.menu && !menusFor(state.design).some((m) => m[0] === state.menu)) setTool(state.design.onePiece ? 'op-plate' : 'outline');
+  if (state.menu && !menusFor(state.design).some((m) => m[0] === state.menu)) setTool(state.design.onePiece ? 'op-main' : 'outline');
   const VLINE = new Set(['outline', 'onepiece', 'pod', 'body', 'inserts']);
   $('#menus').innerHTML = menusFor(state.design).map(([id, name, icon]) => `${VLINE.has(id) ? '<span class="vline"></span>' : ''}<button class="tbtn ${state.menu === id ? 'on' : ''}" data-act="menu" data-menu="${id}">${ico(icon)}${name}</button>`).join('') +
     `<div class="end"><button class="tbtn" data-act="importstl">${ico('import')}Import STL</button><span class="vline"></span><button class="tbtn" data-act="library" data-kind="pod">${ico('library')}Library</button></div>`;
@@ -699,6 +703,7 @@ function modelPanel(ins) {
 }
 // ------------------------------------------------------------ one-piece chassis
 const OP_TEXT = {
+  main: 'The sizes most chassis need. The settings that follow these, and every other size, are on the part pages.',
   plate: 'The floor: narrow at the front and the back, the side pans full width in the middle, and the walls along the sides.',
   guide: 'A round post for the guide, joined to the motor bay by a spine with room for the front axle.',
   front: 'Two eyes each side, each with a round seat and two small key slots so a bushing cannot turn. Rails join them to the side walls.',
@@ -707,15 +712,34 @@ const OP_TEXT = {
   rear: 'As the front: two eyes each side. The wheelbase sets where they are, and the gear well and the end of the plate move with them.',
   mounts: 'Holes through the side pans for the body; one pair can stand on a boss.',
 };
+// A setting's name, with its part when the name alone does not say it: "Rear axle: axle height".
+const opLabel = (path) => { if (path === 'mounts.at') return 'Body mount holes'; const [pt, k] = path.split('.'), main = MAIN_FIELDS.find(([q]) => q === path); return main ? main[1] : `${ONE_PIECE_NAMES[pt]}: ${(ONE_PIECE_FIELDS[pt]?.find((f) => f[0] === k)?.[1] ?? k).replace(/^./, (c) => c.toLowerCase())}`; };
 const PANEL_ONEPIECE = (d) => {
   const P = d.onePiece;
   if (!P) return PANELS.check(d);
-  const part = opPart(), changed = changedFromPeter(P), mine = changed.filter((c) => c.startsWith(part + '.'));
-  let h = head('One piece', ONE_PIECE_NAMES[part], OP_TEXT[part]);
+  const part = opPart(), changed = changedFromPeter(P), inPage = (c) => (part === 'main' ? MAIN_FIELDS.some(([q]) => q === c) || c === 'mounts.at' : c.startsWith(part + '.')), mine = changed.filter(inPage);
+  let h = head('One piece', OP_NAMES[part], OP_TEXT[part]);
   h += `<div class="note ${changed.length ? 'warn' : 'ok'}">${changed.length ? `Changed from Peter's design: ${changed.length} setting${changed.length > 1 ? 's' : ''}.` : "Exactly Peter's design."} <button class="btn sm ghost" data-act="opreset" ${changed.length ? '' : 'disabled'}>Back to Peter's</button></div>`;
   // Settings measured from the plate's front turn to the rear axle with it chosen as zero (the rear axle stands at front.at + wheelbase).
-  const opAx = P.front.at + P.rear.wheelbase, opAlong = (k, label) => (/from the front$/.test(label) && part !== 'front') || (part === 'motor' && k === 'from');
-  h += `<div class="g2">${ONE_PIECE_FIELDS[part].map(([k, label]) => num(part === 'motor' && k === 'from' && rearZero() ? 'Cradle starts, from the rear axle' : label, `onePiece.${part}.${k}`, 'mm', opAlong(k, label) ? { ax: opAx } : { min: 0 })).join('')}</div>`;
+  const opAx = P.front.at + P.rear.wheelbase;
+  // One setting: measured from the rear axle when that is the zero, greyed out while it follows another, with its link button.
+  const field = (path, label) => {
+    const [pt, k] = path.split('.'), link = linkOf(path), linked = isLinked(P, path), along = (/from the front$/.test(label) && pt !== 'front') || path === 'motor.from';
+    const tag = link ? ` <button class="linkbtn ${linked ? 'on' : ''}" data-act="oplink" data-path="${path}" aria-pressed="${linked}" title="${linked ? `Follows ${esc(opLabel(link[1]))}. Click to set it yourself.` : `Set by hand. Click to make it follow ${esc(opLabel(link[1]))} again.`}">${ico('link')}</button>` : '';
+    return num(path === 'motor.from' && rearZero() ? 'Cradle starts, from the rear axle' : label, `onePiece.${pt}.${k}`, 'mm', { ...(along ? { ax: opAx } : { min: 0 }), link: tag, dis: linked });
+  };
+  if (part === 'main') {
+    h += `<div class="g2">${MAIN_FIELDS.map(([path, label]) => field(path, label)).join('')}</div>`;
+    h += `<label class="f">${zl('Body mount holes, from the front')}</label><div class="g2">${P.mounts.at.map((_, i) => num(`Hole ${i + 1}`, `onePiece.mounts.at.${i}`, 'mm', { ax: opAx })).join('')}</div>`;
+    const links = LINKS.filter(([to]) => isLinked(P, to)).length;
+    h += `<div class="note">${links} setting${links === 1 ? '' : 's'} on the part pages follow${links === 1 ? 's' : ''} these, marked ${ico('link')}: the side walls and the motor cradle start with the side pans, the rear plate, axle height and seats are the front's, and the guide spine is as high as the post.</div>`;
+  } else {
+    // The part's main and linked settings first; the rest folded away under More settings.
+    const top = ONE_PIECE_FIELDS[part].filter(([k]) => MAIN_FIELDS.some(([q]) => q === `${part}.${k}`) || linkOf(`${part}.${k}`)), more = ONE_PIECE_FIELDS[part].filter((f) => !top.includes(f));
+    const open = state.opMore || more.some(([k]) => mine.includes(`${part}.${k}`));
+    if (top.length) h += `<div class="g2">${top.map(([k, label]) => field(`${part}.${k}`, label)).join('')}</div>`;
+    if (more.length) h += `<button class="btn sm ghost more-btn" data-act="opmore" aria-expanded="${open}">${ico('chev', open ? 'up' : '')}More settings · ${more.length}</button>` + (open ? `<div class="g2">${more.map(([k, label]) => field(`${part}.${k}`, label)).join('')}</div>` : '');
+  }
   if (part === 'mounts') {
     h += `<label class="f">${zl('Holes, from the front')}</label><div class="g2">${P.mounts.at.map((_, i) => num(`Hole ${i + 1}`, `onePiece.mounts.at.${i}`, 'mm', { ax: opAx })).join('')}</div>
       <div class="row"><button class="btn sm ghost" data-act="opmount" data-v="1" ${P.mounts.at.length < 6 ? '' : 'disabled'}>${ico('plus')}Add a hole</button><button class="btn sm ghost" data-act="opmount" data-v="-1" ${P.mounts.at.length ? '' : 'disabled'}>${ico('trash')}Remove the last</button></div>
@@ -723,7 +747,7 @@ const PANEL_ONEPIECE = (d) => {
   }
   if (part === 'rear') h += `<div class="note">At 1/43 a ${f2(P.rear.wheelbase)} mm wheelbase is ${f2((P.rear.wheelbase * 43) / 1000)} m on the real car. The rear axle stands at the middle of the rear tyres (Car › Wheels and axles), and the chassis rides ${f2(rideHeight(P, d.car.rear.tyreD))} mm above the track.</div>`;
   if (part === 'motor') h += `<div class="note">Peter's cradle takes a slimline motor (FF-030 size). The 3D view shows the motor chosen in the design: ${esc(motorOf(d).name)}.</div>`;
-  if (mine.length) h += `<div class="note">Peter's: ${mine.map((c) => { const k = c.split('.')[1], f = ONE_PIECE_FIELDS[part].find((x) => x[0] === k); return `${esc(f ? f[1] : k)} ${Array.isArray(PETER[part][k]) ? PETER[part][k].join(', ') : f2(PETER[part][k])}`; }).join(' · ')} <button class="btn sm ghost" data-act="opreset" data-part="${part}">Back to Peter's for this part</button></div>`;
+  if (mine.length) h += `<div class="note">Peter's: ${mine.map((c) => { const [pt, k] = c.split('.'); return `${esc(opLabel(c))} ${Array.isArray(PETER[pt][k]) ? PETER[pt][k].join(', ') : f2(PETER[pt][k])}`; }).join(' · ')} ${part === 'main' ? '' : `<button class="btn sm ghost" data-act="opreset" data-part="${part}">Back to Peter's for this part</button>`}</div>`;
   h += `<div class="note">${esc(P.name)}${P.name === PETER.name ? " was designed by Peter (SlotForum) and is included with the designer's permission." : ", from Peter's 1:43 Chassis by Peter (SlotForum)."}</div>`;
   return h;
 };
@@ -731,9 +755,9 @@ const PANEL_ONEPIECE = (d) => {
 function opSteps() {
   const P = state.design.onePiece, changed = changedFromPeter(P);
   $('#tabs').innerHTML = `<button class="on">Parts · ${ONE_PIECE_PARTS.length}</button>`;
-  $('#steps').innerHTML = ONE_PIECE_PARTS.map((part, i) => {
-    const n = changed.filter((c) => c.startsWith(part + '.')).length;
-    return `<div class="sp ${opPart() === part && opMode() ? 'cur' : ''}" data-act="tool" data-tool="op-${part}"><span class="n">${i + 1}</span><span class="t">${ONE_PIECE_NAMES[part]}<small>${n ? `${n} changed from Peter's` : "as Peter's"}</small></span><span></span></div>`;
+  $('#steps').innerHTML = OP_PAGES.map((part, i) => {
+    const n = changed.filter((c) => (part === 'main' ? MAIN_FIELDS.some(([q]) => q === c) || c === 'mounts.at' : c.startsWith(part + '.'))).length;
+    return `<div class="sp ${opPart() === part && opMode() ? 'cur' : ''}" data-act="tool" data-tool="op-${part}"><span class="n">${i ? i : '•'}</span><span class="t">${OP_NAMES[part]}<small>${n ? `${n} changed from Peter's` : "as Peter's"}</small></span><span></span></div>`;
   }).join('');
 }
 // A one-piece chassis from above, as it stands on the car (front axle at x = 0), with the chosen part marked.
@@ -756,6 +780,7 @@ function onePieceSVG() {
     const part = opPart(), r = (y0, y1, x0, x1) => `<rect class="op-sel" x="${X(y0)}" y="${x0}" width="${y1 - y0}" height="${x1 - x0}"/>`, c = (y, x, dd) => `<circle class="op-sel" cx="${X(y)}" cy="${x}" r="${dd / 2}"/>`;
     const pl = P.plate, f = P.front, re = P.rear, m = P.motor, mt = P.mounts, both = (fn) => [fn(1), fn(-1)].join('');
     const mark = {
+      main: r(pl.arcAt, L.panTo, -pl.frontW / 2, pl.frontW / 2) + r(pl.panFrom, L.panTo, -pl.panW / 2, pl.panW / 2) + r(L.panTo, pl.length, -pl.rearW / 2, pl.rearW / 2),
       plate: r(pl.arcAt, L.panTo, -pl.frontW / 2, pl.frontW / 2) + r(pl.panFrom, L.panTo, -pl.panW / 2, pl.panW / 2) + r(L.panTo, pl.length, -pl.rearW / 2, pl.rearW / 2),
       guide: c(P.guide.at, 0, P.guide.d) + r(P.guide.at, L.bellFrom - m.frontWall, -P.guide.spineW / 2, P.guide.spineW / 2),
       front: both((sg) => r(L.frontY - f.outer / 2, L.frontY + f.outer / 2, sg > 0 ? f.inner : -f.inner - f.thick, sg > 0 ? f.inner + f.thick : -f.inner)),
@@ -965,7 +990,7 @@ const PANELS = {
   wingPlates: PANEL_WING_PLATES,
   wingLegs: PANEL_WING_LEGS,
   wingPrint: PANEL_WING_PRINT,
-  ...Object.fromEntries(ONE_PIECE_PARTS.map((part) => [`op-${part}`, PANEL_ONEPIECE])),
+  ...Object.fromEntries(OP_PAGES.map((part) => [`op-${part}`, PANEL_ONEPIECE])),
   insertRear: PANEL_INSERT,
   insertFront: PANEL_INSERT,
   insertRing: PANEL_RING,
@@ -2039,7 +2064,7 @@ const ACTIONS = {
   newonepiece() {
     state.pop = null;
     replaceDesign(newOnePieceDesign());
-    setTool('op-plate');
+    setTool('op-main');
     render();
     toast("Peter's 1:43 Chassis: every size as Peter drew it. Change any of them in One piece.");
   },
@@ -2048,9 +2073,20 @@ const ACTIONS = {
     const P = state.design.onePiece, part = el.dataset.part;
     if (!P) return;
     for (const k of part ? [part] : ONE_PIECE_PARTS) P[k] = JSON.parse(JSON.stringify(PETER[k]));
+    for (const [to] of LINKS) if (!part || to.startsWith(part + '.')) (P.links ??= {})[to] = true;
+    applyLinks(P);
     state.design.car.wheelbase = P.rear.wheelbase;
     commit();
   },
+  // Links a setting to the one it follows again, or lets it be set by hand.
+  oplink(el) {
+    const P = state.design.onePiece, path = el.dataset.path;
+    if (!P || !linkOf(path)) return;
+    (P.links ??= {})[path] = !isLinked(P, path);
+    applyLinks(P);
+    commit();
+  },
+  opmore() { state.opMore = !state.opMore; renderPanel(); },
   opmount(el) {
     const mt = state.design.onePiece?.mounts;
     if (!mt) return;
@@ -2330,6 +2366,7 @@ function afterChange(path) {
     d.onePiece.rear.wheelbase = d.car.wheelbase = now;
     moveRearAxle(d.onePiece, now, was);
   }
+  if (d.onePiece && path.startsWith('onePiece.')) applyLinks(d.onePiece);
 }
 
 function onChange(e) {

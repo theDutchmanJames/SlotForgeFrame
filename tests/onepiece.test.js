@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import Module from 'manifold-3d';
 import { createEngine } from '../src/geometry/engine.js';
 import { readSTL } from '../src/geometry/stl-read.js';
-import { onePieceSolid, PETER, newOnePiece, cleanOnePiece, changedFromPeter, onePieceChecks, ONE_PIECE_PARTS, ONE_PIECE_FIELDS } from '../src/onepiece.js';
+import { onePieceSolid, PETER, newOnePiece, cleanOnePiece, changedFromPeter, onePieceChecks, ONE_PIECE_PARTS, ONE_PIECE_FIELDS, MAIN_FIELDS, LINKS, applyLinks, isLinked } from '../src/onepiece.js';
 import { newOnePieceDesign, newDesign, cleanDesign, encodeProject, decodeProject, cleanPart, summary, partsLayout, checks } from '../src/model.js';
 import { cleanItem } from '../src/library-core.js';
 
@@ -94,4 +94,32 @@ test('it is kept in the design file and in the library, and cleaned on the way i
   const item = cleanItem({ kind: 'chassis', name: 'Mine', scale: '1/43', data: { car: d.car, rules: d.rules, features: d.chassis.features, onePiece: d.onePiece } }, cleanPart);
   assert.equal(item.scale, '1/43');
   assert.equal(item.data.onePiece.rear.wheelbase, 58);
+});
+
+test("linked settings follow the main ones at Peter's distance, until they are unlinked", () => {
+  const has = (path) => { const [pt, k] = path.split('.'); return ONE_PIECE_FIELDS[pt].some((f) => f[0] === k); };
+  for (const [path] of MAIN_FIELDS) assert.ok(has(path), `${path} is a setting`);
+  for (const [to, from] of LINKS) assert.ok(has(to) && has(from), `${to} and ${from} are settings`);
+  const P = newOnePiece();
+  assert.deepEqual(changedFromPeter(applyLinks(P)), [], "linked, untouched: still Peter's chassis");
+  P.plate.panFrom = 22; P.front.height = 6; P.plate.frontW = 20;
+  applyLinks(P);
+  assert.equal(P.plate.wallFrom, 21); assert.equal(P.motor.from, 29);
+  assert.equal(P.rear.height, 6); assert.equal(P.plate.rearW, 20);
+  P.links['rear.height'] = false; P.rear.height = 5;
+  P.front.height = 7; applyLinks(P);
+  assert.equal(P.rear.height, 5, 'unlinked: set by hand');
+  assert.ok(!isLinked(P, 'rear.height') && isLinked(P, 'rear.hole'));
+});
+
+test("a file from before links is linked only where it keeps Peter's distances; saved links come back", () => {
+  const { links, ...old } = JSON.parse(JSON.stringify(PETER));
+  old.rear = { ...old.rear, height: 6 };
+  const P = cleanOnePiece(old);
+  assert.equal(P.links['rear.height'], false, 'its own rear axle height stays');
+  assert.equal(P.rear.height, 6);
+  assert.equal(P.links['rear.hole'], true);
+  const back = cleanOnePiece(JSON.parse(JSON.stringify({ ...P, links: { ...P.links, 'motor.from': false } })));
+  assert.equal(back.links['motor.from'], false);
+  assert.equal(back.links['rear.height'], false);
 });
