@@ -7,7 +7,7 @@ import { cleanInsert, LAYER_NAMES, MODELS, MODEL_IDS, modelOf, modelInsert } fro
 import { cleanWing, ENDPLATES } from './wings.js';
 import { cleanPart, round, motorOf, gearOf, find, adopt, moveRear, meshCentre, useBearing, FEATURE_NAMES } from './model.js';
 import { KINDS as COMPONENTS, COMPONENT_KINDS, builtins } from './components.js';
-import { newOnePiece, outlineOf, changedFromPeter, PETER } from './onepiece.js';
+import { newOnePiece, outlineOf, changedFromPeter, PETER, fitCradle } from './onepiece.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const ico = (id) => `<svg class="ico"><use href="#i-${id}"/></svg>`;
@@ -258,7 +258,7 @@ export function createDialogs(ctx) {
   function useComponent(row) {
     const d = ctx.state.design, kind = row.kind, c = cleanPart(kind, row.data), id = row.builtin ? row.id.slice(8) : row.id;
     if (!row.builtin) adopt(d, kind, id, c);
-    if (kind === 'motor') d.drivetrain.motor = id;
+    if (kind === 'motor') { d.drivetrain.motor = id; if (d.onePiece) fitCradle(d.onePiece, c); }
     else if (kind === 'gear') Object.assign(d.drivetrain, { layout: c.layout, gear: id, centre: round(meshCentre(c, c.layout)), angle: null });
     else if (kind === 'bearing') { const p = find(d.pod, 'uprights').params; p.bearing = id; useBearing(p, c); }
     else if (kind === 'guide') Object.assign(find(d.chassis, 'guide').params, { guide: id, hole: c.hole });

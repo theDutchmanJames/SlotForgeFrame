@@ -692,7 +692,7 @@ export const checks = [
     await app.tool('pod', 'drivetrain');
     await page.click('#panel [data-act=library][data-kind=motor]');
     await page.waitForSelector('#dialog .plist .prow');
-    assert.equal(await rows(), 7, 'seven built-in motors');
+    assert.equal(await rows(), 8, 'eight built-in motors');
     assert.match(await page.locator('#dialog .detail').innerText(), /built in/i);
     assert.equal(await page.locator('#dialog [data-d=delete]').isDisabled(), true, 'a built-in entry cannot be deleted');
     assert.equal(await page.locator('#dialog [data-d=cfield]').count(), 0, 'or edited');
@@ -1058,6 +1058,19 @@ export const checks = [
     await page.click('#panel [data-act=opreset]:not([data-part])');
     await built();
     assert.ok(await app.state(() => window.slotforgeFrame.state.design.onePiece.links['rear.height']), "Back to Peter's links it again");
+    // A motor from the library fits the cradle; the FF-030 is Peter's cradle again.
+    await page.click('#sub [data-act=tool][data-tool="op-motor"]');
+    assert.equal(await page.locator('#panel [data-path="drivetrain.motor"]').inputValue(), 'ff030');
+    await page.locator('#panel [data-path="drivetrain.motor"]').selectOption('ff050');
+    await built();
+    assert.equal(await app.state(() => window.slotforgeFrame.state.design.onePiece.motor.len), 31.3);
+    assert.equal(await app.state(() => window.slotforgeFrame.state.design.onePiece.motor.from), 18.22, 'the back wall stays, the cradle reaches forward');
+    assert.ok(!(await notes()).some((t) => /falls apart/.test(t)));
+    await page.locator('#panel [data-path="drivetrain.motor"]').selectOption('ff030');
+    await built();
+    await page.click('#panel [data-act=oplink][data-path="motor.from"]');
+    await built();
+    assert.ok((await notes()).includes("Exactly Peter's design"), "back to the FF-030 and linked: Peter's design");
     // The wheelbase, in One piece, moves the car's too; then back to Peter's.
     await page.click('#sub [data-act=tool][data-tool="op-rear"]');
     await app.set('onePiece.rear.wheelbase', 60);

@@ -9,6 +9,8 @@
 // Mabuchi's outline drawings give every size here. The slot makers' motors use these cans: their long cans
 // (Slot.it Boxer, NSR King, Sloting Plus Speed, Scaleauto Sprinter) are FK-180 cans, their short cans FC-130.
 // `screwTilt`: the line through the two front screw holes, in degrees from level (30° on the slimlines).
+// `pitch` 0: no screw holes (the open-frame SH-030 is held by its frame). The 1:43 cars: SCX Compact and Carrera GO!!!
+// run FF-030 type cans (Viking Slot Car Club's motor list, Carrera's 1.5 mm pinions).
 export const MOTORS = {
   fc130: { name: 'Short can (FC-130 · Slot.it V12, NSR Shark)', length: 25.0, width: 20.1, height: 15.1, bossD: 6.15, bossL: 1.7, endD: 10.0, endL: 2.3, shaftD: 2.0, shaftOut: 9.4, pitch: 12.4, screwTilt: 0, confirmed: true },
   fk130: { name: 'Short can, FK-130 type', length: 25.1, width: 20.4, height: 15.4, bossD: 6.15, bossL: 1.6, endD: 6.15, endL: 1.6, shaftD: 2.0, shaftOut: 9.6, pitch: 12.4, screwTilt: 0, confirmed: true },
@@ -16,7 +18,9 @@ export const MOTORS = {
   ff130: { name: 'Short can, long shaft (FF-130SH)', length: 25.1, width: 20.4, height: 15.4, bossD: 6.15, bossL: 1.6, endD: 6.15, endL: 2.1, shaftD: 2.0, shaftOut: 11.55, pitch: 12.4, screwTilt: 0, confirmed: true },
   fk180: { name: 'Long can (FK-180 · Slot.it Boxer, NSR King, Scaleauto Sprinter)', length: 32.1, width: 20.4, height: 15.4, bossD: 6.15, bossL: 1.6, endD: 6.15, endL: 2.1, shaftD: 2.0, shaftOut: 8.55, pitch: 12.4, screwTilt: 0, confirmed: true },
   ff050: { name: 'Slimline (FF-050)', length: 26.9, width: 15.5, height: 12.0, bossD: 4.7, bossL: 1.4, endD: 4.7, endL: 1.9, shaftD: 1.5, shaftOut: 11.0, pitch: 10.0, screwTilt: 30, confirmed: true },
-  ff030: { name: 'Short slimline (FF-030)', length: 18.6, width: 15.5, height: 12.0, bossD: 4.7, bossL: 1.5, endD: 5.0, endL: 0.7, shaftD: 1.5, shaftOut: 7.0, pitch: 10.0, screwTilt: 30, confirmed: true },
+  ff030: { name: 'Short slimline (FF-030 · 1:43 SCX Compact, Carrera GO!!!)', length: 18.6, width: 15.5, height: 12.0, bossD: 4.7, bossL: 1.5, endD: 5.0, endL: 0.7, shaftD: 1.5, shaftOut: 7.0, pitch: 10.0, screwTilt: 30, confirmed: true },
+  // Mabuchi's drawing stands it upright: 9.5 across, 18.0 high.
+  sh030: { name: 'Small open frame (SH-030 · Ninco NK-1)', length: 18.9, width: 9.5, height: 18.0, bossD: 5.15, bossL: 1.2, endD: 5.0, endL: 1.5, shaftD: 1.5, shaftOut: 4.8, pitch: 0, screwTilt: 0, confirmed: true },
 };
 
 // Gear sets per layout. Pinion Ø + gear Ø is the figure a pod is built for.
@@ -169,7 +173,7 @@ export const KINDS = {
   motor: {
     one: 'Motor', many: 'Motors', group: 'Components', inDesign: true,
     fields: [['length', 'Can length', [5, 80], 'mm'], ['width', 'Across the round sides', [5, 60], 'mm'], ['height', 'Across the flats', [5, 60], 'mm'], ['bossD', 'Front boss diameter', [1, 20], 'mm'], ['bossL', 'Front boss length', [0, 10], 'mm'],
-      ['endD', 'Rear boss diameter', [1, 30], 'mm'], ['endL', 'Rear boss length', [0, 10], 'mm'], ['shaftD', 'Shaft diameter', [0.5, 6], 'mm'], ['shaftOut', 'Shaft beyond the can', [1, 30], 'mm'], ['pitch', 'Screw spacing', [2, 40], 'mm'], ['screwTilt', 'Screw line, from level', [-90, 90], '°']],
+      ['endD', 'Rear boss diameter', [1, 30], 'mm'], ['endL', 'Rear boss length', [0, 10], 'mm'], ['shaftD', 'Shaft diameter', [0.5, 6], 'mm'], ['shaftOut', 'Shaft beyond the can', [1, 30], 'mm'], ['pitch', 'Screw spacing (0: none)', [0, 40], 'mm'], ['screwTilt', 'Screw line, from level', [-90, 90], '°']],
     fresh: { ...MOTORS.fc130, name: 'My motor', confirmed: false },
     line: (c) => `${c.length} × ${c.width} × ${c.height}`,
   },

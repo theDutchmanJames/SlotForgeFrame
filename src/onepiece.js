@@ -37,7 +37,8 @@ export function onePieceSolid(k, P) {
   const L = layout(P), pl = P.plate, g = P.guide, f = P.front, m = P.motor, w = P.gear, r = P.rear, mt = P.mounts;
   // Round parts are made of 96 sides, whatever the app's own setting: fine enough to match Peter's model.
   const BIG = 100, E = 0.01, SEG = 96;
-  const box = (x0, x1, y0, y1, z0, z1) => K(K(Manifold.cube([x1 - x0, y1 - y0, z1 - z0], false)).translate([x0, y0, z0]));
+  // A box that sizes have turned inside out (a motor bay reaching ahead of the side pans) is left out.
+  const box = (x0, x1, y0, y1, z0, z1) => (x1 > x0 && y1 > y0 && z1 > z0 ? K(K(Manifold.cube([x1 - x0, y1 - y0, z1 - z0], false)).translate([x0, y0, z0])) : K(Manifold.union([])));
   const both = (x0, x1, y0, y1, z0, z1) => [box(x0, x1, y0, y1, z0, z1), box(-x1, -x0, y0, y1, z0, z1)];
   const cylZ = (x, y, z0, z1, d) => K(K(Manifold.cylinder(z1 - z0, d / 2, d / 2, SEG)).translate([x, y, z0]));
   // A cylinder along x, from x0 to x1, its axis at (y, z).
@@ -187,6 +188,25 @@ export function changedFromPeter(P) {
   return out;
 }
 
+// A motor picked for the cradle: the cradle takes the motor's size with the room Peter gave the FF-030 he drew it for
+// (Peter's cradle exactly, for an FF-030). Its back wall, where the shaft comes out, stays where it is, so the cradle
+// grows or shrinks towards the front; the shaft stays at the rear axle's height. Every size can still be set by hand.
+const FF030 = { length: 18.6, width: 15.5, height: 12.0, bossD: 4.7 };
+export const CRADLE_ROOM = { len: round(PETER.motor.len - FF030.length), width: round(PETER.motor.width - FF030.width), height: round(PETER.motor.height - FF030.height), shaftD: round(PETER.motor.shaftD - FF030.bossD) };
+export function fitCradle(P, m) {
+  if (!P || !m) return P;
+  const c = P.motor, end = c.from + c.len, len = round(m.length + CRADLE_ROOM.len);
+  if (Math.abs(len - c.len) > 1e-6) {
+    c.len = len;
+    c.from = round(end - len);
+    (P.links ??= {})['motor.from'] = false; // it no longer starts with the side pans
+  }
+  c.width = round(m.width + CRADLE_ROOM.width);
+  c.height = round(m.height + CRADLE_ROOM.height);
+  c.shaftD = round(Math.max(m.bossD, m.shaftD) + CRADLE_ROOM.shaftD);
+  return P;
+}
+
 // Linked sizes: a new wheelbase carries the gear well's slot and the end of the plate with the rear axle.
 export function moveRearAxle(P, wheelbase, from) {
   const d = wheelbase - from;
@@ -213,6 +233,9 @@ export function onePieceChecks(P, ctx = {}) {
     else if (low < 0.2) add(false, 'The motor cradle reaches the track', `It goes ${round(-low)} mm below the track with Ø${ctx.rearTyreD} rear tyres. A motor smaller than the cradle may still clear it; bigger tyres or a higher cradle make sure.`, true);
     else add(true, `Rides ${round(ride)} mm above the track`, `With Ø${ctx.rearTyreD} rear tyres; the cradle clears the track by ${round(low)} mm.`);
   }
+  // The cradle between the side walls: wider than the room between them, it cuts into them or through them.
+  const inside = P.plate.rearW - 2 * P.plate.wall, left = (P.plate.rearW - P.motor.width) / 2;
+  if (P.motor.width > inside + 1e-6) add(false, left < nozzle ? 'The motor cradle cuts through the side walls' : 'The motor cradle cuts into the side walls', `The cradle is ${round(P.motor.width)} mm wide; the walls stand ${round(inside)} mm apart${left < nozzle ? '' : `, leaving ${round(left)} mm of wall beside it`}. A wider centre (Chassis › Centre width) makes room.`, left >= nozzle);
   if (P.plate.panW > (ctx.maxWidth ?? Infinity)) add(false, 'Wider than your rules allow', `${P.plate.panW} mm; the rules allow ${ctx.maxWidth} mm.`);
   if (P.guide.d - P.guide.hole < 2 * nozzle) add(false, 'The guide post wall is too thin', `${round((P.guide.d - P.guide.hole) / 2)} mm round the guide hole.`);
   return out;

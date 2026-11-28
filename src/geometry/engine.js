@@ -773,7 +773,8 @@ export function createEngine(wasm) {
       // The two screw holes in the motor's face, on a line through the shaft: level on the 20 mm cans,
       // tilted (30°) on the slimlines.
       const tilt = ((m.screwTilt || 0) * Math.PI) / 180, sy = (m.pitch / 2) * Math.cos(tilt), sz = (m.pitch / 2) * Math.sin(tilt);
-      const screws = (x0, x1) => [cylX(sy, h.shaft + sz, x0, x1, 1.1 + bfix / 2), cylX(-sy, h.shaft - sz, x0, x1, 1.1 + bfix / 2)];
+      // A motor without screw holes (pitch 0) is held by the seat alone.
+      const screws = (x0, x1) => (!(m.pitch > 0) ? [] : [cylX(sy, h.shaft + sz, x0, x1, 1.1 + bfix / 2), cylX(-sy, h.shaft - sz, x0, x1, 1.1 + bfix / 2)]);
       // Shaft-side bulkhead, endbell-side bulkhead and two low side rails, in the motor's own frame.
       const front = K(box(L, -W - wall, 0, L + wall, W + wall, fh)
         .subtract(u3([cylX(0, h.shaft, L - 1, L + wall + 1, (fD + bfix + 0.1) / 2), box(L - 1, -(fD + bfix + 0.1) / 2, h.shaft, L + wall + 1, (fD + bfix + 0.1) / 2, fh + 1),

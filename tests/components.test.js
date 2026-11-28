@@ -195,7 +195,8 @@ test('every built-in motor and gear set builds a pod in its layout', () => {
       assert.equal(out.notes.filter((n) => /pod is in/.test(n.title)).length, 0, `${motor} ${layout}: the pod is one piece`);
       // Known limit: a sidewinder's gear runs outside the bearing holder, so the shaft must reach past it.
       // The short FF-030's shaft (7 mm) cannot; the app reports that the motor would cut into the holder.
-      const tooShort = layout === 'sidewinder' && MOTORS[motor].shaftOut - 2.5 < 3 + 2.6;
+      // The narrow SH-030 (9.5 mm across) passes beside the holder, so it is not reported.
+      const tooShort = layout === 'sidewinder' && MOTORS[motor].shaftOut - 2.5 < 3 + 2.6 && MOTORS[motor].width > 12;
       assert.equal(out.notes.some((n) => /bearing holder/.test(n.title)), tooShort, `${motor} ${layout}: a motor that reaches a bearing seat is reported, and only then`);
     }
   assert.deepEqual(DESIGN_KINDS, ['motor', 'gear', 'bearing', 'guide']);

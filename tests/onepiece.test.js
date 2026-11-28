@@ -5,7 +5,8 @@ import { readFileSync } from 'node:fs';
 import Module from 'manifold-3d';
 import { createEngine } from '../src/geometry/engine.js';
 import { readSTL } from '../src/geometry/stl-read.js';
-import { onePieceSolid, PETER, newOnePiece, cleanOnePiece, changedFromPeter, onePieceChecks, ONE_PIECE_PARTS, ONE_PIECE_FIELDS, MAIN_FIELDS, LINKS, applyLinks, isLinked } from '../src/onepiece.js';
+import { onePieceSolid, PETER, newOnePiece, cleanOnePiece, changedFromPeter, onePieceChecks, ONE_PIECE_PARTS, ONE_PIECE_FIELDS, MAIN_FIELDS, LINKS, applyLinks, isLinked, fitCradle, layout } from '../src/onepiece.js';
+import { MOTORS } from '../src/components.js';
 import { newOnePieceDesign, newDesign, cleanDesign, encodeProject, decodeProject, cleanPart, summary, partsLayout, checks } from '../src/model.js';
 import { cleanItem } from '../src/library-core.js';
 
@@ -122,4 +123,31 @@ test("a file from before links is linked only where it keeps Peter's distances; 
   const back = cleanOnePiece(JSON.parse(JSON.stringify({ ...P, links: { ...P.links, 'motor.from': false } })));
   assert.equal(back.links['motor.from'], false);
   assert.equal(back.links['rear.height'], false);
+});
+
+test("a motor picked for the cradle fits it, and the FF-030 Peter drew it for keeps Peter's cradle", () => {
+  const P = newOnePiece();
+  fitCradle(P, MOTORS.ff030);
+  assert.deepEqual(changedFromPeter(P), [], "the FF-030 is Peter's cradle exactly");
+  assert.equal(isLinked(P, 'motor.from'), true);
+  const end = layout(P).bayTo;
+  fitCradle(P, MOTORS.ff050);
+  assert.equal(P.motor.len, 31.3, 'longer by what the FF-050 is longer');
+  assert.equal(P.motor.width, 15);
+  assert.ok(Math.abs(layout(P).bayTo - end) < 1e-6, 'the back wall, where the shaft comes out, stays');
+  assert.equal(isLinked(P, 'motor.from'), false, 'the cradle no longer starts with the side pans');
+  assert.ok(onePieceSolid(kernel, P).volume() > 100, 'it still builds');
+  // A 20 mm can is wider than the walls stand apart: the checks say so.
+  fitCradle(P, MOTORS.fc130);
+  assert.equal(P.motor.width, 19.6);
+  assert.equal(P.motor.shaftD, 6.45);
+  assert.ok(onePieceChecks(P).some((c) => !c.ok && /cradle cuts through the side walls/.test(c.title)));
+  assert.ok(!onePieceChecks(newOnePiece()).some((c) => /side walls/.test(c.title)), "Peter's cradle fits between its walls");
+});
+
+test('a one-piece design starts with the FF-030 and every library motor is offered', () => {
+  const d = newOnePieceDesign();
+  assert.equal(d.drivetrain.motor, 'ff030');
+  assert.equal(cleanDesign(JSON.parse(JSON.stringify(d))).drivetrain.motor, 'ff030');
+  assert.ok(MOTORS.sh030 && MOTORS.sh030.pitch === 0, 'the SH-030, held by its frame, has no screw holes');
 });

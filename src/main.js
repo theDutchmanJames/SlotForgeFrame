@@ -22,7 +22,7 @@ import {
   encodeProject, decodeProject, createHistory, MATERIALS, FEATURE_NAMES, MULTI, newShape, shapesOf, gearsFor, bearingOf, guideOf, choicesFor, moveRear, couponHoles,
 } from './model.js';
 import { WING_PRESETS, ENDPLATES, FLAT_SIDES, wingPreset, wingSide, legYs, pinsOf, deckZ, cleanWing } from './wings.js';
-import { ONE_PIECE_PARTS, ONE_PIECE_NAMES, ONE_PIECE_FIELDS, PETER, changedFromPeter, moveRearAxle, rideHeight, layout as opLayout, MAIN_FIELDS, LINKS, linkOf, isLinked, applyLinks } from './onepiece.js';
+import { ONE_PIECE_PARTS, ONE_PIECE_NAMES, ONE_PIECE_FIELDS, PETER, changedFromPeter, moveRearAxle, rideHeight, layout as opLayout, MAIN_FIELDS, LINKS, linkOf, isLinked, applyLinks, fitCradle } from './onepiece.js';
 // The pages of a one-piece chassis: the main settings first, then each part with all of its own.
 const OP_PAGES = ['main', ...ONE_PIECE_PARTS], OP_NAMES = { main: 'Chassis', ...ONE_PIECE_NAMES };
 import { newInserts, ringSizes, RING_COUNT, PRESETS as INSERT_PRESETS, LAYER_TYPES, LAYER_NAMES, MODES, MODE_NAMES, presetFor, newLayer, layerShape, circle as insCircle, directional, mirrored, insertOf, fitToSegment, cleanInsert, MODELS, MODEL_IDS, modelOf, modelInsert, minDepth, modelScale } from './inserts.js';
@@ -728,6 +728,8 @@ const PANEL_ONEPIECE = (d) => {
     const tag = link ? ` <button class="linkbtn ${linked ? 'on' : ''}" data-act="oplink" data-path="${path}" aria-pressed="${linked}" title="${linked ? `Follows ${esc(opLabel(link[1]))}. Click to set it yourself.` : `Set by hand. Click to make it follow ${esc(opLabel(link[1]))} again.`}">${ico('link')}</button>` : '';
     return num(path === 'motor.from' && rearZero() ? 'Cradle starts, from the rear axle' : label, `onePiece.${pt}.${k}`, 'mm', { ...(along ? { ax: opAx } : { min: 0 }), link: tag, dis: linked });
   };
+  // The motor: picking one fits the cradle to it. The motors are the library's, built-in and your own.
+  if (part === 'main' || part === 'motor') h += sel('Motor', 'drivetrain.motor', choicesFor(d, 'motor')) + `<div class="row"><button class="btn sm ghost" data-act="library" data-kind="motor">${ico('library')}Motors in the library</button></div>`;
   if (part === 'main') {
     h += `<div class="g2">${MAIN_FIELDS.map(([path, label]) => field(path, label)).join('')}</div>`;
     h += `<label class="f">${zl('Body mount holes, from the front')}</label><div class="g2">${P.mounts.at.map((_, i) => num(`Hole ${i + 1}`, `onePiece.mounts.at.${i}`, 'mm', { ax: opAx })).join('')}</div>`;
@@ -746,7 +748,7 @@ const PANEL_ONEPIECE = (d) => {
       <label class="f">Boss under</label><div class="seg wide"><button class="${P.mounts.boss < 0 ? 'on' : ''}" data-act="setfix" data-path="onePiece.mounts.boss" data-v="-1">None</button>${P.mounts.at.map((_, i) => `<button class="${P.mounts.boss === i ? 'on' : ''}" data-act="setfix" data-path="onePiece.mounts.boss" data-v="${i}">Hole ${i + 1}</button>`).join('')}</div>`;
   }
   if (part === 'rear') h += `<div class="note">At 1/43 a ${f2(P.rear.wheelbase)} mm wheelbase is ${f2((P.rear.wheelbase * 43) / 1000)} m on the real car. The rear axle stands at the middle of the rear tyres (Car › Wheels and axles), and the chassis rides ${f2(rideHeight(P, d.car.rear.tyreD))} mm above the track.</div>`;
-  if (part === 'motor') h += `<div class="note">Peter's cradle takes a slimline motor (FF-030 size). The 3D view shows the motor chosen in the design: ${esc(motorOf(d).name)}.</div>`;
+  if (part === 'motor') h += `<div class="note">Peter drew the cradle for a short slimline motor (FF-030). Picking a motor sets the cradle's length, width and height and the shaft slot to it, with the room Peter's cradle gives an FF-030; the back wall stays put, so a longer motor reaches further forward. You can still change every size by hand.</div>`;
   if (mine.length) h += `<div class="note">Peter's: ${mine.map((c) => { const [pt, k] = c.split('.'); return `${esc(opLabel(c))} ${Array.isArray(PETER[pt][k]) ? PETER[pt][k].join(', ') : f2(PETER[pt][k])}`; }).join(' · ')} ${part === 'main' ? '' : `<button class="btn sm ghost" data-act="opreset" data-part="${part}">Back to Peter's for this part</button>`}</div>`;
   h += `<div class="note">${esc(P.name)}${P.name === PETER.name ? " was designed by Peter (SlotForum) and is included with the designer's permission." : ", from Peter's 1:43 Chassis by Peter (SlotForum)."}</div>`;
   return h;
@@ -2366,6 +2368,7 @@ function afterChange(path) {
     d.onePiece.rear.wheelbase = d.car.wheelbase = now;
     moveRearAxle(d.onePiece, now, was);
   }
+  if (d.onePiece && path === 'drivetrain.motor') fitCradle(d.onePiece, motorOf(d));
   if (d.onePiece && path.startsWith('onePiece.')) applyLinks(d.onePiece);
 }
 
