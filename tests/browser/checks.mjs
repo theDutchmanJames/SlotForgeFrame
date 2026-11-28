@@ -699,7 +699,7 @@ export const checks = [
     // Duplicate the long can and change the copy.
     await page.locator('#dialog .plist .prow', { hasText: 'Long can' }).click();
     await page.click('#dialog [data-d=dup]');
-    await page.waitForFunction(() => document.querySelectorAll('#dialog .plist .prow').length === 8);
+    await page.waitForFunction(() => document.querySelectorAll('#dialog .plist .prow').length === 9);
     assert.match(await page.locator('#dialog .plist .prow.cur').innerText(), /Long can \(FK-180[^)]*\) \(copy\)[\s\S]*Yours[\s\S]*Unconfirmed/);
     await page.locator('#dialog [data-d=cname]').fill('Club long can');
     await page.locator('#dialog [data-d=cname]').press('Tab');
@@ -749,10 +749,10 @@ export const checks = [
     await page.click('#menus [data-act=library]');
     await page.click('#dialog [data-d=kind][data-kind=motor]');
     await page.waitForSelector('#dialog .plist .prow');
-    assert.equal(await rows(), 7, 'their motor list is still only the built-in ones');
+    assert.equal(await rows(), 8, 'their motor list is still only the built-in ones');
     // Opening the motor's own file adds it to the list.
     await page.setInputFiles('input[type=file][accept=".framelib,.json"]', await app.tempFile(motorFile.name, motorFile.bytes));
-    await page.waitForFunction(() => document.querySelectorAll('#dialog .plist .prow').length === 8);
+    await page.waitForFunction(() => document.querySelectorAll('#dialog .plist .prow').length === 9);
     await page.click('#dialog [data-d=close]');
   }],
 
